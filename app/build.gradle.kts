@@ -18,8 +18,8 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0-phase4"
+        versionCode = 5
+        versionName = "0.5.0-phase5"
     }
 
     buildFeatures {
@@ -55,7 +55,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Phase 4 MWA wallet connect, message signing, and devnet memo proof.
+    // Phase 5 keeps MWA proof support and adds read-only mainnet SKR scanning.
     // Exclude test/mock dependencies that older MWA KTX metadata can expose transitively.
     // Those libraries are not needed by the production app and can trigger noisy/failing
     // Android manifest/resource merges in newer Android Studio/AGP combinations.

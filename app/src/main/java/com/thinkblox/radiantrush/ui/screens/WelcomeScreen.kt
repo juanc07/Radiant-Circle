@@ -88,7 +88,7 @@ fun WelcomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "Phase 4 Solana Proof",
+                        text = "Phase 5 SKR Passport",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -97,7 +97,7 @@ fun WelcomeScreen(
 
             GradientHeroCard(
                 title = "Connect. Quest. Prove.",
-                subtitle = "Firebase progress, wallet connect, signed proof, and devnet memo quests.",
+                subtitle = "Firebase progress, MWA proof quests, devnet memo, and read-only mainnet SKR Passport scan.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -131,13 +131,13 @@ fun WelcomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        text = "What works in Phase 4",
+                        text = "What works in Phase 5",
                         style = MaterialTheme.typography.titleLarge,
                     )
                     PhaseBullet("Firebase profile, XP, streaks, and quests remain live")
                     PhaseBullet("Connect Wallet opens a real MWA-compatible Solana wallet")
                     PhaseBullet("The app saves public wallet address only")
-                    PhaseBullet("Signed proof and memo proof are real; SKR stays Phase 5")
+                    PhaseBullet("Mainnet SKR scan is read-only and does not open Phantom")
                     if (responsive.isTiny || responsive.hasLargeText) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusPill("Firebase")
@@ -174,7 +174,7 @@ fun WelcomeScreen(
                     .fillMaxWidth()
                     .heightIn(min = responsive.buttonHeight),
                 shape = RoundedCornerShape(18.dp),
-                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
+                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && !uiState.isWalletConnected,
                 onClick = onConnectWallet,
             ) {
                 Icon(
@@ -183,11 +183,15 @@ fun WelcomeScreen(
                 )
                 Spacer(modifier = Modifier.size(8.dp))
                 AdaptiveButtonText(
-                    text = if (uiState.isWalletConnected) "Wallet Connected" else "Connect Wallet",
+                    text = when {
+                        uiState.walletActionInProgress -> "Opening Wallet…"
+                        uiState.isWalletConnected -> "Wallet Connected"
+                        else -> "Connect Wallet"
+                    },
                 )
             }
             Text(
-                text = "Use Phantom test/devnet mode for Phase 4 proof quests.",
+                text = "Use Phantom Devnet for signing and memo. SKR scan reads official mainnet SKR by public address only, so no wallet popup or devnet SKR token is needed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

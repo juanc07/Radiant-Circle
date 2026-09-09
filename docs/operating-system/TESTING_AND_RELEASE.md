@@ -291,3 +291,39 @@ If the app shows an RPC/DNS error before opening Phantom, test phone connectivit
 ## Phase 4 memo auth auto-retry test
 
 When testing the memo proof, one first-attempt Phantom/MWA authorization failure may occur after earlier builds or stale wallet sessions. The app should now clear the cached auth token and retry once automatically. The test passes only when the final Logcat result includes `Memo proof MWA success. signatureReturned=true` and the memo quest becomes Done without requiring repeated user taps.
+
+
+## Phase 5 SKR Passport regression test
+
+1. Build `./gradlew :app:assembleDebug`.
+2. Run on a physical Android device.
+3. Connect an MWA-compatible wallet.
+4. Keep Phantom Devnet for memo proof; Devnet SOL is only needed for Send Memo.
+5. Tap `Check SKR Balance`.
+6. Confirm the app does not ask Phantom to sign or send anything for the SKR scan.
+7. Confirm the app calls mainnet SKR balance read and returns either a real SKR balance or `0 SKR`.
+8. Confirm the SKR quest becomes Done after a successful read.
+9. Confirm Profile shows SKR Balance, SKR Tier, and XP boost.
+10. Confirm Firestore stores `users/{uid}.skrBalanceDisplay`, `skrTier`, `skrMint`, `skrNetwork`, and `completedQuests/skr-holder_<date>`.
+
+Expected zero-balance behavior:
+
+```text
+SKR Passport scanned: 0 SKR on mainnet. Explorer tier saved without faking a balance.
+```
+
+Expected Logcat filter:
+
+```text
+RadiantRushSKR
+```
+
+### Phase 5 UX tap reliability checks
+
+- Fresh install the app.
+- Tap each ready quest once and verify the button changes to a disabled syncing state immediately.
+- Confirm Connect Wallet, Sign Proof, and Send Memo are the only flows that open Phantom.
+- Confirm Scan SKR Passport stays inside the app and completes by read-only mainnet RPC.
+- Double-tap each action quickly and confirm only one request is accepted.
+- Tap Refresh Firebase while a proof is running and confirm the app asks you to wait instead of interrupting the action.
+- After success, restart the app and confirm completed quests stay Done for the current day.

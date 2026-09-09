@@ -1,5 +1,6 @@
 package com.thinkblox.radiantrush.ui.components
 
+import android.os.SystemClock
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -29,6 +31,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -136,9 +142,18 @@ fun ResponsiveUiSpec.actionLabel(text: String): String = when (text) {
     "Sign Daily Proof" -> chooseLabel("Sign Daily Proof", "Sign Proof", "Sign")
     "Memo Submitted" -> chooseLabel("Memo Submitted", "Memo Done", "Done")
     "Submit Memo Proof" -> chooseLabel("Submit Memo Proof", "Send Memo", "Memo")
+    "Saving Check-In…" -> chooseLabel("Saving Check-In…", "Saving…", "Saving…")
+    "Saving Wallet…" -> chooseLabel("Saving Wallet…", "Saving…", "Saving…")
+    "Waiting for Signature…" -> chooseLabel("Waiting for Signature…", "Waiting…", "Wait…")
+    "Opening Memo…" -> chooseLabel("Opening Memo…", "Opening…", "Opening…")
+    "Saving Memo…" -> chooseLabel("Saving Memo…", "Saving…", "Saving…")
     "Opening Wallet…" -> chooseLabel("Opening Wallet…", "Opening…", "Opening…")
     "Disconnect Wallet" -> chooseLabel("Disconnect Wallet", "Disconnect", "Disconnect")
     "Refresh Firebase Sync" -> chooseLabel("Refresh Firebase Sync", "Refresh Sync", "Refresh")
+    "Check SKR Balance" -> chooseLabel("Scan SKR Passport", "Scan SKR", "Scan")
+    "SKR Checked" -> chooseLabel("SKR Checked", "SKR Done", "Done")
+    "Scanning SKR…" -> chooseLabel("Scanning SKR…", "Scanning…", "Scan…")
+    "Checking SKR…" -> chooseLabel("Checking SKR…", "Checking…", "Checking…")
     "Open Radiant Rush" -> chooseLabel("Open Radiant Rush", "Open Rush", "Open")
     else -> text
 }
@@ -149,6 +164,7 @@ fun ResponsiveUiSpec.proofLabel(text: String): String = when (text) {
     "MWA message signature" -> chooseLabel("Wallet Signature", "Signature", "Sign")
     "Devnet memo transaction" -> chooseLabel("Devnet Memo", "Memo TX", "Memo")
     "SKR balance check" -> chooseLabel("SKR Check", "SKR", "SKR")
+    "Mainnet SKR balance" -> chooseLabel("Mainnet SKR", "SKR", "SKR")
     else -> text
 }
 
@@ -394,20 +410,44 @@ fun QuestCard(
                 }
             }
             if (actionLabel != null) {
+                var lastAcceptedClickMs by remember(quest.id) { mutableLongStateOf(0L) }
+                val buttonEnabled = actionEnabled && quest.status == QuestStatus.Ready
+                val visibleLabel = when (quest.status) {
+                    QuestStatus.Completed -> responsive.chooseLabel("Done Today", "Done", "Done")
+                    QuestStatus.Syncing -> actionLabel
+                    QuestStatus.Blocked -> responsive.chooseLabel("Connect Wallet First", "Connect First", "Wallet")
+                    QuestStatus.Locked -> quest.status.label
+                    QuestStatus.Ready -> actionLabel
+                }
+
                 Button(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = responsive.buttonHeight),
-                    enabled = actionEnabled && quest.status == QuestStatus.Ready,
+                    enabled = buttonEnabled,
                     shape = RoundedCornerShape(16.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                         horizontal = responsive.buttonHorizontalPadding,
                         vertical = 8.dp,
                     ),
                     colors = ButtonDefaults.buttonColors(),
-                    onClick = onActionClick,
+                    onClick = {
+                        val now = SystemClock.elapsedRealtime()
+                        if (now - lastAcceptedClickMs >= 900L) {
+                            lastAcceptedClickMs = now
+                            onActionClick()
+                        }
+                    },
                 ) {
-                    AdaptiveButtonText(text = actionLabel)
+                    if (quest.status == QuestStatus.Syncing) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary,
+                        )
+                        Spacer(modifier = Modifier.size(8.dp))
+                    }
+                    AdaptiveButtonText(text = visibleLabel)
                 }
             }
         }

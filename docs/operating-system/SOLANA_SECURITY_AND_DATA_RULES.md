@@ -222,3 +222,31 @@ Rules:
 The memo proof must fetch devnet chain context before wallet handoff. This prevents the app from opening Phantom when the phone cannot reach devnet RPC. The wallet may only be asked to sign/send after the app has a fresh blockhash and context slot.
 
 For Phantom compatibility, memo submission should pass `minContextSlot` to `signAndSendTransactions` whenever available.
+
+
+## Phase 5 SKR read-only rules
+
+SKR balance scanning is read-only. The Android app may read the connected wallet public address and query Solana mainnet RPC for token accounts matching the official SKR mint.
+
+Allowed SKR fields to store:
+
+- wallet public address
+- official SKR mint
+- network label
+- public token balance
+- token account count
+- derived app tier
+- derived XP multiplier label
+- RPC slot and check timestamp
+
+Never store or request:
+
+- seed phrase
+- private key
+- wallet auth token
+- staking authority
+- mint authority
+- reward authority
+- transaction approval for a read-only balance scan
+
+If the wallet has zero SKR, the app must show `0 SKR` / `Explorer`; it must not invent a token balance for demos.
