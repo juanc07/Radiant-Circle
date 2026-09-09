@@ -18,8 +18,8 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.5.0-phase5"
+        versionCode = 6
+        versionName = "0.6.0-phase6"
     }
 
     buildFeatures {
@@ -55,7 +55,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Phase 5 keeps MWA proof support and adds read-only mainnet SKR scanning.
+    // Phase 6 keeps MWA/SKR support and adds demo-ready retention polish.
     // Exclude test/mock dependencies that older MWA KTX metadata can expose transitively.
     // Those libraries are not needed by the production app and can trigger noisy/failing
     // Android manifest/resource merges in newer Android Studio/AGP combinations.

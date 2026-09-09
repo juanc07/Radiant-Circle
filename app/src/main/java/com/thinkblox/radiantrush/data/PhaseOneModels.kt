@@ -20,8 +20,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * Shared app models for the native Android shell, Firebase foundation, Mobile
  * Wallet Adapter connection flow, and Phase 4 proof quests.
  *
- * Phase 5 adds read-only SKR balance scanning on Solana mainnet. The app
- * still does not transfer tokens, mint rewards, or store private keys.
+ * Phase 5 adds read-only SKR balance scanning on Solana mainnet. Phase 6
+ * adds demo-ready retention polish without changing private-key or token
+ * transfer boundaries.
  */
 data class QuestPreview(
     val id: String,
@@ -127,6 +128,7 @@ enum class AppDestination(
     Badges("Badges", Icons.Filled.MilitaryTech),
     Leaderboard("Ranks", Icons.Filled.EmojiEvents),
     Profile("Profile", Icons.Filled.AccountCircle),
+    Demo("Demo", Icons.Filled.CheckCircle),
 }
 
 object QuestIds {

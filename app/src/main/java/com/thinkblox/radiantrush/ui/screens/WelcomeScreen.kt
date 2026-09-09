@@ -88,7 +88,7 @@ fun WelcomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "Phase 5 SKR Passport",
+                        text = "Phase 6 Demo Polish",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -97,7 +97,7 @@ fun WelcomeScreen(
 
             GradientHeroCard(
                 title = "Connect. Quest. Prove.",
-                subtitle = "Firebase progress, MWA proof quests, devnet memo, and read-only mainnet SKR Passport scan.",
+                subtitle = "A judge-ready daily quest loop with Firebase progress, MWA proofs, devnet memo, read-only SKR Passport, and a guided demo tab.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -131,13 +131,14 @@ fun WelcomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        text = "What works in Phase 5",
+                        text = "What works in Phase 6",
                         style = MaterialTheme.typography.titleLarge,
                     )
                     PhaseBullet("Firebase profile, XP, streaks, and quests remain live")
                     PhaseBullet("Connect Wallet opens a real MWA-compatible Solana wallet")
                     PhaseBullet("The app saves public wallet address only")
                     PhaseBullet("Mainnet SKR scan is read-only and does not open Phantom")
+                    PhaseBullet("Demo tab gives a 3-minute judge walkthrough")
                     if (responsive.isTiny || responsive.hasLargeText) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusPill("Firebase")
@@ -147,6 +148,7 @@ fun WelcomeScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusPill("Firebase: live")
                             StatusPill("MWA: proof")
+                            StatusPill("Demo-ready")
                         }
                     }
                 }

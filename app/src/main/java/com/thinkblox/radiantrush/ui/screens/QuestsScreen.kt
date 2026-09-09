@@ -46,7 +46,7 @@ fun QuestsScreen(
         item {
             SectionTitle(
                 title = "Quest board",
-                body = "Proof quests open Phantom on Devnet. SKR Passport is read-only mainnet scanning and should complete inside the app.",
+                body = "Proof quests open Phantom on Devnet. SKR Passport is read-only mainnet scanning. Demo tab explains the judge flow.",
             )
         }
 
@@ -75,7 +75,7 @@ fun QuestsScreen(
             title = { Text(quest.title) },
             text = {
                 Text(
-                    text = "Proof: ${quest.proofType}\n\n${quest.description}\n\nPhase 5 keeps memo proof on Devnet and scans SKR on mainnet without moving tokens.",
+                    text = "Proof: ${quest.proofType}\n\n${quest.description}\n\nPhase 6 keeps memo proof on Devnet, scans SKR on mainnet without moving tokens, and adds a demo-ready presentation path.",
                 )
             },
             confirmButton = {

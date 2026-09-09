@@ -53,7 +53,7 @@ fun HomeScreen(
         item {
             GradientHeroCard(
                 title = "Today’s Rush",
-                subtitle = "Sign proof, approve a devnet memo, scan SKR read-only, and keep your streak synced.",
+                subtitle = "Complete the real daily loop, then open the Demo tab for the 3-minute judge walkthrough.",
             )
         }
 
@@ -137,7 +137,7 @@ fun HomeScreen(
         item {
             SectionTitle(
                 title = "Priority quests",
-                body = "Wallet opens for Sign Proof and Send Memo. SKR Passport is read-only and should finish in-app without Phantom.",
+                body = "For the video: Connect Wallet, Sign Proof, Send Memo, Scan SKR, then show Profile and Demo tabs.",
             )
         }
 
@@ -169,7 +169,7 @@ fun HomeScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Use Phantom Devnet for proof signing and memo. SKR Passport is read-only mainnet balance scanning; no devnet SKR token and no wallet popup needed.",
+                text = "Use Phantom Devnet for Sign Proof and Send Memo. SKR Passport is a read-only mainnet scan. Demo tab has the exact judge flow.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

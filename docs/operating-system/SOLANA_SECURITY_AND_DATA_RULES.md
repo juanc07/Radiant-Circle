@@ -250,3 +250,15 @@ Never store or request:
 - transaction approval for a read-only balance scan
 
 If the wallet has zero SKR, the app must show `0 SKR` / `Explorer`; it must not invent a token balance for demos.
+
+## Phase 6 demo tab rules
+
+The Demo tab is presentation-only. It may summarize current app state for judges, but it must not invent proof.
+
+Rules:
+
+- Read current `RushUiState` only.
+- Do not trigger wallet signing from the Demo tab.
+- Do not complete quests from the Demo tab.
+- Do not generate fake SKR, fake signatures, or fake transaction hashes.
+- Keep network explanations explicit: Devnet for memo proof, mainnet-beta for SKR balance.
