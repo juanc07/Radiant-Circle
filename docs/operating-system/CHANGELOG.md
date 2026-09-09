@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-09 — Phase 7 Final QA + Automated Testing
+
+- Bumped Android app version to `0.7.0-phase7`.
+- Added pure JVM unit tests for SKR tiering and quest interaction rules.
+- Added stable Compose UI test tags and instrumented smoke tests for Welcome → app shell → Demo tab.
+- Added local test scripts for Git Bash/macOS/Linux and PowerShell.
+- Added GitHub Actions Android CI to run unit tests and debug APK build.
+- Kept wallet/MWA proof flows unchanged to avoid destabilizing Phase 4/5 behavior.
+
 ## 0.6.0-phase6 — Demo Polish + Retention
 
 - Added a new `Demo` bottom navigation tab for hackathon judging and recording.

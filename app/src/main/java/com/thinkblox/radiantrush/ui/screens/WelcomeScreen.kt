@@ -36,12 +36,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.StatusPill
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
+import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 
 @Composable
@@ -164,7 +166,8 @@ fun WelcomeScreen(
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = responsive.buttonHeight),
+                    .heightIn(min = responsive.buttonHeight)
+                    .testTag(UiTestTags.WELCOME_OPEN_RUSH),
                 shape = RoundedCornerShape(18.dp),
                 contentPadding = PaddingValues(horizontal = responsive.buttonHorizontalPadding, vertical = 8.dp),
                 onClick = onEnterDemoShell,
@@ -174,7 +177,8 @@ fun WelcomeScreen(
             OutlinedButton(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = responsive.buttonHeight),
+                    .heightIn(min = responsive.buttonHeight)
+                    .testTag(UiTestTags.WELCOME_CONNECT_WALLET),
                 shape = RoundedCornerShape(18.dp),
                 enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && !uiState.isWalletConnected,
                 onClick = onConnectWallet,

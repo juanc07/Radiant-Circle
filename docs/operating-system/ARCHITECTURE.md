@@ -342,3 +342,16 @@ Rules:
 - Demo cards do not call wallet, Solana RPC, or Firebase writes.
 - Demo copy must distinguish devnet memo proof from mainnet SKR balance scanning.
 - Demo mode must not create fake balances, fake signatures, or fake transaction hashes.
+
+
+## Phase 7 testing architecture
+
+Phase 7 separates testable product rules from Android/wallet side effects:
+
+- `logic/SkrTierRules.kt` is pure JVM logic for SKR mint metadata, tier thresholds, and balance formatting.
+- `logic/QuestInteractionRules.kt` is pure JVM logic that documents which quests open an external wallet and which remain inside the app.
+- `ui/testing/UiTestTags.kt` provides stable Compose semantic tags for smoke tests.
+- `app/src/test` covers pure business rules without an emulator.
+- `app/src/androidTest` covers app launch and Demo navigation on an emulator or Android device.
+
+Wallet approvals are intentionally not bypassed by tests. Real MWA signing and transaction approval remain manual final QA.

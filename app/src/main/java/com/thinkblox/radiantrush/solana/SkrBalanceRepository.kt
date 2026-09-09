@@ -1,11 +1,11 @@
 package com.thinkblox.radiantrush.solana
 
 import android.util.Log
+import com.thinkblox.radiantrush.logic.SkrTierRules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import java.math.BigInteger
-import java.math.RoundingMode
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -45,7 +45,7 @@ class SkrBalanceRepository {
     }
 
     private fun buildGetTokenAccountsRequest(walletAddress: String): String =
-        """{"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwner","params":["$walletAddress",{"mint":"$SKR_MINT"},{"encoding":"jsonParsed","commitment":"confirmed"}]}"""
+        """{"jsonrpc":"2.0","id":1,"method":"getTokenAccountsByOwner","params":["$walletAddress",{"mint":"${SkrTierRules.OFFICIAL_SKR_MINT}"},{"encoding":"jsonParsed","commitment":"confirmed"}]}"""
 
     private fun parseSkrBalanceResponse(
         walletAddress: String,
@@ -66,7 +66,7 @@ class SkrBalanceRepository {
 
         var rawAmount = BigInteger.ZERO
         var uiAmount = BigDecimal.ZERO
-        var decimals = DEFAULT_SKR_DECIMALS
+        var decimals = SkrTierRules.DEFAULT_SKR_DECIMALS
         var tokenAccountCount = 0
 
         if (accounts != null) {
@@ -82,48 +82,31 @@ class SkrBalanceRepository {
                 rawAmount += tokenAmount.optString("amount", "0").toBigIntegerOrNull() ?: BigInteger.ZERO
                 uiAmount += tokenAmount.optString("uiAmountString", "0").toBigDecimalOrNull() ?: BigDecimal.ZERO
                 if (tokenAccountCount == 0) {
-                    decimals = tokenAmount.optInt("decimals", DEFAULT_SKR_DECIMALS)
+                    decimals = tokenAmount.optInt("decimals", SkrTierRules.DEFAULT_SKR_DECIMALS)
                 }
                 tokenAccountCount += 1
             }
         }
 
-        val tier = tierFor(uiAmount)
+        val tier = SkrTierRules.tierForBalance(uiAmount)
+        val formattedBalance = SkrTierRules.formatBalance(uiAmount)
 
         return SkrBalanceSnapshot(
             walletAddress = walletAddress,
-            mint = SKR_MINT,
-            network = MAINNET_NETWORK_LABEL,
+            mint = SkrTierRules.OFFICIAL_SKR_MINT,
+            network = SkrTierRules.MAINNET_NETWORK_LABEL,
             balanceRawAmount = rawAmount.toString(),
-            balanceUiAmount = formatDecimal(uiAmount),
-            balanceDisplay = "${formatDecimal(uiAmount)} SKR",
+            balanceUiAmount = formattedBalance,
+            balanceDisplay = "$formattedBalance SKR",
             decimals = decimals,
             tokenAccountCount = tokenAccountCount,
             tierLabel = tier.label,
             xpMultiplierLabel = tier.multiplierLabel,
             xpMultiplierValue = tier.multiplierValue,
-            hasSkr = uiAmount > BigDecimal.ZERO,
+            hasSkr = tier.hasSkr,
             rpcSlot = slot,
             checkedAtClientMs = System.currentTimeMillis(),
         )
-    }
-
-    private fun tierFor(balance: BigDecimal): SkrTier = when {
-        balance >= BigDecimal("10000") -> SkrTier("Radiant Legend", "1.35x", 1.35)
-        balance >= BigDecimal("1000") -> SkrTier("Radiant Elite", "1.20x", 1.20)
-        balance >= BigDecimal("100") -> SkrTier("Radiant Holder", "1.10x", 1.10)
-        balance > BigDecimal.ZERO -> SkrTier("Radiant Scout", "1.05x", 1.05)
-        else -> SkrTier("Explorer", "1.00x", 1.00)
-    }
-
-    private fun formatDecimal(value: BigDecimal): String {
-        if (value.compareTo(BigDecimal.ZERO) == 0) return "0"
-        val normalized = value.stripTrailingZeros()
-        return if (normalized.scale() <= 4) {
-            normalized.toPlainString()
-        } else {
-            normalized.setScale(4, RoundingMode.DOWN).stripTrailingZeros().toPlainString()
-        }
     }
 
     private fun postMainnetRpc(requestBody: String): String {
@@ -158,17 +141,9 @@ class SkrBalanceRepository {
         }
     }
 
-    private data class SkrTier(
-        val label: String,
-        val multiplierLabel: String,
-        val multiplierValue: Double,
-    )
 
     private companion object {
         const val MAINNET_RPC_URL = "https://api.mainnet-beta.solana.com"
-        const val MAINNET_NETWORK_LABEL = "mainnet-beta"
-        const val SKR_MINT = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3"
-        const val DEFAULT_SKR_DECIMALS = 6
         const val RPC_TIMEOUT_MS = 15_000
         const val TAG = "RadiantRushSKR"
     }

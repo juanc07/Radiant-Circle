@@ -262,3 +262,8 @@ Rules:
 - Do not complete quests from the Demo tab.
 - Do not generate fake SKR, fake signatures, or fake transaction hashes.
 - Keep network explanations explicit: Devnet for memo proof, mainnet-beta for SKR balance.
+
+
+## Phase 7 testing safety rule
+
+Automated tests must never fake successful wallet signatures, fake SKR holdings, or store private wallet material. Unit tests may verify pure tier/interaction rules, and UI smoke tests may navigate the app shell, but final wallet approval remains a real manual MWA/Phantom consent step.

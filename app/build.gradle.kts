@@ -18,8 +18,9 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 6
-        versionName = "0.6.0-phase6"
+        versionCode = 7
+        versionName = "0.7.0-phase7"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildFeatures {
@@ -55,7 +56,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Phase 6 keeps MWA/SKR support and adds demo-ready retention polish.
+    // Phase 7 keeps MWA/SKR support and adds automated JVM + Compose smoke tests.
     // Exclude test/mock dependencies that older MWA KTX metadata can expose transitively.
     // Those libraries are not needed by the production app and can trigger noisy/failing
     // Android manifest/resource merges in newer Android Studio/AGP combinations.
@@ -69,4 +70,14 @@ dependencies {
     implementation(libs.multimult)
 
     debugImplementation(libs.androidx.compose.ui.tooling)
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    testImplementation("junit:junit:4.13.2")
+
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.6.1")
 }
+

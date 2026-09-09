@@ -2,9 +2,9 @@
 
 ## Current phase
 
-Radiant Rush is moving through **Phase 5: SKR balance tier**. The app now has a native Compose shell, Firebase profile/progress persistence, Mobile Wallet Adapter wallet connection, MWA daily message signing, devnet Memo transaction proof, and read-only mainnet SKR Passport scanning.
+Radiant Rush is moving through **Phase 7: Final QA + release testing**. The app now has a native Compose shell, Firebase profile/progress persistence, Mobile Wallet Adapter wallet connection, MWA daily message signing, devnet Memo transaction proof, read-only mainnet SKR Passport scanning, Demo tab, and automated test coverage.
 
-Immediate owner task: test Phase 5 on a real Android phone, then confirm Firestore receives `skr-holder_<date>` with either a real SKR balance or honest `0 SKR` Explorer state.
+Immediate owner task: run Phase 7 automated tests, do one manual wallet proof pass on the target phone, then prepare final APK/demo submission materials.
 
 ## Owner-ordered near-term work
 
@@ -34,10 +34,17 @@ Immediate owner task: test Phase 5 on a real Android phone, then confirm Firesto
 - Added demo readiness state using existing quest, wallet, Firebase, and SKR data.
 - Updated onboarding and screen copy for the hackathon recording flow.
 
-## Phase 7 candidate scope
+## Phase 7 delivered scope
 
-- Add transaction confirmation polling and explorer status refresh.
-- Add richer SKR Passport visuals/profile frame.
+- Added JVM unit tests for SKR tiering and quest interaction boundaries.
+- Added Compose smoke tests for Welcome → app shell → Demo navigation.
+- Added local test scripts and GitHub Actions CI.
+- Bumped app version to `0.7.0-phase7`.
+
+## Remaining release scope
+
+- Add transaction confirmation polling and explorer status refresh if time allows.
+- Add richer SKR Passport visuals/profile frame if time allows.
 - Add app icon/splash polish and final demo screenshots.
 - Prepare APK, demo video, GitHub README, and pitch deck.
 
@@ -54,3 +61,16 @@ Immediate owner task: test Phase 5 on a real Android phone, then confirm Firesto
 ## Execution rule
 
 Do not start broad features before the primary demo flow works. A small complete flow is better than many half-working screens. Follow `PHASED_DELIVERY_PLAN.md` for phase order and acceptance checks.
+
+
+## Phase 7 status
+
+Current priority is final QA and release readiness. Automated unit tests and Compose smoke tests are now part of the checklist. Remaining work should be limited to submission polish unless a blocker appears.
+
+Next release-focused tasks:
+
+- Run `:app:testDebugUnitTest` before every commit.
+- Run `:app:connectedDebugAndroidTest` on an emulator or phone before final recording.
+- Do one manual wallet proof pass on the target phone.
+- Record the 3-minute demo from the Demo tab.
+- Prepare final APK and GitHub README for judges.
