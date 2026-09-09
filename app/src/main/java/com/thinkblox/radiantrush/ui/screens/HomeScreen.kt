@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Token
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.QuestPreview
+import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.MetricCard
@@ -51,7 +53,7 @@ fun HomeScreen(
         item {
             GradientHeroCard(
                 title = "Today’s Rush",
-                subtitle = "Sign proof, submit a devnet memo, and keep your streak synced.",
+                subtitle = "Sign proof, approve a devnet memo, scan SKR read-only, and keep your streak synced.",
             )
         }
 
@@ -82,6 +84,13 @@ fun HomeScreen(
                         supportingText = "${user.xp} XP synced.",
                         icon = Icons.Filled.Bolt,
                     )
+                    MetricCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        label = "SKR Boost",
+                        value = user.skrMultiplier,
+                        supportingText = "${user.skrTier} • ${user.skrBalance}",
+                        icon = Icons.Filled.Token,
+                    )
                 }
             } else {
                 Row(
@@ -102,6 +111,13 @@ fun HomeScreen(
                         supportingText = "${user.xp} XP synced.",
                         icon = Icons.Filled.Bolt,
                     )
+                    MetricCard(
+                        modifier = Modifier.weight(1f),
+                        label = "SKR Boost",
+                        value = user.skrMultiplier,
+                        supportingText = "${user.skrTier} • ${user.skrBalance}",
+                        icon = Icons.Filled.Token,
+                    )
                 }
             }
         }
@@ -111,9 +127,9 @@ fun HomeScreen(
                 title = if (uiState.isWalletConnected) "Wallet linked" else "Wallet Ready",
                 progress = if (uiState.isWalletConnected) 1f else (user.xp.coerceAtMost(500) / 500f).coerceIn(0f, 1f),
                 caption = if (uiState.isWalletConnected) {
-                    "Public wallet saved. You can sign proof and submit a devnet memo."
+                    "Public wallet saved. Wallet opens only for signing/memo. SKR scan is read-only."
                 } else {
-                    "Connect with MWA to unlock signed proof and memo quests."
+                    "Connect with MWA to unlock proof, memo, and SKR Passport quests."
                 },
             )
         }
@@ -121,7 +137,7 @@ fun HomeScreen(
         item {
             SectionTitle(
                 title = "Priority quests",
-                body = "Phase 4 supports Firebase progress, MWA wallet authorization, message signing, and a devnet memo transaction.",
+                body = "Wallet opens for Sign Proof and Send Memo. SKR Passport is read-only and should finish in-app without Phantom.",
             )
         }
 
@@ -129,14 +145,17 @@ fun HomeScreen(
             val quest = uiState.quests[index]
             QuestCard(
                 quest = quest,
-                actionLabel = when (quest.id) {
-                    QuestIds.DAILY_CHECK_IN -> "Save Firebase Check-In"
-                    QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected) "Wallet Connected" else "Connect Wallet"
-                    QuestIds.SIGN_DAILY_PROOF -> if (quest.status.name == "Completed") "Signed Today" else "Sign Daily Proof"
-                    QuestIds.ON_CHAIN_PROOF -> if (quest.status.name == "Completed") "Memo Submitted" else "Submit Memo Proof"
-                    else -> null
+                actionLabel = questActionLabel(quest, uiState),
+                actionEnabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && quest.status == QuestStatus.Ready,
+                onClick = {
+                    if (uiState.isFirebaseReady && !uiState.walletActionInProgress && quest.status == QuestStatus.Ready) {
+                        if (quest.id == QuestIds.WALLET_CONNECT) {
+                            onConnectWallet()
+                        } else {
+                            onCompleteQuest(quest)
+                        }
+                    }
                 },
-                actionEnabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
                 onActionClick = {
                     if (quest.id == QuestIds.WALLET_CONNECT) {
                         onConnectWallet()
@@ -150,10 +169,33 @@ fun HomeScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Use Phantom test/devnet mode for Phase 4 proof quests.",
+                text = "Use Phantom Devnet for proof signing and memo. SKR Passport is read-only mainnet balance scanning; no devnet SKR token and no wallet popup needed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+}
+
+
+private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String? {
+    if (uiState.activeQuestId == quest.id || quest.status == QuestStatus.Syncing) {
+        return when (quest.id) {
+            QuestIds.DAILY_CHECK_IN -> "Saving Check-In…"
+            QuestIds.WALLET_CONNECT -> "Opening Wallet…"
+            QuestIds.SIGN_DAILY_PROOF -> "Waiting for Signature…"
+            QuestIds.ON_CHAIN_PROOF -> "Opening Memo…"
+            QuestIds.SKR_HOLDER -> "Scanning SKR…"
+            else -> "Working…"
+        }
+    }
+
+    return when (quest.id) {
+        QuestIds.DAILY_CHECK_IN -> if (quest.status == QuestStatus.Completed) "Done Today" else "Save Firebase Check-In"
+        QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected || quest.status == QuestStatus.Completed) "Wallet Connected" else "Connect Wallet"
+        QuestIds.SIGN_DAILY_PROOF -> if (quest.status == QuestStatus.Completed) "Signed Today" else "Sign Daily Proof"
+        QuestIds.ON_CHAIN_PROOF -> if (quest.status == QuestStatus.Completed) "Memo Submitted" else "Submit Memo Proof"
+        QuestIds.SKR_HOLDER -> if (quest.status == QuestStatus.Completed) "SKR Checked" else "Check SKR Balance"
+        else -> null
     }
 }

@@ -18,6 +18,7 @@ import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
+import com.thinkblox.radiantrush.solana.SkrBalanceSnapshot
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -26,8 +27,8 @@ import java.util.Locale
 /**
  * Firebase Auth + Firestore repository for Radiant Rush.
  *
- * Phase 4 persists real MWA signed-message proofs and devnet memo transaction
- * signatures after wallet approval. It stores public proof data only.
+ * Phase 5 persists read-only SKR mainnet balance snapshots after the app
+ * queries Solana RPC by public wallet address. It stores public proof data only.
  */
 class FirebaseRadiantRepository(
     context: Context,
@@ -88,7 +89,7 @@ class FirebaseRadiantRepository(
         saveQuestProof(
             questId = quest.id,
             questTitle = quest.title,
-            proofType = "firestore_phase4_progress",
+            proofType = "firestore_phase5_progress",
             xpReward = quest.xp,
             walletAddress = null,
             proofFields = mapOf(
@@ -128,7 +129,7 @@ class FirebaseRadiantRepository(
             val level = userSnapshot.getLong("level") ?: levelForXp(xp)
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
-            val skrTier = userSnapshot.getString("skrTier") ?: "Visitor"
+            val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
 
             transaction.set(
                 userRef,
@@ -143,7 +144,7 @@ class FirebaseRadiantRepository(
                     "level" to level,
                     "currentStreak" to currentStreak,
                     "longestStreak" to longestStreak,
-                    "phase" to 4,
+                    "phase" to 5,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -260,6 +261,133 @@ class FirebaseRadiantRepository(
         )
     }
 
+    fun saveSkrBalanceSnapshot(
+        snapshot: SkrBalanceSnapshot,
+        onState: (RushUiState) -> Unit,
+    ) {
+        val cleanWallet = snapshot.walletAddress.trim()
+        if (cleanWallet.isBlank()) {
+            onState(errorState("SKR check returned an empty wallet address."))
+            return
+        }
+
+        val session = currentFirebaseSession(onState) ?: return
+        val db = FirebaseFirestore.getInstance(session.app)
+        val today = todayKey()
+        val userRef = db.collection(USERS).document(session.uid)
+        val completedRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.SKR_HOLDER}_$today")
+        val leaderboardRef = db.collection(LEADERBOARD).document(session.uid)
+
+        db.runTransaction { transaction ->
+            val completedSnapshot = transaction.get(completedRef)
+            val userSnapshot = transaction.get(userRef)
+            val firstScanToday = !completedSnapshot.exists()
+            val rewardForThisWrite = if (firstScanToday) SKR_SCAN_XP.toLong() else 0L
+            val savedQuestXp = completedSnapshot.getLong("xpEarned") ?: rewardForThisWrite
+
+            val oldXp = userSnapshot.getLong("xp") ?: 0L
+            val oldStreak = userSnapshot.getLong("currentStreak") ?: 0L
+            val longestStreak = userSnapshot.getLong("longestStreak") ?: oldStreak
+            val lastQuestDate = userSnapshot.getString("lastQuestDate")
+            val newXp = oldXp + rewardForThisWrite
+            val newStreak = if (firstScanToday) nextStreak(lastQuestDate, today, oldStreak) else oldStreak
+            val newLongestStreak = maxOf(longestStreak, newStreak)
+            val newLevel = levelForXp(newXp)
+            val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+            val walletStatus = if (cleanWallet.isNotBlank()) "Wallet connected" else "Wallet not connected yet"
+
+            transaction.set(
+                completedRef,
+                mapOf(
+                    "questId" to QuestIds.SKR_HOLDER,
+                    "questTitle" to "Scan SKR Passport",
+                    "date" to today,
+                    "proofType" to "solana_mainnet_skr_balance_snapshot",
+                    "walletAddress" to cleanWallet,
+                    "walletAddressShort" to shortenAddress(cleanWallet),
+                    "xpEarned" to savedQuestXp,
+                    "network" to snapshot.network,
+                    "skrMint" to snapshot.mint,
+                    "skrBalanceRaw" to snapshot.balanceRawAmount,
+                    "skrBalanceUi" to snapshot.balanceUiAmount,
+                    "skrBalanceDisplay" to snapshot.balanceDisplay,
+                    "skrDecimals" to snapshot.decimals,
+                    "skrTokenAccountCount" to snapshot.tokenAccountCount,
+                    "skrTier" to snapshot.tierLabel,
+                    "skrXpMultiplier" to snapshot.xpMultiplierLabel,
+                    "skrXpMultiplierValue" to snapshot.xpMultiplierValue,
+                    "hasSkr" to snapshot.hasSkr,
+                    "rpcSlot" to snapshot.rpcSlot,
+                    "checkedAtClientMs" to snapshot.checkedAtClientMs,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            transaction.set(
+                userRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "walletAddress" to cleanWallet,
+                    "walletAddressShort" to shortenAddress(cleanWallet),
+                    "walletStatus" to walletStatus,
+                    "skrTier" to snapshot.tierLabel,
+                    "skrBalanceRaw" to snapshot.balanceRawAmount,
+                    "skrBalanceUi" to snapshot.balanceUiAmount,
+                    "skrBalanceDisplay" to snapshot.balanceDisplay,
+                    "skrMint" to snapshot.mint,
+                    "skrNetwork" to snapshot.network,
+                    "skrDecimals" to snapshot.decimals,
+                    "skrTokenAccountCount" to snapshot.tokenAccountCount,
+                    "skrXpMultiplier" to snapshot.xpMultiplierLabel,
+                    "skrXpMultiplierValue" to snapshot.xpMultiplierValue,
+                    "hasSkr" to snapshot.hasSkr,
+                    "lastSkrCheckDate" to today,
+                    "lastSkrCheckedAtClientMs" to snapshot.checkedAtClientMs,
+                    "lastSkrRpcSlot" to snapshot.rpcSlot,
+                    "xp" to newXp,
+                    "level" to newLevel,
+                    "currentStreak" to newStreak,
+                    "longestStreak" to newLongestStreak,
+                    "lastQuestDate" to if (firstScanToday) today else lastQuestDate,
+                    "phase" to 5,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            transaction.set(
+                leaderboardRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "walletAddressShort" to shortenAddress(cleanWallet),
+                    "xp" to newXp,
+                    "level" to newLevel,
+                    "currentStreak" to newStreak,
+                    "longestStreak" to newLongestStreak,
+                    "skrTier" to snapshot.tierLabel,
+                    "skrBalanceUi" to snapshot.balanceUiAmount,
+                    "skrXpMultiplier" to snapshot.xpMultiplierLabel,
+                    "hasSkr" to snapshot.hasSkr,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+        }
+            .addOnSuccessListener {
+                val message = if (snapshot.hasSkr) {
+                    "SKR Passport scanned: ${snapshot.balanceDisplay} • ${snapshot.tierLabel} • ${snapshot.xpMultiplierLabel} boost."
+                } else {
+                    "SKR Passport scanned: 0 SKR on mainnet. Explorer tier saved without faking a balance."
+                }
+                loadOrCreateProfile(session.uid, onState, message)
+            }
+            .addOnFailureListener { error ->
+                loadOrCreateProfile(session.uid, onState, "Could not save SKR Passport scan: ${safeMessage(error)}")
+            }
+    }
+
     fun clearWalletConnection(onState: (RushUiState) -> Unit) {
         val session = currentFirebaseSession(onState) ?: return
         val db = FirebaseFirestore.getInstance(session.app)
@@ -337,7 +465,7 @@ class FirebaseRadiantRepository(
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
             val savedWalletAddress = walletAddress ?: userSnapshot.getString("walletAddress")
             val walletStatus = if (!savedWalletAddress.isNullOrBlank()) "Wallet connected" else "Wallet not connected yet"
-            val skrTier = userSnapshot.getString("skrTier") ?: "Visitor"
+            val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
 
             val proofDocument = mutableMapOf<String, Any?>(
                 "questId" to questId,
@@ -363,7 +491,7 @@ class FirebaseRadiantRepository(
                 "currentStreak" to newStreak,
                 "longestStreak" to newLongestStreak,
                 "lastQuestDate" to today,
-                "phase" to 4,
+                "phase" to 5,
                 "updatedAt" to FieldValue.serverTimestamp(),
             )
             userUpdate.putAll(userExtraFields)
@@ -428,12 +556,12 @@ class FirebaseRadiantRepository(
                         "walletAddress" to null,
                         "walletAddressShort" to null,
                         "walletStatus" to "Wallet not connected yet",
-                        "skrTier" to "Visitor",
+                        "skrTier" to "Explorer",
                         "xp" to 0L,
                         "level" to 1L,
                         "currentStreak" to 0L,
                         "longestStreak" to 0L,
-                        "phase" to 4,
+                        "phase" to 5,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp(),
                     )
@@ -487,6 +615,9 @@ class FirebaseRadiantRepository(
                 if (userSnapshot.getString("lastOnChainProofDate") == today) {
                     completedIds.add(QuestIds.ON_CHAIN_PROOF)
                 }
+                if (userSnapshot.getString("lastSkrCheckDate") == today) {
+                    completedIds.add(QuestIds.SKR_HOLDER)
+                }
 
                 val walletConnected = !userSnapshot.getString("walletAddress").isNullOrBlank()
 
@@ -501,7 +632,7 @@ class FirebaseRadiantRepository(
                                 name = document.getString("displayName") ?: "Radiant Rookie",
                                 xp = (document.getLong("xp") ?: 0L).toInt(),
                                 streak = (document.getLong("currentStreak") ?: 0L).toInt(),
-                                tier = document.getString("skrTier") ?: "Visitor",
+                                tier = document.getString("skrTier") ?: "Explorer",
                             )
                         }.ifEmpty {
                             listOf(profileToLeaderboardRow(userSnapshot))
@@ -516,8 +647,10 @@ class FirebaseRadiantRepository(
                                 quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
                                 quest.id == QuestIds.SIGN_DAILY_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
                                 quest.id == QuestIds.ON_CHAIN_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                                quest.id == QuestIds.SKR_HOLDER && walletConnected -> quest.copy(status = QuestStatus.Ready)
                                 quest.id == QuestIds.SIGN_DAILY_PROOF -> quest.copy(status = QuestStatus.Blocked)
                                 quest.id == QuestIds.ON_CHAIN_PROOF -> quest.copy(status = QuestStatus.Blocked)
+                                quest.id == QuestIds.SKR_HOLDER -> quest.copy(status = QuestStatus.Blocked)
                                 else -> quest.copy(status = QuestStatus.Locked)
                             }
                         }
@@ -591,13 +724,19 @@ class FirebaseRadiantRepository(
             displayName = snapshot.getString("displayName") ?: "Radiant Rookie",
             walletStatus = walletStatus,
             walletAddress = walletAddress ?: "Firebase uid: $uidShort • tap Connect Wallet to authorize with MWA",
-            skrTier = snapshot.getString("skrTier") ?: "Visitor",
+            skrTier = snapshot.getString("skrTier") ?: "Explorer",
             xp = (snapshot.getLong("xp") ?: 0L).toInt(),
             level = (snapshot.getLong("level") ?: 1L).toInt(),
             currentStreak = (snapshot.getLong("currentStreak") ?: 0L).toInt(),
             lastSignedMessageSignature = snapshot.getString("lastSignedMessageSignature"),
             lastOnChainTxSignature = snapshot.getString("lastOnChainTxSignature"),
             lastOnChainExplorerUrl = snapshot.getString("lastOnChainExplorerUrl"),
+            skrBalance = snapshot.getString("skrBalanceDisplay") ?: "Not checked",
+            skrMultiplier = snapshot.getString("skrXpMultiplier") ?: "1.00x",
+            skrNetwork = snapshot.getString("skrNetwork") ?: "mainnet-beta",
+            skrMint = snapshot.getString("skrMint") ?: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+            lastSkrChecked = snapshot.getString("lastSkrCheckDate"),
+            hasSkr = snapshot.getBoolean("hasSkr") ?: false,
         )
     }
 
@@ -606,7 +745,7 @@ class FirebaseRadiantRepository(
         name = snapshot.getString("displayName") ?: "Radiant Rookie",
         xp = (snapshot.getLong("xp") ?: 0L).toInt(),
         streak = (snapshot.getLong("currentStreak") ?: 0L).toInt(),
-        tier = snapshot.getString("skrTier") ?: "Visitor",
+        tier = snapshot.getString("skrTier") ?: "Explorer",
     )
 
     private fun badgeState(user: UserPreview, completedIds: Set<String>): List<BadgePreview> = listOf(
@@ -616,7 +755,7 @@ class FirebaseRadiantRepository(
         BadgePreview("Wallet Ready", "Connect with Mobile Wallet Adapter.", unlocked = user.walletStatus == "Wallet connected"),
         BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = completedIds.contains(QuestIds.SIGN_DAILY_PROOF)),
         BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = completedIds.contains(QuestIds.ON_CHAIN_PROOF)),
-        BadgePreview("SKR Radiant", "Hold SKR and unlock boosted status.", unlocked = user.skrTier != "Visitor"),
+        BadgePreview("SKR Radiant", "Hold real mainnet SKR and unlock boosted status.", unlocked = user.hasSkr),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = user.currentStreak >= 7),
     )
 
@@ -671,5 +810,6 @@ class FirebaseRadiantRepository(
         const val LEADERBOARD = "leaderboard"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100
+        const val SKR_SCAN_XP = 50
     }
 }

@@ -317,3 +317,16 @@ After the Phantom devnet test failure on 2026-09-09, proof actions were adjusted
 - The UI still treats wallet connection as public-address state only; it does not own or persist wallet auth tokens.
 
 Reason: the log showed memo proof failing inside the MWA `reauthorize` path before the transaction proof could complete. Fresh proof sessions avoid stale/broken auth-token reuse while preserving explicit wallet approval for every sensitive action.
+
+
+## Phase 5 SKR balance boundary
+
+`SkrBalanceRepository` owns read-only Solana mainnet SKR balance scanning. It calls JSON-RPC by public wallet address and official SKR mint only. It does not use Mobile Wallet Adapter because a balance read does not require wallet approval or signing.
+
+Network split:
+
+- `MobileWalletRepository` keeps proof transactions on Solana Devnet.
+- `SkrBalanceRepository` reads the official SKR SPL token on mainnet-beta.
+- `FirebaseRadiantRepository` stores the public SKR snapshot and derived app UX tier.
+
+The UI must display SKR tier and multiplier as app status, not as an on-chain authority decision.

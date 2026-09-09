@@ -83,7 +83,7 @@ fun ProfileScreen(
         item {
             SectionTitle(
                 title = "Identity readiness",
-                body = "Phase 4 links Firebase Auth, public wallet address, signed proof, and devnet memo proof.",
+                body = "Phase 5 links Firebase Auth, public wallet address, signed proof, devnet memo proof, and a read-only mainnet SKR Passport scan that should not open Phantom.",
             )
         }
 
@@ -113,8 +113,18 @@ fun ProfileScreen(
             ProfileInfoRow(
                 title = "SKR Tier",
                 value = user.skrTier,
-                helper = "Phase 5: token balance determines XP boosts and badges.",
+                helper = "${user.skrMultiplier} XP boost from the latest mainnet SKR scan.",
                 icon = Icons.Filled.Token,
+            )
+        }
+        item {
+            ProfileInfoRow(
+                title = "SKR Balance",
+                value = user.skrBalance,
+                helper = "${user.skrNetwork} • checked ${user.lastSkrChecked ?: "not yet"}. Read-only scan; copy uses the official SKR mint.",
+                icon = Icons.Filled.Token,
+                copyValue = user.skrMint,
+                copyLabel = "Copy Mint",
             )
         }
         if (!user.lastSignedMessageSignature.isNullOrBlank()) {
@@ -180,6 +190,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = responsive.buttonHeight),
+                enabled = !uiState.walletActionInProgress,
                 shape = RoundedCornerShape(16.dp),
                 onClick = onRetryFirebase,
             ) {
@@ -264,6 +275,7 @@ private fun ProfileInfoRow(
                                 copyLabel.contains("Signature") -> "Copy Sign"
                                 copyLabel.contains("Explorer") -> "Copy Link"
                                 copyLabel.contains("Address") -> "Copy Addr"
+                                copyLabel.contains("Mint") -> "Copy Mint"
                                 else -> "Copy"
                             },
                         )

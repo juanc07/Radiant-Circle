@@ -20,8 +20,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
  * Shared app models for the native Android shell, Firebase foundation, Mobile
  * Wallet Adapter connection flow, and Phase 4 proof quests.
  *
- * Phase 4 adds real wallet message signing and a devnet Memo transaction. The
- * app still does not verify SKR ownership, mint rewards, or store private keys.
+ * Phase 5 adds read-only SKR balance scanning on Solana mainnet. The app
+ * still does not transfer tokens, mint rewards, or store private keys.
  */
 data class QuestPreview(
     val id: String,
@@ -36,7 +36,7 @@ enum class QuestStatus(val label: String, val icon: ImageVector) {
     Ready("Ready", Icons.Filled.RadioButtonUnchecked),
     Completed("Done", Icons.Filled.CheckCircle),
     Blocked("Wallet", Icons.Filled.AccountBalanceWallet),
-    Locked("Phase 5+", Icons.Filled.Lock),
+    Locked("Phase 6+", Icons.Filled.Lock),
     Syncing("Syncing", Icons.Filled.HourglassTop),
 }
 
@@ -65,6 +65,12 @@ data class UserPreview(
     val lastSignedMessageSignature: String? = null,
     val lastOnChainTxSignature: String? = null,
     val lastOnChainExplorerUrl: String? = null,
+    val skrBalance: String = "Not checked",
+    val skrMultiplier: String = "1.00x",
+    val skrNetwork: String = "mainnet-beta",
+    val skrMint: String = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
+    val lastSkrChecked: String? = null,
+    val hasSkr: Boolean = false,
 )
 
 data class RushUiState(
@@ -76,6 +82,7 @@ data class RushUiState(
     val todayKey: String = "local-preview",
     val lastMessage: String? = null,
     val walletActionInProgress: Boolean = false,
+    val activeQuestId: String? = null,
 ) {
     val isFirebaseReady: Boolean
         get() = firebaseStatus == FirebaseStatus.Ready
@@ -135,7 +142,7 @@ object PreviewContent {
         displayName = "Radiant Rookie",
         walletStatus = "Wallet not connected yet",
         walletAddress = "Connect with Mobile Wallet Adapter in Phase 3",
-        skrTier = "Visitor",
+        skrTier = "Explorer",
         xp = 0,
         level = 1,
         currentStreak = 0,
@@ -169,18 +176,18 @@ object PreviewContent {
         QuestPreview(
             id = QuestIds.ON_CHAIN_PROOF,
             title = "On-Chain Memo Proof",
-            description = "Submit a lightweight devnet Memo transaction as today’s on-chain proof.",
+            description = "Open your wallet and approve one lightweight devnet Memo transaction as today’s on-chain proof.",
             xp = 100,
             status = QuestStatus.Blocked,
             proofType = "Devnet memo transaction",
         ),
         QuestPreview(
             id = QuestIds.SKR_HOLDER,
-            title = "Prove SKR Holder",
-            description = "Phase 5 reads token accounts and applies the SKR XP boost.",
-            xp = 75,
-            status = QuestStatus.Locked,
-            proofType = "SKR balance check",
+            title = "Scan SKR Passport",
+            description = "Read your official SKR SPL token balance on mainnet. No wallet popup; public address only.",
+            xp = 50,
+            status = QuestStatus.Blocked,
+            proofType = "Mainnet SKR balance",
         ),
     )
 
@@ -190,12 +197,12 @@ object PreviewContent {
         BadgePreview("Wallet Ready", "Connect with MWA.", unlocked = false),
         BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = false),
         BadgePreview("On-Chain Spark", "Submit first memo proof.", unlocked = false),
-        BadgePreview("SKR Radiant", "Hold SKR and unlock boosted status.", unlocked = false),
+        BadgePreview("SKR Radiant", "Hold real mainnet SKR and unlock boosted status.", unlocked = false),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = false),
     )
 
     val leaderboard = listOf(
-        LeaderboardPreview(1, "You", 0, 0, "Visitor"),
+        LeaderboardPreview(1, "You", 0, 0, "Explorer"),
     )
 
     fun defaultState(): RushUiState = RushUiState()

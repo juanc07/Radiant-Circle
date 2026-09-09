@@ -1,5 +1,15 @@
 # Changelog
 
+
+## 0.5.1-phase5 — UX Tap Reliability Fix
+
+- Clarified SKR Passport behavior: the SKR scan is read-only mainnet RPC and should not open Phantom.
+- Added active quest tracking so one accepted tap immediately locks the running quest.
+- Added syncing labels for check-in, wallet connect, proof signing, memo submission, and SKR scanning.
+- Added a short tap debounce on quest action buttons to reduce accidental duplicate submissions.
+- Kept wallet actions disabled while Firebase saves proof results.
+- Disabled Firebase refresh while a wallet/proof/SKR action is running.
+
 ## 0.4.5-phase4 — Memo Preflight + Min Context Slot Fix
 
 - Fixed Phase 4 memo proof flow where tapping `Send Memo` could only open Phantom connection and never reach transaction approval.
@@ -14,6 +24,21 @@
 All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` section at the top.
 
 ## [Unreleased]
+
+### Added
+
+- Added Phase 5 SKR Passport scan using Solana mainnet `getTokenAccountsByOwner` for the official SKR mint.
+- Added read-only SKR balance snapshot persistence to Firebase.
+- Added SKR tiers: Explorer, Radiant Scout, Radiant Holder, Radiant Elite, and Radiant Legend.
+- Added SKR XP multiplier display on Home and Profile.
+- Added zero-balance behavior so Devnet testing still works without fake SKR.
+
+### Changed
+
+- Bumped Android app version to `versionCode = 5`, `versionName = "0.5.0-phase5"`.
+- Updated Firebase profile `phase` writes from `4` to `5`.
+- Updated the SKR quest from locked Phase 5 placeholder to `Scan SKR Passport`.
+
 
 ### Fixed
 
