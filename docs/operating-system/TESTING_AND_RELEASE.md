@@ -191,3 +191,19 @@ When creating a handoff ZIP:
 - Include `CHANGELOG.md` update.
 - Exclude build outputs, local secrets, Gradle caches, `.idea` user files, and keystores unless explicitly required.
 - State the source commit/hash or package name.
+
+## Phase 3 wallet-connect acceptance checks
+
+Before Phase 3 is called stable:
+
+- Android app builds after MWA dependencies are added.
+- App still works when Firebase is configured.
+- Existing XP/streak/profile data does not reset after app restart.
+- Connect Wallet opens an MWA-compatible wallet on a real Android device.
+- No-wallet state shows a clear message and does not crash.
+- Rejected/cancelled wallet authorization shows a recoverable message and does not mark the wallet quest complete.
+- Successful wallet authorization saves only the public wallet address and optional account label.
+- Firestore `users/{uid}.walletAddress` updates after successful authorization.
+- Wallet Ready quest/badge updates after successful authorization.
+- Disconnect Wallet clears the stored public wallet state.
+- No message signing, transaction success, or SKR verification is claimed in Phase 3.

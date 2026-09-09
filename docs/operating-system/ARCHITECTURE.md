@@ -208,7 +208,7 @@ Update this file whenever a change affects app structure or ownership. Examples 
 
 Do not update this file for small visual copy changes or dependency compatibility fixes unless they change architecture. For every patch, the handoff must explicitly say whether `ARCHITECTURE.md` was updated and why.
 
-## Current Phase 2 implementation map
+## Current Phase 3 implementation map
 
 The current app is still one Android module:
 
@@ -217,10 +217,11 @@ app/
   src/main/java/com/thinkblox/radiantrush/
     data/                 Shared UI/domain models for early phases
     firebase/             Firebase Auth + Firestore repository
+    solana/               Mobile Wallet Adapter repository boundary
     ui/                   Compose app shell, components, and screens
 ```
 
-Phase 2 introduces `FirebaseRadiantRepository` as the only Firebase owner. Compose screens display Firebase state and send user intents, but do not call Firebase APIs directly.
+Phase 2 introduced `FirebaseRadiantRepository` as the only Firebase owner. Phase 3 adds `MobileWalletRepository` as the only Mobile Wallet Adapter owner. Compose screens display state and send user intents, but do not call Firebase or MWA APIs directly.
 
 Current Firestore ownership:
 
@@ -231,16 +232,18 @@ leaderboard/{uid}                        FirebaseRadiantRepository
 quests/{questId}                         Reserved read-only config path for later
 ```
 
-Current Phase 2 data flow:
+Current Phase 3 data flow:
 
 ```text
 Screen -> RadiantRushApp event -> FirebaseRadiantRepository -> Firebase Auth / Firestore
+Screen -> RadiantRushApp event -> MobileWalletRepository -> Mobile Wallet Adapter
 Screen <- RadiantRushApp state <- FirebaseRadiantRepository <- Firebase Auth / Firestore
+Screen <- RadiantRushApp state <- MobileWalletRepository <- Mobile Wallet Adapter
 ```
 
 This is an accepted short-term prototype exception to the preferred full clean architecture shape. A separate ViewModel/use-case layer should be added if Firebase, wallet, Solana RPC, and quest rules become complex enough to require independent testing.
 
-Phase 2 does not own wallet identity truth, Solana transaction proof, or SKR balance truth. Those remain locked for Phase 3+.
+Phase 3 owns public wallet identity after MWA authorization. It does not own Solana transaction proof or SKR balance truth. Those remain locked for Phase 4+.
 
 
 ## Do not port from BMA
@@ -256,3 +259,15 @@ Do not port these Roblox concepts directly:
 - Gameplay loops, pets, gacha, NPCs, leaderboards, or monetization systems unless the Android product explicitly needs an equivalent.
 
 Port the principle, not the platform code.
+
+
+## Phase 3 wallet boundary
+
+`MobileWalletRepository` owns direct calls to Solana Mobile Wallet Adapter. UI code may trigger wallet intent events, but must not parse wallet internals or store wallet secrets. `FirebaseRadiantRepository` owns persistence of the public wallet address after MWA authorization. Message signing and transaction submission are not part of Phase 3 and must remain locked until Phase 4.
+
+## Android lifecycle-sensitive ownership rule
+
+Objects that register Activity Result launchers, request Activity-owned launchers, or depend on `ComponentActivity.registerForActivityResult` must be created by `MainActivity` before `setContent { ... }` whenever the library requires registration before `STARTED`.
+
+For Phase 3 Mobile Wallet Adapter, `MobileWalletRepository` is created in `MainActivity.onCreate()` and passed into Compose. Compose may call wallet actions through callbacks, but it must not construct `ActivityResultSender` or other registration-sensitive MWA objects during composition.
+

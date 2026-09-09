@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +22,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -36,6 +39,8 @@ fun ProfileScreen(
     contentPadding: PaddingValues,
     uiState: RushUiState,
     onRetryFirebase: () -> Unit,
+    onConnectWallet: () -> Unit,
+    onDisconnectWallet: () -> Unit,
 ) {
     val user = uiState.user
 
@@ -52,7 +57,11 @@ fun ProfileScreen(
         item {
             GradientHeroCard(
                 title = user.displayName,
-                subtitle = "${user.walletStatus}. Firebase handles cloud progress now; live wallet identity starts in Phase 3.",
+                subtitle = if (uiState.isWalletConnected) {
+                    "${user.walletStatus}. Public Solana address is linked to your Firebase profile."
+                } else {
+                    "${user.walletStatus}. Connect with Mobile Wallet Adapter to link a public Solana address."
+                },
             )
         }
 
@@ -67,7 +76,7 @@ fun ProfileScreen(
         item {
             SectionTitle(
                 title = "Identity readiness",
-                body = "Phase 2 links progress to Firebase Anonymous Auth. Phase 3 links the Firebase profile to a public wallet address through Mobile Wallet Adapter.",
+                body = "Phase 3 links Firebase Anonymous Auth to a public Solana wallet address through Mobile Wallet Adapter. Signing and transactions start in Phase 4.",
             )
         }
 
@@ -83,7 +92,11 @@ fun ProfileScreen(
             ProfileInfoRow(
                 title = "Wallet",
                 value = user.walletAddress,
-                helper = "Phase 3: connect through Mobile Wallet Adapter.",
+                helper = if (uiState.isWalletConnected) {
+                    "Public address only. No seed phrase or private key is stored."
+                } else {
+                    "Tap Connect Wallet to authorize through an MWA-compatible Solana wallet."
+                },
                 icon = Icons.Filled.AccountBalanceWallet,
             )
         }
@@ -105,6 +118,32 @@ fun ProfileScreen(
         }
         item {
             Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && !uiState.isWalletConnected,
+                shape = RoundedCornerShape(16.dp),
+                onClick = onConnectWallet,
+            ) {
+                Text(if (uiState.walletActionInProgress) "Opening Wallet…" else "Connect Wallet")
+            }
+        }
+        if (uiState.isWalletConnected) {
+            item {
+                OutlinedButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    enabled = !uiState.walletActionInProgress,
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = onDisconnectWallet,
+                ) {
+                    Text("Disconnect Wallet")
+                }
+            }
+        }
+        item {
+            OutlinedButton(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
@@ -141,6 +180,7 @@ private fun ProfileInfoRow(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
+            Spacer(modifier = Modifier.size(2.dp))
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),

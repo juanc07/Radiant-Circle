@@ -89,6 +89,20 @@ Rules:
 - Any valuable reward flow must be verified by a backend/serverless function, a trusted indexer, or an on-chain program before reward issuance.
 
 
+## Mobile Wallet Adapter Phase 3 rules
+
+Phase 3 uses Mobile Wallet Adapter for wallet authorization only.
+
+Rules:
+
+- Store only the public wallet address, short display address, optional account label, and non-secret wallet status.
+- Do not ask for seed phrases or private keys.
+- Do not persist MWA auth tokens until an explicit token-storage design is reviewed.
+- Do not claim wallet connection equals transaction success.
+- Do not claim SKR holder status from wallet connection alone.
+- Treat no-wallet, reject/cancel, and wallet failure as normal recoverable states.
+- Message signing and memo transactions must remain Phase 4 work and must have separate user action, user-readable explanation, and result handling.
+
 ## Persistence rules
 
 Allowed local persistence:
