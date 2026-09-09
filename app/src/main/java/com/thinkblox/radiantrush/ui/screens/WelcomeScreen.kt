@@ -18,11 +18,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -35,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
@@ -46,6 +46,7 @@ fun WelcomeScreen(
     uiState: RushUiState,
     onEnterDemoShell: () -> Unit,
     onRetryFirebase: () -> Unit,
+    onConnectWallet: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -82,7 +83,7 @@ fun WelcomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "Phase 2 Firebase foundation",
+                        text = "Phase 3 Mobile Wallet Adapter",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -90,8 +91,8 @@ fun WelcomeScreen(
             }
 
             GradientHeroCard(
-                title = "Daily quests for Solana Mobile.",
-                subtitle = "Build cloud-saved streaks, badges, and leaderboard progress before wallet and Solana proof flows arrive.",
+                title = "Connect. Quest. Prove.",
+                subtitle = "Firebase progress is live, and Phase 3 now connects a real Solana wallet through Mobile Wallet Adapter.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -125,16 +126,16 @@ fun WelcomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        text = "What works in Phase 2",
+                        text = "What works in Phase 3",
                         style = MaterialTheme.typography.titleLarge,
                     )
-                    PhaseBullet("Firebase dependency foundation with safe no-config fallback")
-                    PhaseBullet("Anonymous Auth profile creation when google-services.json is present")
-                    PhaseBullet("Firestore user progress, daily quest proof, badge state, and leaderboard rows")
-                    PhaseBullet("No WebView wrapper, no private keys, no fake wallet or Solana transaction success")
+                    PhaseBullet("Firebase Anonymous Auth and Firestore profile/progress remain live")
+                    PhaseBullet("Connect Wallet opens a real MWA-compatible Solana wallet on Android")
+                    PhaseBullet("The app saves only the public wallet address and optional account label")
+                    PhaseBullet("No seed phrase, private key, signing, transaction, or SKR verification is faked")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusPill("Firebase: Phase 2")
-                        StatusPill("MWA: Phase 3")
+                        StatusPill("Firebase: live")
+                        StatusPill("MWA: connect")
                     }
                 }
             }
@@ -164,21 +165,22 @@ fun WelcomeScreen(
                     .fillMaxWidth()
                     .height(54.dp),
                 shape = RoundedCornerShape(18.dp),
-                enabled = false,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                ),
-                onClick = {},
+                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
+                onClick = onConnectWallet,
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Lock,
+                    imageVector = Icons.Filled.AccountBalanceWallet,
                     contentDescription = null,
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Text("Connect Wallet unlocks in Phase 3")
+                Text(
+                    text = if (uiState.isWalletConnected) "Wallet Connected" else "Connect Wallet",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             Text(
-                text = "Firebase progress is real only after you add your Firebase Android config. Wallet and on-chain actions remain locked.",
+                text = "Connect uses Mobile Wallet Adapter. Phase 4 will add signed daily proof and an on-chain memo transaction.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

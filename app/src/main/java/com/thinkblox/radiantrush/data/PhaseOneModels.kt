@@ -1,6 +1,7 @@
 package com.thinkblox.radiantrush.data
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
@@ -15,8 +16,11 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Shared app models for the Phase 1 UI shell and Phase 2 Firebase foundation.
- * Live Solana wallet state starts in Phase 3. On-chain proof starts in Phase 4.
+ * Shared app models for the Phase 1 UI shell, Phase 2 Firebase foundation,
+ * and Phase 3 Mobile Wallet Adapter connection flow.
+ *
+ * Phase 3 stores public wallet identity only. It does not sign messages,
+ * submit transactions, or verify SKR ownership yet.
  */
 data class QuestPreview(
     val id: String,
@@ -30,7 +34,7 @@ data class QuestPreview(
 enum class QuestStatus(val label: String, val icon: ImageVector) {
     Ready("Ready", Icons.Filled.RadioButtonUnchecked),
     Completed("Done", Icons.Filled.CheckCircle),
-    Locked("Phase 3+", Icons.Filled.Shield),
+    Locked("Phase 4+", Icons.Filled.Shield),
     Syncing("Syncing", Icons.Filled.HourglassTop),
 }
 
@@ -66,9 +70,13 @@ data class RushUiState(
     val leaderboard: List<LeaderboardPreview> = PreviewContent.leaderboard,
     val todayKey: String = "local-preview",
     val lastMessage: String? = null,
+    val walletActionInProgress: Boolean = false,
 ) {
     val isFirebaseReady: Boolean
         get() = firebaseStatus == FirebaseStatus.Ready
+
+    val isWalletConnected: Boolean
+        get() = user.walletStatus == "Wallet connected"
 }
 
 enum class FirebaseStatus(
@@ -109,11 +117,18 @@ enum class AppDestination(
     Profile("Profile", Icons.Filled.AccountCircle),
 }
 
+object QuestIds {
+    const val DAILY_CHECK_IN = "daily-check-in"
+    const val WALLET_CONNECT = "wallet-connect"
+    const val ON_CHAIN_PROOF = "on-chain-proof"
+    const val SKR_HOLDER = "skr-holder"
+}
+
 object PreviewContent {
     val user = UserPreview(
         displayName = "Radiant Rookie",
         walletStatus = "Wallet not connected yet",
-        walletAddress = "Mobile Wallet Adapter starts in Phase 3",
+        walletAddress = "Connect with Mobile Wallet Adapter in Phase 3",
         skrTier = "Visitor",
         xp = 0,
         level = 1,
@@ -122,7 +137,7 @@ object PreviewContent {
 
     val quests = listOf(
         QuestPreview(
-            id = "daily-check-in",
+            id = QuestIds.DAILY_CHECK_IN,
             title = "Daily Firebase Check-In",
             description = "Save today’s quest progress to Firebase. This is cloud progress only, not an on-chain proof yet.",
             xp = 50,
@@ -130,15 +145,15 @@ object PreviewContent {
             proofType = "Firestore proof",
         ),
         QuestPreview(
-            id = "wallet-connect",
+            id = QuestIds.WALLET_CONNECT,
             title = "Wallet Ready",
-            description = "Phase 3 will connect through Mobile Wallet Adapter and save the public wallet address.",
+            description = "Connect a Solana wallet through Mobile Wallet Adapter and save the public wallet address to your Firebase profile.",
             xp = 75,
-            status = QuestStatus.Locked,
+            status = QuestStatus.Ready,
             proofType = "MWA authorization",
         ),
         QuestPreview(
-            id = "on-chain-proof",
+            id = QuestIds.ON_CHAIN_PROOF,
             title = "On-Chain Proof",
             description = "Phase 4 will submit a lightweight Solana memo transaction as proof.",
             xp = 100,
@@ -146,7 +161,7 @@ object PreviewContent {
             proofType = "Memo transaction",
         ),
         QuestPreview(
-            id = "skr-holder",
+            id = QuestIds.SKR_HOLDER,
             title = "Prove SKR Holder",
             description = "Phase 5 will read token accounts and apply the SKR XP boost.",
             xp = 75,

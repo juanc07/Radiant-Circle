@@ -2,16 +2,16 @@
 
 ## Current phase
 
-Radiant Rush is moving through Phase 2: Firebase foundation. The app now has a native Compose shell plus Firebase-ready profile/progress persistence. The immediate owner task is to configure Firebase with `app/google-services.json`, enable Anonymous Auth, create Firestore, apply `firebase/firestore.rules`, and confirm the daily Firebase check-in saves XP/streak/leaderboard state on a real device. The next product phase is Mobile Wallet Adapter connection.
+Radiant Rush is moving through Phase 3: Mobile Wallet Adapter wallet connection. The app now has a native Compose shell, Firebase profile/progress persistence, and a wallet boundary for real MWA authorization. The immediate owner task is to test Connect Wallet on a real Android device with an MWA-compatible Solana wallet, confirm the public wallet address saves to Firestore, and verify XP/streak still persist after restart.
 
 ## Owner-ordered near-term work
 
 1. Create or audit the Android project skeleton. — done for Phase 1
 2. Add native mobile-first Compose shell for Radiant Rush. — done for Phase 1
-3. Add Firebase Auth and Firestore profile/quest persistence. — Phase 2 patch delivered, needs owner Firebase config/testing
-4. Add safe environment configuration: dev/demo/production separation. — partial, continue after Firebase config
-5. Add Mobile Wallet Adapter connection flow. — next phase
-6. Add signed daily proof quest.
+3. Add Firebase Auth and Firestore profile/quest persistence. — done for Phase 2
+4. Add safe environment configuration: dev/demo/production separation. — partial, continue after wallet flow
+5. Add Mobile Wallet Adapter connection flow. — Phase 3 patch delivered, needs real-device wallet testing
+6. Add signed daily proof quest. — next phase
 7. Add memo transaction proof quest.
 8. Add SKR balance/tier detection and XP multiplier.
 9. Add streaks, badges, and leaderboard.

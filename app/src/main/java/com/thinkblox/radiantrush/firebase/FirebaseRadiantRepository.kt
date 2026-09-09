@@ -13,6 +13,7 @@ import com.thinkblox.radiantrush.data.BadgePreview
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.LeaderboardPreview
 import com.thinkblox.radiantrush.data.PreviewContent
+import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
@@ -23,11 +24,11 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Phase 2 Firebase foundation.
+ * Firebase Auth + Firestore repository for Radiant Rush.
  *
- * This repository intentionally handles Firebase Auth + Firestore only.
- * It does not connect to wallets, sign messages, send transactions, verify SKR,
- * or simulate any Solana success. Those begin in Phase 3+.
+ * Phase 3 adds public wallet identity persistence after a real Mobile Wallet
+ * Adapter authorization. This class does not sign messages, send transactions,
+ * verify SKR, or simulate any on-chain success.
  */
 class FirebaseRadiantRepository(
     context: Context,
@@ -80,12 +81,12 @@ class FirebaseRadiantRepository(
         quest: QuestPreview,
         onState: (RushUiState) -> Unit,
     ) {
-        if (quest.id != DAILY_CHECK_IN_ID) {
+        if (quest.id != QuestIds.DAILY_CHECK_IN) {
             onState(
                 PreviewContent.defaultState().copy(
                     firebaseStatus = FirebaseStatus.Error,
                     todayKey = todayKey(),
-                    lastMessage = "This quest is locked until a later phase.",
+                    lastMessage = "This quest is locked until its real implementation exists.",
                 ),
             )
             return
@@ -140,6 +141,8 @@ class FirebaseRadiantRepository(
             val newLongestStreak = maxOf(longestStreak, newStreak)
             val newLevel = levelForXp(newXp)
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+            val walletAddress = userSnapshot.getString("walletAddress")
+            val walletStatus = if (!walletAddress.isNullOrBlank()) "Wallet connected" else "Wallet not connected yet"
             val skrTier = userSnapshot.getString("skrTier") ?: "Visitor"
 
             transaction.set(
@@ -148,7 +151,7 @@ class FirebaseRadiantRepository(
                     "questId" to quest.id,
                     "questTitle" to quest.title,
                     "date" to today,
-                    "proofType" to "firestore_phase2_progress",
+                    "proofType" to "firestore_phase3_progress",
                     "xpEarned" to quest.xp,
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp(),
@@ -160,15 +163,15 @@ class FirebaseRadiantRepository(
                 userRef,
                 mapOf(
                     "displayName" to displayName,
-                    "walletAddress" to null,
-                    "walletStatus" to "Wallet not connected yet",
+                    "walletAddress" to walletAddress,
+                    "walletStatus" to walletStatus,
                     "skrTier" to skrTier,
                     "xp" to newXp,
                     "level" to newLevel,
                     "currentStreak" to newStreak,
                     "longestStreak" to newLongestStreak,
                     "lastQuestDate" to today,
-                    "phase" to 2,
+                    "phase" to 3,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -178,7 +181,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
-                    "walletAddressShort" to "MWA Phase 3",
+                    "walletAddressShort" to shortenAddress(walletAddress),
                     "xp" to newXp,
                     "level" to newLevel,
                     "currentStreak" to newStreak,
@@ -190,7 +193,7 @@ class FirebaseRadiantRepository(
             )
         }
             .addOnSuccessListener {
-                loadOrCreateProfile(uid, onState, "Daily Firebase check-in saved. Phase 3 will replace this with wallet authorization.")
+                loadOrCreateProfile(uid, onState, "Daily Firebase check-in saved. Wallet connection is available through Mobile Wallet Adapter.")
             }
             .addOnFailureListener { error ->
                 val message = if (error is DuplicateQuestException) {
@@ -199,6 +202,169 @@ class FirebaseRadiantRepository(
                     "Could not save check-in: ${safeMessage(error)}"
                 }
                 loadOrCreateProfile(uid, onState, message)
+            }
+    }
+
+    fun saveWalletConnection(
+        publicKey: String,
+        accountLabel: String?,
+        onState: (RushUiState) -> Unit,
+    ) {
+        val cleanPublicKey = publicKey.trim()
+        if (cleanPublicKey.isBlank()) {
+            onState(errorState("Wallet connection returned an empty public key."))
+            return
+        }
+
+        val app = ensureFirebaseApp()
+        if (app == null) {
+            onState(
+                PreviewContent.defaultState().copy(
+                    firebaseStatus = FirebaseStatus.NotConfigured,
+                    todayKey = todayKey(),
+                    lastMessage = "Wallet authorized, but Firebase is not configured so the public wallet address was not saved.",
+                ),
+            )
+            return
+        }
+
+        val auth = FirebaseAuth.getInstance(app)
+        val uid = auth.currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            bootstrap(onState)
+            return
+        }
+
+        onState(
+            PreviewContent.defaultState().copy(
+                firebaseStatus = FirebaseStatus.Loading,
+                todayKey = todayKey(),
+                lastMessage = "Saving wallet identity to Firebase…",
+            ),
+        )
+
+        val db = FirebaseFirestore.getInstance(app)
+        val userRef = db.collection(USERS).document(uid)
+        val walletProofRef = userRef.collection(COMPLETED_QUESTS).document(QuestIds.WALLET_CONNECT)
+        val leaderboardRef = db.collection(LEADERBOARD).document(uid)
+
+        db.runTransaction { transaction ->
+            val userSnapshot = transaction.get(userRef)
+            val displayName = userSnapshot.getString("displayName") ?: accountLabel?.takeIf { it.isNotBlank() } ?: "Radiant Rookie"
+            val xp = userSnapshot.getLong("xp") ?: 0L
+            val level = userSnapshot.getLong("level") ?: levelForXp(xp)
+            val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
+            val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
+            val skrTier = userSnapshot.getString("skrTier") ?: "Visitor"
+
+            transaction.set(
+                userRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "walletAddress" to cleanPublicKey,
+                    "walletAddressShort" to shortenAddress(cleanPublicKey),
+                    "walletAccountLabel" to accountLabel,
+                    "walletStatus" to "Wallet connected",
+                    "skrTier" to skrTier,
+                    "xp" to xp,
+                    "level" to level,
+                    "currentStreak" to currentStreak,
+                    "longestStreak" to longestStreak,
+                    "phase" to 3,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            transaction.set(
+                walletProofRef,
+                mapOf(
+                    "questId" to QuestIds.WALLET_CONNECT,
+                    "questTitle" to "Wallet Ready",
+                    "date" to todayKey(),
+                    "proofType" to "mwa_authorization_public_key",
+                    "walletAddress" to cleanPublicKey,
+                    "walletAddressShort" to shortenAddress(cleanPublicKey),
+                    "xpEarned" to 0,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            transaction.set(
+                leaderboardRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "walletAddressShort" to shortenAddress(cleanPublicKey),
+                    "xp" to xp,
+                    "level" to level,
+                    "currentStreak" to currentStreak,
+                    "longestStreak" to longestStreak,
+                    "skrTier" to skrTier,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+        }
+            .addOnSuccessListener {
+                loadOrCreateProfile(uid, onState, "Wallet connected and public address saved to Firebase.")
+            }
+            .addOnFailureListener { error ->
+                loadOrCreateProfile(uid, onState, "Could not save wallet connection: ${safeMessage(error)}")
+            }
+    }
+
+    fun clearWalletConnection(onState: (RushUiState) -> Unit) {
+        val app = ensureFirebaseApp()
+        if (app == null) {
+            onState(
+                PreviewContent.defaultState().copy(
+                    firebaseStatus = FirebaseStatus.NotConfigured,
+                    todayKey = todayKey(),
+                    lastMessage = "Firebase is not configured yet.",
+                ),
+            )
+            return
+        }
+
+        val auth = FirebaseAuth.getInstance(app)
+        val uid = auth.currentUser?.uid
+        if (uid.isNullOrBlank()) {
+            bootstrap(onState)
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(app)
+        val userRef = db.collection(USERS).document(uid)
+        val leaderboardRef = db.collection(LEADERBOARD).document(uid)
+
+        db.runBatch { batch ->
+            batch.set(
+                userRef,
+                mapOf(
+                    "walletAddress" to null,
+                    "walletAddressShort" to null,
+                    "walletAccountLabel" to null,
+                    "walletStatus" to "Wallet not connected yet",
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+            batch.set(
+                leaderboardRef,
+                mapOf(
+                    "walletAddressShort" to "No wallet",
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+        }
+            .addOnSuccessListener {
+                loadOrCreateProfile(uid, onState, "Wallet disconnected locally and Firebase profile updated.")
+            }
+            .addOnFailureListener { error ->
+                loadOrCreateProfile(uid, onState, "Could not clear wallet connection: ${safeMessage(error)}")
             }
     }
 
@@ -221,32 +387,44 @@ class FirebaseRadiantRepository(
 
         val db = FirebaseFirestore.getInstance(app)
         val userRef = db.collection(USERS).document(uid)
-        val baseProfile = mapOf(
-            "displayName" to "Radiant Rookie",
-            "walletAddress" to null,
-            "walletStatus" to "Wallet not connected yet",
-            "skrTier" to "Visitor",
-            "xp" to 0L,
-            "level" to 1L,
-            "currentStreak" to 0L,
-            "longestStreak" to 0L,
-            "phase" to 2,
-            "createdAt" to FieldValue.serverTimestamp(),
-            "updatedAt" to FieldValue.serverTimestamp(),
-        )
 
-        userRef.set(baseProfile, SetOptions.merge())
-            .addOnSuccessListener {
-                userRef.get()
-                    .addOnSuccessListener { userSnapshot ->
-                        loadCompletedAndLeaderboard(db, uid, userSnapshot, onState, message)
-                    }
-                    .addOnFailureListener { error ->
-                        onState(errorState("Could not read Firebase profile: ${safeMessage(error)}"))
-                    }
+        userRef.get()
+            .addOnSuccessListener { snapshot ->
+                if (snapshot.exists()) {
+                    loadCompletedAndLeaderboard(db, uid, snapshot, onState, message)
+                } else {
+                    val baseProfile = mapOf(
+                        "displayName" to "Radiant Rookie",
+                        "walletAddress" to null,
+                        "walletAddressShort" to null,
+                        "walletStatus" to "Wallet not connected yet",
+                        "skrTier" to "Visitor",
+                        "xp" to 0L,
+                        "level" to 1L,
+                        "currentStreak" to 0L,
+                        "longestStreak" to 0L,
+                        "phase" to 3,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    )
+
+                    userRef.set(baseProfile)
+                        .addOnSuccessListener {
+                            userRef.get()
+                                .addOnSuccessListener { createdSnapshot ->
+                                    loadCompletedAndLeaderboard(db, uid, createdSnapshot, onState, "Firebase profile created.")
+                                }
+                                .addOnFailureListener { error ->
+                                    onState(errorState("Could not read created Firebase profile: ${safeMessage(error)}"))
+                                }
+                        }
+                        .addOnFailureListener { error ->
+                            onState(errorState("Could not create Firebase profile: ${safeMessage(error)}"))
+                        }
+                }
             }
             .addOnFailureListener { error ->
-                onState(errorState("Could not create Firebase profile: ${safeMessage(error)}"))
+                onState(errorState("Could not read Firebase profile: ${safeMessage(error)}"))
             }
     }
 
@@ -267,6 +445,8 @@ class FirebaseRadiantRepository(
                 val completedIds = completedQuery.documents
                     .mapNotNull { it.getString("questId") }
                     .toSet()
+
+                val walletConnected = !userSnapshot.getString("walletAddress").isNullOrBlank()
 
                 db.collection(LEADERBOARD)
                     .orderBy("xp", Query.Direction.DESCENDING)
@@ -289,7 +469,9 @@ class FirebaseRadiantRepository(
                         val quests = PreviewContent.quests.map { quest ->
                             when {
                                 completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
-                                quest.id == DAILY_CHECK_IN_ID -> quest.copy(status = QuestStatus.Ready)
+                                quest.id == QuestIds.WALLET_CONNECT && walletConnected -> quest.copy(status = QuestStatus.Completed)
+                                quest.id == QuestIds.DAILY_CHECK_IN -> quest.copy(status = QuestStatus.Ready)
+                                quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
                                 else -> quest.copy(status = QuestStatus.Locked)
                             }
                         }
@@ -330,10 +512,17 @@ class FirebaseRadiantRepository(
 
     private fun profileToUser(snapshot: DocumentSnapshot): UserPreview {
         val uidShort = snapshot.id.take(6).uppercase(Locale.US)
+        val walletAddress = snapshot.getString("walletAddress")
+        val walletStatus = if (!walletAddress.isNullOrBlank()) {
+            "Wallet connected"
+        } else {
+            snapshot.getString("walletStatus") ?: "Wallet not connected yet"
+        }
+
         return UserPreview(
             displayName = snapshot.getString("displayName") ?: "Radiant Rookie",
-            walletStatus = snapshot.getString("walletStatus") ?: "Wallet not connected yet",
-            walletAddress = snapshot.getString("walletAddress") ?: "Firebase uid: $uidShort • MWA starts in Phase 3",
+            walletStatus = walletStatus,
+            walletAddress = walletAddress ?: "Firebase uid: $uidShort • tap Connect Wallet to authorize with MWA",
             skrTier = snapshot.getString("skrTier") ?: "Visitor",
             xp = (snapshot.getLong("xp") ?: 0L).toInt(),
             level = (snapshot.getLong("level") ?: 1L).toInt(),
@@ -352,8 +541,8 @@ class FirebaseRadiantRepository(
     private fun badgeState(user: UserPreview, completedIds: Set<String>): List<BadgePreview> = listOf(
         BadgePreview("First Launch", "Open the native Android app shell.", unlocked = true),
         BadgePreview("Cloud Synced", "Create a Firebase profile and save progress.", unlocked = true),
-        BadgePreview("Daily Saver", "Save the daily Firebase check-in.", unlocked = completedIds.contains(DAILY_CHECK_IN_ID)),
-        BadgePreview("Wallet Ready", "Connect with Mobile Wallet Adapter.", unlocked = false),
+        BadgePreview("Daily Saver", "Save the daily Firebase check-in.", unlocked = completedIds.contains(QuestIds.DAILY_CHECK_IN)),
+        BadgePreview("Wallet Ready", "Connect with Mobile Wallet Adapter.", unlocked = user.walletStatus == "Wallet connected"),
         BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = false),
         BadgePreview("SKR Radiant", "Hold SKR and unlock boosted status.", unlocked = user.skrTier != "Visitor"),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = user.currentStreak >= 7),
@@ -374,6 +563,12 @@ class FirebaseRadiantRepository(
 
     private fun todayKey(): String = LocalDate.now(ZoneId.systemDefault()).format(dateFormatter)
 
+    private fun shortenAddress(address: String?): String {
+        val clean = address?.trim().orEmpty()
+        if (clean.length <= 12) return clean.ifBlank { "No wallet" }
+        return "${clean.take(4)}…${clean.takeLast(4)}"
+    }
+
     private fun errorState(message: String): RushUiState = PreviewContent.defaultState().copy(
         firebaseStatus = FirebaseStatus.Error,
         todayKey = todayKey(),
@@ -391,6 +586,5 @@ class FirebaseRadiantRepository(
         const val USERS = "users"
         const val COMPLETED_QUESTS = "completedQuests"
         const val LEADERBOARD = "leaderboard"
-        const val DAILY_CHECK_IN_ID = "daily-check-in"
     }
 }

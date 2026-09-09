@@ -14,6 +14,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.QuestCard
@@ -41,7 +42,7 @@ fun QuestsScreen(
         item {
             SectionTitle(
                 title = "Quest board",
-                body = "Only the daily Firebase check-in can complete in Phase 2. Wallet, on-chain, and SKR quests stay locked until their real implementations exist.",
+                body = "Phase 3 adds real Mobile Wallet Adapter authorization. On-chain memo proof and SKR balance checks remain locked until their real implementations exist.",
             )
         }
 
@@ -56,8 +57,12 @@ fun QuestsScreen(
             val quest = uiState.quests[index]
             QuestCard(
                 quest = quest,
-                actionLabel = if (quest.id == "daily-check-in") "Save Firebase Check-In" else null,
-                actionEnabled = uiState.isFirebaseReady,
+                actionLabel = when (quest.id) {
+                    QuestIds.DAILY_CHECK_IN -> "Save Firebase Check-In"
+                    QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected) "Wallet Connected" else "Connect Wallet"
+                    else -> null
+                },
+                actionEnabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
                 onClick = { selectedQuest = quest },
                 onActionClick = { onCompleteQuest(quest) },
             )
@@ -70,7 +75,7 @@ fun QuestsScreen(
             title = { Text(quest.title) },
             text = {
                 Text(
-                    text = "Proof type: ${quest.proofType}\n\n${quest.description}\n\nPhase 2 uses Firebase Auth + Firestore for app progress. It does not claim wallet or on-chain completion.",
+                    text = "Proof type: ${quest.proofType}\n\n${quest.description}\n\nPhase 3 can authorize a wallet and save its public address. It does not request message signing, send a transaction, or claim SKR verification yet.",
                 )
             },
             confirmButton = {

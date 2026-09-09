@@ -6,6 +6,10 @@ activityCompose = "1.12.4"
 coreKtx = "1.17.0"
 firebaseBom = "34.6.0"
 googleServices = "4.5.0"
+mwaClient = "2.2.0-agp9-beta1"
+web3Solana = "0.2.5"
+rpcCore = "0.2.7"
+multimult = "0.2.3"
 
 [libraries]
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
@@ -19,6 +23,10 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+solana-mwa-client = { group = "com.solanamobile", name = "mobile-wallet-adapter-clientlib-ktx", version.ref = "mwaClient" }
+solana-web3 = { group = "com.solanamobile", name = "web3-solana", version.ref = "web3Solana" }
+solana-rpc-core = { group = "com.solanamobile", name = "rpc-core", version.ref = "rpcCore" }
+multimult = { group = "io.github.funkatronics", name = "multimult", version.ref = "multimult" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

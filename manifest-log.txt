@@ -1,0 +1,1388 @@
+Initialized native services in: C:\Users\USER\.gradle\native
+Initialized jansi services in: C:\Users\USER\.gradle\native
+Removing 0 daemon stop events from registry
+Starting a Gradle Daemon (subsequent builds will be faster)
+Starting process 'Gradle build daemon'. Working directory: C:\Users\USER\.gradle\daemon\9.3.0 Command: C:\Program Files\Android\Android Studio\jbr\bin\java.exe --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED --add-opens=java.xml/javax.xml.namespace=ALL-UNNAMED --add-opens=java.base/java.time=ALL-UNNAMED --enable-native-access=ALL-UNNAMED -Xmx4096m -Dfile.encoding=UTF-8 -Duser.country=US -Duser.language=en -Duser.variant -cp C:\Users\USER\.gradle\wrapper\dists\gradle-9.3.0-bin\79n14ral3mx1ozqr3csh2u872\gradle-9.3.0\lib\gradle-daemon-main-9.3.0.jar -javaagent:C:\Users\USER\.gradle\wrapper\dists\gradle-9.3.0-bin\79n14ral3mx1ozqr3csh2u872\gradle-9.3.0\lib\agents\gradle-instrumentation-agent-9.3.0.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 9.3.0
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 1.582 secs.
+The client will now receive all logging from the daemon (pid: 37308). The daemon log file: C:\Users\USER\.gradle\daemon\9.3.0\daemon-37308.out.log
+Starting build in new daemon [memory: 4 GiB]
+Using 12 worker leases.
+Operational build model parameters: {requiresToolingModels=false, parallelProjectExecution=false, configureOnDemand=false, configurationCache=false, configurationCacheParallelStore=false, configurationCacheParallelLoad=true, isolatedProjects=false, parallelProjectConfiguration=false, intermediateModelCache=false, parallelToolingApiActions=false, invalidateCoupledProjects=false, modelAsProjectDependency=false, resilientModelBuilding=false}
+Received JVM installation metadata from 'C:\Program Files\Android\Android Studio\jbr': {JAVA_HOME=C:\Program Files\Android\Android Studio\jbr, JAVA_VERSION=25.0.3, JAVA_VENDOR=JetBrains s.r.o., RUNTIME_NAME=OpenJDK Runtime Environment, RUNTIME_VERSION=25.0.3+-15898627-b508.16, VM_NAME=OpenJDK 64-Bit Server VM, VM_VERSION=25.0.3+-15898627-b508.16, VM_VENDOR=JetBrains s.r.o., OS_ARCH=amd64}
+Watching the file system is configured to be enabled if available
+Now considering [C:\2026\SolanaHackaton\RadiantRushPhase1Android] as hierarchies to watch
+File system watching is active
+Starting Build
+Settings evaluated using settings file 'C:\2026\SolanaHackaton\RadiantRushPhase1Android\settings.gradle.kts'.
+Projects loaded. Root project using build file 'C:\2026\SolanaHackaton\RadiantRushPhase1Android\build.gradle.kts'.
+Included projects: [root project 'RadiantRushPhase1', project ':app']
+
+> Configure project :
+Evaluating root project 'RadiantRushPhase1' using build file 'C:\2026\SolanaHackaton\RadiantRushPhase1Android\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.0.1', apply: false]
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.20', apply: false]
+Resolved plugin [id: 'com.google.gms.google-services', version: '4.5.0', apply: false]
+
+> Configure project :app
+Evaluating project ':app' using build file 'C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\build.gradle.kts'.
+Resolved plugin [id: 'com.android.application', version: '9.0.1']
+Resolved plugin [id: 'org.jetbrains.kotlin.plugin.compose', version: '2.4.20']
+Build 1f8bb97c-f9e2-4591-9aa5-7d2a55b65466 is started
+Using default execution profile
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+Detected Android Gradle Plugin compose compiler configuration
+All projects evaluated.
+Task path ':app:processDebugMainManifest' matched project ':app'
+Task name matched 'processDebugMainManifest'
+Selected primary task 'processDebugMainManifest' from project :app
+Tasks to be executed: [task ':app:preBuild', task ':app:preDebugBuild', task ':app:processDebugGoogleServices', task ':app:extractDeepLinksDebug', task ':app:processDebugMainManifest']
+Tasks that were excluded: []
+Resolve mutations for :app:preBuild (Thread[#97,Execution worker,5,main]) started.
+:app:preBuild (Thread[#97,Execution worker,5,main]) started.
+
+> Task :app:preBuild UP-TO-DATE
+Skipping task ':app:preBuild' as it has no actions.
+Resolve mutations for :app:preDebugBuild (Thread[#97,Execution worker,5,main]) started.
+:app:preDebugBuild (Thread[#97,Execution worker,5,main]) started.
+
+> Task :app:preDebugBuild UP-TO-DATE
+Skipping task ':app:preDebugBuild' as it has no actions.
+Resolve mutations for :app:processDebugGoogleServices (Thread[#97,Execution worker,5,main]) started.
+:app:processDebugGoogleServices (Thread[#97,Execution worker,5,main]) started.
+
+> Task :app:processDebugGoogleServices
+Caching disabled for task ':app:processDebugGoogleServices' because:
+  Build cache is disabled
+Task ':app:processDebugGoogleServices' is not up-to-date because:
+  No history is available.
+Parsing json file: C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\google-services.json
+Resolve mutations for :app:extractDeepLinksDebug (Thread[#97,Execution worker,5,main]) started.
+:app:extractDeepLinksDebug (Thread[#97,Execution worker,5,main]) started.
+
+> Task :app:extractDeepLinksDebug
+Caching disabled for task ':app:extractDeepLinksDebug' because:
+  Build cache is disabled
+Task ':app:extractDeepLinksDebug' is not up-to-date because:
+  No history is available.
+Resolve mutations for :app:processDebugMainManifest (Thread[#97,Execution worker,5,main]) started.
+:app:processDebugMainManifest (Thread[#97,Execution worker,5,main]) started.
+
+> Task :app:processDebugMainManifest
+Resource missing. [HTTP GET: https://dl.google.com/dl/android/maven2/org/jetbrains/kotlin/kotlin-android-extensions-runtime/1.9.22/kotlin-android-extensions-runtime-1.9.22.pom]
+Downloading https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-android-extensions-runtime/1.9.22/kotlin-android-extensions-runtime-1.9.22.pom to C:\Users\USER\.gradle\.tmp\gradle_download13079610882949442269bin
+Downloading https://repo.maven.apache.org/maven2/com/solanamobile/mobile-wallet-adapter-clientlib-ktx/2.0.3/mobile-wallet-adapter-clientlib-ktx-2.0.3.aar to C:\Users\USER\.gradle\.tmp\gradle_download3795913559188847732bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-geometry-android/1.11.0/ui-geometry-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download6883250704240153069bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.solanamobile\mobile-wallet-adapter-clientlib-ktx\2.0.3\c3c5531288bc2ca1611ba2d60b4c442a39945a63\mobile-wallet-adapter-clientlib-ktx-2.0.3.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/navigationevent/navigationevent-android/1.0.2/navigationevent-android-1.0.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download10404544208075174220bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-unit-android/1.11.0/ui-unit-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download16736523269998255840bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-graphics-android/1.11.0/ui-graphics-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download14975363815947724030bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/navigationevent/navigationevent-compose-android/1.0.2/navigationevent-compose-android-1.0.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download12500175528696340242bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/material/material-ripple-android/1.11.0/material-ripple-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download10361271184062528868bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-tooling-data-android/1.11.0/ui-tooling-data-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download298742239476736687bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/foundation/foundation-android/1.11.0/foundation-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download6372645166338668909bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-geometry-android\1.11.0\33bbd925dd8d260e9ba66db047ea729edfa0cfd2\ui-geometry.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/foundation/foundation-layout-android/1.11.0/foundation-layout-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download4914185643815270876bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/animation/animation-core-android/1.11.0/animation-core-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download13270419467867268650bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/animation/animation-android/1.11.0/animation-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download11578486946168606057bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.navigationevent\navigationevent-android\1.0.2\c066b305bbc2ba9c5b2a86ee2e14d9093527572c\navigationevent.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9fb5d6fa448be83a1cc4a8c36c81c00d\workspace\transformed\mobile-wallet-adapter-clientlib-ktx-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.navigationevent\navigationevent-compose-android\1.0.2\d1cdadf149ca2fbf6c6312683d432212377d0f16\navigationevent-compose.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-tooling-data-android\1.11.0\a91bcd50ce00702e4d04ec10ec3a5fbbe203df71\ui-tooling-data.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-unit-android\1.11.0\cc29b8bfbe5ceea13e9c820292f6cedfdafe86c8\ui-unit.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e18e4eeca50cc23e4a9f455f86ffaeb6\workspace\transformed\ui-geometry because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.material\material-ripple-android\1.11.0\fefd3c71480578dfff43de61e32e1187dd9df1d4\material-ripple.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-util-android/1.11.0/ui-util-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download17495542446035069886bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-util-android\1.11.0\3940fe8c68fe765b87679e2f7bfddc855a492b22\ui-util.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e8ddd4a8c08b6c26ddfbe844776a8543\workspace\transformed\navigationevent-compose because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\89ac29aad6de38cf9cab2a5df116c5b7\workspace\transformed\navigationevent because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\375abedea83076fcdf85a8afc1ec4d76\workspace\transformed\ui-tooling-data because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-text-android/1.11.0/ui-text-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download4778534289601152434bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.animation\animation-core-android\1.11.0\8a753348538522aaaa24cfcde41617bad6f76190\animation-core.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c1fd7451e690d84b913a1272269ab402\workspace\transformed\ui-unit because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-graphics-android\1.11.0\89b0a6075eb525e551c327de42b61eb98f469759\ui-graphics.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9d154109d1d153f327f49caf3b082c04\workspace\transformed\material-ripple because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-tooling-preview-android/1.11.0/ui-tooling-preview-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download510350416265882112bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9270c184d47583ebbc254881ca2da7ad\workspace\transformed\ui-util because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/material3/material3-android/1.4.0/material3-android-1.4.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download335289847506587897bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-tooling-android/1.11.0/ui-tooling-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download4929460230411292560bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-tooling-preview-android\1.11.0\189a89404e1ffb1ea0571c932329e2edb155f52\ui-tooling-preview.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.animation\animation-android\1.11.0\9383b3eeeb6a9524291de503ad631f8b018108e\animation.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.foundation\foundation-layout-android\1.11.0\7ada42238903fb5bab25a5a4c30e4df26fd2ce43\foundation-layout.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/ui/ui-android/1.11.0/ui-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download14777004805101615443bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\f0439dc34168735caaba1b95872c831e\workspace\transformed\ui-tooling-preview because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/material/material-icons-extended-android/1.7.8/material-icons-extended-android-1.7.8.aar to C:\Users\USER\.gradle\.tmp\gradle_download9319259260851492234bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-tooling-android\1.11.0\dbdbede2c76fe3013eb15dc30a58cf57e65e682a\ui-tooling.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/material/material-icons-core-android/1.7.8/material-icons-core-android-1.7.8.aar to C:\Users\USER\.gradle\.tmp\gradle_download8022360897024871449bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-text-android\1.11.0\1b259da0212e7b28170397758b993d726c3c11c5\ui-text.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\49164c88b7751bec4b556246e6cabe96\workspace\transformed\animation-core because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/activity/activity-ktx/1.12.4/activity-ktx-1.12.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download6950565103018705489bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.activity\activity-ktx\1.12.4\ac01c0ef3fcb29e7a672f7a8f34a6b01a47b666f\activity-ktx-1.12.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e14a18e2a784aa4cecf15dfd19820704\workspace\transformed\ui-graphics because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\8e1076e5c66139471137c277c4444574\workspace\transformed\foundation-layout because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\02d53936b8d2d6c687822b3a49d6628c\workspace\transformed\animation because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/credentials/credentials/1.2.0-rc01/credentials-1.2.0-rc01.aar to C:\Users\USER\.gradle\.tmp\gradle_download15873322815917649415bin
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-auth/24.0.1/firebase-auth-24.0.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download987493278511733766bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.foundation\foundation-android\1.11.0\d503b220f844a05dca204a80dae91dd5d7e2d741\foundation.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\11a9a01a9a330ce7994cf3aedb5a8fe9\workspace\transformed\activity-ktx-1.12.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bc8dcc52724732e0eb2167c294609cd4\workspace\transformed\ui-tooling because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.material3\material3-android\1.4.0\6064b108969ab5557a0c19c7e026554f377cecf5\material3.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\94614936bb084d419e14a4346e916d9e\workspace\transformed\ui-text because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\firebase-auth\24.0.1\11d810f5496aa6d458216c99451350b4414c3049\firebase-auth-24.0.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-firestore/26.0.2/firebase-firestore-26.0.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download2391964330545292846bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.ui\ui-android\1.11.0\3358577de1ea0cddf4c8fe859873ae40961bee82\ui.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-auth/20.7.0/play-services-auth-20.7.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download7351314345263091734bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/credentials/credentials-play-services-auth/1.2.0-rc01/credentials-play-services-auth-1.2.0-rc01.aar to C:\Users\USER\.gradle\.tmp\gradle_download6170994702394459924bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.credentials\credentials-play-services-auth\1.2.0-rc01\deb70dd8ebfdbb31ea881c1c3f195dabf2d720fb\credentials-play-services-auth-1.2.0-rc01.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.gms\play-services-auth\20.7.0\746a56347e4a9b1fb644aa63b8add12b882e0daf\play-services-auth-20.7.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\firebase-firestore\26.0.2\d17b58df276bb41e88bb30312a837a9cf25b1b47\firebase-firestore-26.0.2.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-auth-api-phone/18.0.2/play-services-auth-api-phone-18.0.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download11447766099747399766bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.gms\play-services-auth-api-phone\18.0.2\7761647f560910ff979281f93d486fef2d2a0083\play-services-auth-api-phone-18.0.2.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\8a11066213e502cc25d2e5cb8dd13234\workspace\transformed\credentials-play-services-auth-1.2.0-rc01 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\8f5fa830a92346b43e428b9f709f71a9\workspace\transformed\firebase-auth-24.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\2eac33698557a1cc23094d15ad188c0d\workspace\transformed\play-services-auth-20.7.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\4ea870f1d52f91e8d85ea86010d26c3e\workspace\transformed\play-services-auth-api-phone-18.0.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\253f8c12067d958a0d3f82e1350a54cf\workspace\transformed\firebase-firestore-26.0.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/play/integrity/1.3.0/integrity-1.3.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download7914893523444171087bin
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/recaptcha/recaptcha/18.6.1/recaptcha-18.6.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download10204722421206557856bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.play\integrity\1.3.0\5d085d3269ae8f34eaf67c9ce08d0fbba7fb6886\integrity-1.3.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-appcheck-interop/17.0.0/firebase-appcheck-interop-17.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download14859963472355555852bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\firebase-appcheck-interop\17.0.0\a2d353b2ee0209a8a1a008792c4754300364a2cd\firebase-appcheck-interop-17.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\550ccd324d0aaf6479dd357a809bf4a6\workspace\transformed\firebase-appcheck-interop-17.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.recaptcha\recaptcha\18.6.1\fa1bf90136dd2c26c0e65220d27f257a695547b\recaptcha-18.6.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\4aa9e1ae8df80449f0a2284cd80e9ee2\workspace\transformed\integrity-1.3.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-auth-interop/20.0.0/firebase-auth-interop-20.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download4942968274145006672bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\firebase-auth-interop\20.0.0\b9aceac8aaaf00ae980b36c49b70446c950a4185\firebase-auth-interop-20.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-common/22.0.1/firebase-common-22.0.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download10292760433279869906bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\firebase-common\22.0.1\69128efeb4a6b79adf42ca9726f5c6e37efbeac9\firebase-common-22.0.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\84a3f61af48fba173fa835e410c09c1c\workspace\transformed\firebase-auth-interop-20.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\95f07a57f703d8d97c4a7e8a9f9d1aa2\workspace\transformed\recaptcha-18.6.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-database-collection/18.0.1/firebase-database-collection-18.0.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download837779028784690075bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3d42203738fbcba8d6185cfdd746b3fb\workspace\transformed\firebase-common-22.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\firebase-database-collection\18.0.1\1ca1e729644a383b0035e960fd1bad4870f410ee\firebase-database-collection-18.0.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.credentials\credentials\1.2.0-rc01\1afb175ff53b796445ac4c3686f4e1088bbf6dd7\credentials-1.2.0-rc01.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.material\material-icons-core-android\1.7.8\e7c6d6e090689228ba336dae014ce884c5f71436\material-icons-core-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-fido/20.1.0/play-services-fido-20.1.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download4828503679069753641bin
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-auth-base/18.0.4/play-services-auth-base-18.0.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download6807725175164498673bin
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-base/18.1.0/play-services-base-18.1.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download16752678193919751005bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.gms\play-services-fido\20.1.0\159d61705589e86d3fcf0c9a24390c669fa4fd5\play-services-fido-20.1.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.gms\play-services-auth-base\18.0.4\7f21898d8c01a18cd55d2872913f66e280a60d27\play-services-auth-base-18.0.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bcf6e13b70ac06c1b156007bfa258bbc\workspace\transformed\foundation because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.gms\play-services-base\18.1.0\2939711b0f56683f9acda65cc8797608055aa902\play-services-base-18.1.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\40c5594e3bf79426d188a2b574b8b356\workspace\transformed\material-icons-core-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\115a2d964fb08e2f18dd1da7dafb1159\workspace\transformed\firebase-database-collection-18.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\741f50854d9f8ab0ef9d39af29ced4da\workspace\transformed\play-services-fido-20.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e2ea95979e4bfa06d330984e69b41802\workspace\transformed\play-services-auth-base-18.0.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\eab93eece7f5bd35c5585f2fee41246d\workspace\transformed\ui because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\840a72a878a04121ad4a37e89b15bde4\workspace\transformed\material3 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/browser/browser/1.4.0/browser-1.4.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download13569972527741202531bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.browser\browser\1.4.0\403c3cf31622ec0c70b3c0633be3e903c8062104\browser-1.4.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/autofill/autofill/1.0.0/autofill-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download7519679491316204754bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.autofill\autofill\1.0.0\d95a6e3b895ad8f037dd01d88c87138b6d5eb507\autofill-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\366fa8a1679b85221f32d90b7b2864e8\workspace\transformed\autofill-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/transition/transition/1.6.0/transition-1.6.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download10751682295874248727bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.transition\transition\1.6.0\ce3468969bf3a42b42af76b2a6cfbe77bb4ddc33\transition-1.6.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9125c4f005514e40a79dd8c7bcf1dde6\workspace\transformed\transition-1.6.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/window/window-core-android/1.5.0/window-core-android-1.5.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download15698752167689616868bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.window\window-core-android\1.5.0\22a9096078eea50902ec3816c054eb41cdc54547\window-core.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\73257579fc6a6520f921022f270de021\workspace\transformed\credentials-1.2.0-rc01 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/viewpager/viewpager/1.0.0/viewpager-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download8580800310511030661bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.viewpager\viewpager\1.0.0\1f90e13820f96c2fb868f9674079a551678d68b2\viewpager-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bf1e73f566dc1440c6035ad247d1401d\workspace\transformed\window-core because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/window/window/1.5.0/window-1.5.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download6005333868600874480bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\83afd88c257f4e7bb90c0ab75137d51c\workspace\transformed\viewpager-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.window\window\1.5.0\386d81dd80774e9f495a5750b4d3af206a45004\window-1.5.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/legacy/legacy-support-core-utils/1.0.0/legacy-support-core-utils-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download17332778931822388255bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/dynamicanimation/dynamicanimation/1.0.0/dynamicanimation-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download6697036672415140629bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.legacy\legacy-support-core-utils\1.0.0\9b9570042115da8629519090dfeb71df75da59fc\legacy-support-core-utils-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\50e889c4b3992c3a66f334eb64426b0a\workspace\transformed\legacy-support-core-utils-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\eaefc8efdf02309ad35f73672e32b067\workspace\transformed\play-services-base-18.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.material\material-icons-extended-android\1.7.8\7499b6142a798c77a178b1098319c0b90595ab84\material-icons-extended-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/graphics/graphics-path/1.0.1/graphics-path-1.0.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download14760776198034167545bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/emoji2/emoji2/1.4.0/emoji2-1.4.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download15602151519897642194bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/customview/customview/1.0.0/customview-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download9975063730276470575bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/loader/loader/1.0.0/loader-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download8067567532924688915bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.dynamicanimation\dynamicanimation\1.0.0\e980497a58fb319d471f3bb78d066b926a08ba8e\dynamicanimation-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.graphics\graphics-path\1.0.1\7e243033abd313c7202428422a01d48691378e33\graphics-path-1.0.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\ab776666e04ea3ef0422f81e94a24ff5\workspace\transformed\browser-1.4.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.loader\loader\1.0.0\8af8b6cec0da85c207d03e15840e0722cbc71e70\loader-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.customview\customview\1.0.0\30f5ff6075d112f8076e733b24410e68159735b6\customview-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.emoji2\emoji2\1.4.0\db99b152737e1ef1cca8e2ff24986a1e1dc8561d\emoji2-1.4.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/core/core/1.17.0/core-1.17.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download13526638817597610650bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9a89bd0398a6019da618918bafaf03cc\workspace\transformed\dynamicanimation-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\2321d6924f2d9855a5fe71cbfd85ff08\workspace\transformed\window-1.5.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\6931bb2bae5a339eacde9410a3290a8e\workspace\transformed\loader-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\86a509761f44a6ca415f7bcff0854656\workspace\transformed\customview-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\0276206acd8570936c2dae9852b46f5e\workspace\transformed\graphics-path-1.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.core\core\1.17.0\1eb461d3499f5bb832dd45edd3982471a11a3f95\core-1.17.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\b0b4f2fd6307eaf490eca134d3650f03\workspace\transformed\emoji2-1.4.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/test/ext/junit-ktx/1.1.5/junit-ktx-1.1.5.aar to C:\Users\USER\.gradle\.tmp\gradle_download12735540844097878049bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.test.ext\junit-ktx\1.1.5\7d975946f4ab69e197fd79e84fc362a59a1a43eb\junit-ktx-1.1.5.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\df3a7c43e1822359f2c0a104fd04dd4c\workspace\transformed\junit-ktx-1.1.5 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-process/2.9.4/lifecycle-process-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download13341214356421617574bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-process\2.9.4\6b51ead80ff00bb23d5801f08e67aa6b628e07b5\lifecycle-process-2.9.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\d2101d7af06a029955596199b3af164c\workspace\transformed\lifecycle-process-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core-ktx/2.9.4/lifecycle-livedata-core-ktx-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download9327994287055258167bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-livedata-core-ktx\2.9.4\68b88348bde12d53ab420ce6b5ac3cb9a8c45a11\lifecycle-livedata-core-ktx-2.9.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\f99772482e92ddfc66c8d984f16075b0\workspace\transformed\lifecycle-livedata-core-ktx-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata-core/2.9.4/lifecycle-livedata-core-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download2049525488568502039bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-livedata-core\2.9.4\8ffb4401079c231b0a85014cf2e4df02c804d53b\lifecycle-livedata-core-2.9.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\d2c9dd4824e57ca38a54bc8a3fcfcd66\workspace\transformed\lifecycle-livedata-core-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c258a94bf4d2010897471ad183bd7981\workspace\transformed\core-1.17.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-livedata/2.9.4/lifecycle-livedata-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download11169130131806678760bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-livedata\2.9.4\a445cc747a3b97b2c716a41456edd6b88db8b325\lifecycle-livedata-2.9.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-ktx/1.3.2/savedstate-ktx-1.3.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download3578700551274569968bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-android/1.3.2/savedstate-android-1.3.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download570359061329304522bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel/2.9.4/lifecycle-viewmodel-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download17642811238096359468bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-android/2.9.4/lifecycle-viewmodel-android-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download4678018825635621228bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.savedstate\savedstate-ktx\1.3.2\d09ffd11731a36f819dedbfe93f941458e63484f\savedstate-ktx-1.3.2.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-viewmodel\2.9.4\8f4ec32b47aad807accb172e851839dca2502de4\lifecycle-viewmodel-2.9.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-viewmodel-android\2.9.4\d7f04dd2b3815ea592642340dabc73352c3786a3\lifecycle-viewmodel-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.savedstate\savedstate-android\1.3.2\2d0bd847019e056e14327f62cab1d6b26f1cb1dc\savedstate-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-annotation-android/1.11.0/runtime-annotation-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download6006842081194695624bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-ktx/2.9.4/lifecycle-viewmodel-ktx-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download18323976562280469180bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-ktx-android/2.9.4/lifecycle-runtime-ktx-android-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download15966718760893879193bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.runtime\runtime-annotation-android\1.11.0\534b1dd32251b1011a1096376d1693a0ceb8db35\runtime-annotation.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-retain-android/1.11.0/runtime-retain-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download5499296900337325157bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-viewmodel-ktx\2.9.4\83844a139f46cf3d195148d78f1820ecebf61294\lifecycle-viewmodel-ktx-2.9.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-runtime-ktx-android\2.9.4\58b7a78b98c61ac487551aa60cd17e1a4d01af96\lifecycle-runtime-ktx.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.runtime\runtime-retain-android\1.11.0\3502680af17c0ebf6e50d5459a00970f8d4346a9\runtime-retain.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-viewmodel-savedstate-android/2.9.4/lifecycle-viewmodel-savedstate-android-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download12080478620117137551bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\fe299144b21aacf4c8cfa609b6f919a5\workspace\transformed\lifecycle-viewmodel-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\ead3922522bdda19fb4a4db323e18c89\workspace\transformed\savedstate-ktx-1.3.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e6a23294055afa8db594784e69d6ed66\workspace\transformed\lifecycle-livedata-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\dcaa91cb225eeb260b383c9aa495443b\workspace\transformed\runtime-annotation because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3c49d75c0d001b8e99ee10846be7dbe5\workspace\transformed\lifecycle-runtime-ktx because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\fe0b0d3b3ac70e3eb0cc342f7c50e810\workspace\transformed\lifecycle-viewmodel-ktx-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-android/1.11.0/runtime-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download8023473624760197676bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/compose/runtime/runtime-saveable-android/1.11.0/runtime-saveable-android-1.11.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download14466013374433022280bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-viewmodel-savedstate-android\2.9.4\5ec9278f5df344e931a5e57d91f91f181a165055\lifecycle-viewmodel-savedstate-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/savedstate/savedstate-compose-android/1.3.2/savedstate-compose-android-1.3.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download638606610261827585bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e9264499559e740271c214a70c490511\workspace\transformed\lifecycle-viewmodel-release because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-compose-android/2.9.4/lifecycle-runtime-compose-android-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download7869390394418089704bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\29e02012ff8da11562328c5c52182629\workspace\transformed\savedstate-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.savedstate\savedstate-compose-android\1.3.2\f19f69cc6e9a996295d61e674f54f7f63454b7e4\savedstate-compose.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.runtime\runtime-saveable-android\1.11.0\185fc440f2303a3ea09e605415f49df393c10a92\runtime-saveable.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\5d9803f417f1c03b96d2da476342dba6\workspace\transformed\runtime-retain because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-core-android/1.1.7/datastore-core-android-1.1.7.aar to C:\Users\USER\.gradle\.tmp\gradle_download5119244232100628482bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-android/1.1.7/datastore-android-1.1.7.aar to C:\Users\USER\.gradle\.tmp\gradle_download3766746807839570767bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-android/2.9.4/lifecycle-runtime-android-2.9.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download5712857172035157885bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.datastore\datastore-android\1.1.7\4c12c47f19bc951e572ddd78fd7917630bae27f9\datastore-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.datastore\datastore-core-android\1.1.7\a9f2c979b8890eece47fadf583fe9647107c624a\datastore-core-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-preferences-core-android/1.1.7/datastore-preferences-core-android-1.1.7.aar to C:\Users\USER\.gradle\.tmp\gradle_download10576843370987218257bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-preferences-android/1.1.7/datastore-preferences-android-1.1.7.aar to C:\Users\USER\.gradle\.tmp\gradle_download12221179165981807763bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.datastore\datastore-preferences-core-android\1.1.7\cf1746c62f09840ecc48ce52d7d946464eb790af\datastore-preferences-core-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.datastore\datastore-preferences-android\1.1.7\d6e8fe9a0acdc43bac566188694c9f5fdb72bca1\datastore-preferences-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-runtime-android\2.9.4\fd218d3a91d46511975ef11165ffba7d696c04a\lifecycle-runtime-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\60685169c54ec4d5eac225d34ad33a31\workspace\transformed\savedstate-compose because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.compose.runtime\runtime-android\1.11.0\252dd52cfd4ac741eb7fc7e3b22c628a0dd5cc0d\runtime.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\00b3f2b4c3452f034361cee1bf5f9361\workspace\transformed\lifecycle-viewmodel-savedstate-release because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://repo.maven.apache.org/maven2/com/ditchoom/buffer-android/1.3.0/buffer-android-1.3.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download9137244063730128721bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\6e76fbbaf8a0b727f6561a0ffaa8ad5c\workspace\transformed\datastore-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\1d9eb4706c65098541f33870f79e64f7\workspace\transformed\runtime-saveable because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.ditchoom\buffer-android\1.3.0\dfd27ed5b555ad182481012614d33e2b74cb7264\buffer-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-tasks/18.2.0/play-services-tasks-18.2.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download5229861183167166945bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\12683f1678c28c6b66ddad88c1e7d760\workspace\transformed\datastore-preferences-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\be358ad905093d13b94e38320b89e673\workspace\transformed\datastore-preferences-core-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.lifecycle\lifecycle-runtime-compose-android\2.9.4\ca8d7bbd9529da9346e0e6a27462fafcdc324ae\lifecycle-runtime-compose-release.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.gms\play-services-tasks\18.2.0\75cd01884bac2768b8ab1b530c6510334bb2330c\play-services-tasks-18.2.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c8f0ca55f9c94857d8333ab35ba9b095\workspace\transformed\lifecycle-runtime-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\846267ab2ea3954e862da82c15c019c5\workspace\transformed\datastore-core-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\56d4b2dd0fcd0fb29c9baa8b41cea127\workspace\transformed\play-services-tasks-18.2.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\01ce235cf989a94a9bce12831573c9d6\workspace\transformed\buffer-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3d51bed5970c10f27443921475d85f7c\workspace\transformed\material-icons-extended-release because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-basement/18.8.0/play-services-basement-18.8.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download9513753422500754723bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\d4624f69789f9d01eed4c6d96a8dceeb\workspace\transformed\runtime because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\737e205bfbbab8da1f24f067f6bc4130\workspace\transformed\lifecycle-runtime-compose-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.gms\play-services-basement\18.8.0\527568ea68a71f5618806a761a451d3dee41e5cf\play-services-basement-18.8.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\7f46655b4cc621609485d37d76fab8d9\workspace\transformed\play-services-basement-18.8.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/customview/customview-poolingcontainer/1.0.0/customview-poolingcontainer-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download8778902528234071118bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/core/core-viewtree/1.0.0/core-viewtree-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download327963059314477122bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/fragment/fragment/1.1.0/fragment-1.1.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download14555200726856252991bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.17.0/core-ktx-1.17.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download12299252163471916662bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-experimental/1.4.1/annotation-experimental-1.4.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download14120197799237343855bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/activity/activity-compose/1.12.4/activity-compose-1.12.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download13882456186958249744bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.customview\customview-poolingcontainer\1.0.0\579fc832cf0e5be08d8d9571850b50d22d9de3c\customview-poolingcontainer-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.core\core-viewtree\1.0.0\449ba4f495b4d10d18edd01f32f9328be40d5749\core-viewtree-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.annotation\annotation-experimental\1.4.1\7851235e2a16ce50270a74b555edaf9209b42864\annotation-experimental-1.4.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.fragment\fragment\1.1.0\5f9efc7569e651415a0958d6b3e6226ef2825c24\fragment-1.1.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.core\core-ktx\1.17.0\77d65388760e55bd6336907eec271607afb6c62f\core-ktx-1.17.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/libraries/identity/googleid/googleid/1.1.0/googleid-1.1.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download15182428541431500008bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/activity/activity/1.12.4/activity-1.12.4.aar to C:\Users\USER\.gradle\.tmp\gradle_download16649061605043460567bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.libraries.identity.googleid\googleid\1.1.0\ab2f9227c7104614fdce3bed7f4b083b70bcb9f\googleid-1.1.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e8758868dc5e16b79286f807fd0cf9e4\workspace\transformed\fragment-1.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.activity\activity\1.12.4\c2ed82b5838b893947bb7714ddc5b9cb98219a\activity-1.12.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.activity\activity-compose\1.12.4\cb663998aa9ba84d4d348e95fc246b729ad744ec\activity-compose-1.12.4.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\dfbc23eca46becd5c37fc4df8852b1a4\workspace\transformed\customview-poolingcontainer-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\0a75f4b58873b5406571a9f6cef0c9ef\workspace\transformed\core-viewtree-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e9570a2dd3ebf74aff213c0b6a2331ea\workspace\transformed\googleid-1.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\2bd02c4418ee3defe605771cd6a4ea17\workspace\transformed\annotation-experimental-1.4.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/tracing/tracing/1.2.0/tracing-1.2.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download8130759372665642329bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/profileinstaller/profileinstaller/1.4.0/profileinstaller-1.4.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download3802806382161257218bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/localbroadcastmanager/localbroadcastmanager/1.0.0/localbroadcastmanager-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download1935462783055078011bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.localbroadcastmanager\localbroadcastmanager\1.0.0\2734f31c8321e83ce6b60570d14777fc33cc2ece\localbroadcastmanager-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.tracing\tracing\1.2.0\a6ac2cc501278fdc99c56b428548e0cd1e9300f7\tracing-1.2.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.profileinstaller\profileinstaller\1.4.0\6b6262e9ca50d1f75a496f3b64ebeb092a9d42eb\profileinstaller-1.4.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9246a6b4a45dc958b84f6725db432617\workspace\transformed\core-ktx-1.17.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/firebase-components/19.0.0/firebase-components-19.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download6959007800266915657bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\a47f9c3523e7c2d2549be74987a4e221\workspace\transformed\localbroadcastmanager-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/versionedparcelable/versionedparcelable/1.1.1/versionedparcelable-1.1.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download1681127651213096724bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\firebase-components\19.0.0\192f6dd26d0c158ad96101ae0e24b8481e48e06e\firebase-components-19.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.versionedparcelable\versionedparcelable\1.1.1\18e18071e7715679e0593c570217edeb5ca48b9e\versionedparcelable-1.1.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/interpolator/interpolator/1.0.0/interpolator-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download15870108009576105663bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bdf4706a03d5a713924c1a91c066cf53\workspace\transformed\tracing-1.2.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.interpolator\interpolator\1.0.0\8a01fa254a23b9388571eb6334b03707c7d122d7\interpolator-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\76848ea84ee38c2832cfa630d0c32f3e\workspace\transformed\activity-1.12.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9068249bfc019027d6019f6803d83415\workspace\transformed\profileinstaller-1.4.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\903d8837ad2f9058e810c4134d205a1e\workspace\transformed\versionedparcelable-1.1.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c38702456b7351a2f7a4827c9e8744ba\workspace\transformed\interpolator-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/test/ext/junit/1.1.5/junit-1.1.5.aar to C:\Users\USER\.gradle\.tmp\gradle_download16740273249308157372bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.test.ext\junit\1.1.5\7428e93063c869a537fadbdfcb15f37131c57965\junit-1.1.5.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\92b49dcd19fc6f20736a469a44631a91\workspace\transformed\firebase-components-19.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\b1f60942d20ab99e410a8ec804eaea69\workspace\transformed\activity-compose-1.12.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/androidx/documentfile/documentfile/1.0.0/documentfile-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download5399088328355618850bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/print/print/1.0.0/print-1.0.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download16851331243812397391bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/startup/startup-runtime/1.1.1/startup-runtime-1.1.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download3599607726739265380bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e6a37ff5bdff853d0ecd31f004d4c8e9\workspace\transformed\junit-1.1.5 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://dl.google.com/dl/android/maven2/com/google/firebase/protolite-well-known-types/18.0.1/protolite-well-known-types-18.0.1.aar to C:\Users\USER\.gradle\.tmp\gradle_download13996722810147102565bin
+Downloading https://dl.google.com/dl/android/maven2/androidx/arch/core/core-runtime/2.2.0/core-runtime-2.2.0.aar to C:\Users\USER\.gradle\.tmp\gradle_download14927855893952805350bin
+Downloading https://dl.google.com/dl/android/maven2/com/google/android/play/core-common/2.0.3/core-common-2.0.3.aar to C:\Users\USER\.gradle\.tmp\gradle_download13936940867068455658bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.documentfile\documentfile\1.0.0\66104345c90cd8c2fd5ad2d3aad692b280e10c32\documentfile-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.print\print\1.0.0\7722094652c48ebe27acc94d74a55e759e4635ff\print-1.0.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://repo.maven.apache.org/maven2/com/solanamobile/mobile-wallet-adapter-clientlib/2.0.3/mobile-wallet-adapter-clientlib-2.0.3.aar to C:\Users\USER\.gradle\.tmp\gradle_download11813422151334834666bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.arch.core\core-runtime\2.2.0\39705982680d78556b679ef9d5400d4f17509b0b\core-runtime-2.2.0.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\androidx.startup\startup-runtime\1.1.1\9d4ba67056aff98b69eadc1477c19a1e67cb9470\startup-runtime-1.1.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.android.play\core-common\2.0.3\ab0c1fdc9606f9421764504cd59b0b2a512a9d0c\core-common-2.0.3.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\4f467120d574ffff5108be37ed01e406\workspace\transformed\documentfile-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.solanamobile\mobile-wallet-adapter-clientlib\2.0.3\24bf8676edfce4478397f32f5385ad46b8fd576f\mobile-wallet-adapter-clientlib-2.0.3.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://repo.maven.apache.org/maven2/io/grpc/grpc-android/1.62.2/grpc-android-1.62.2.aar to C:\Users\USER\.gradle\.tmp\gradle_download7233108986656777782bin
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\64a0f88b349a27e4c5434affb8b6e467\workspace\transformed\print-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Downloading https://repo.maven.apache.org/maven2/com/solanamobile/mobile-wallet-adapter-common/2.0.3/mobile-wallet-adapter-common-2.0.3.aar to C:\Users\USER\.gradle\.tmp\gradle_download937509653449195109bin
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\io.grpc\grpc-android\1.62.2\64722ff04e2aebfacc92d7e1fda9b50ee79a4298\grpc-android-1.62.2.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.solanamobile\mobile-wallet-adapter-common\2.0.3\6d493805a8600f7e0452738d09a292a79bf0bda9\mobile-wallet-adapter-common-2.0.3.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\521bbd9273b197dc5ccd228cd3b49baa\workspace\transformed\core-runtime-2.2.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\dd4a5822c747deadc7985ca945a09aea\workspace\transformed\core-common-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for ExtractAarTransform: C:\Users\USER\.gradle\caches\modules-2\files-2.1\com.google.firebase\protolite-well-known-types\18.0.1\4a51540c04e86b4f25c493ca4276194b87ba6281\protolite-well-known-types-18.0.1.aar because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3b65c4238d158278a70351e936ee0d62\workspace\transformed\startup-runtime-1.1.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\ba6207bbedafd16510ada30b02fc25a9\workspace\transformed\grpc-android-1.62.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\b6a25e89cf36669ff4222d204283c315\workspace\transformed\mobile-wallet-adapter-clientlib-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\00069bc2891d0cb61df17c28e4cfe919\workspace\transformed\mobile-wallet-adapter-common-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\afe90adebb29eafef6069840c1db3577\workspace\transformed\protolite-well-known-types-18.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\89ac29aad6de38cf9cab2a5df116c5b7\workspace\transformed\navigationevent because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9fb5d6fa448be83a1cc4a8c36c81c00d\workspace\transformed\mobile-wallet-adapter-clientlib-ktx-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e8ddd4a8c08b6c26ddfbe844776a8543\workspace\transformed\navigationevent-compose because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9d154109d1d153f327f49caf3b082c04\workspace\transformed\material-ripple because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\8e1076e5c66139471137c277c4444574\workspace\transformed\foundation-layout because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bcf6e13b70ac06c1b156007bfa258bbc\workspace\transformed\foundation because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\02d53936b8d2d6c687822b3a49d6628c\workspace\transformed\animation because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\375abedea83076fcdf85a8afc1ec4d76\workspace\transformed\ui-tooling-data because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e14a18e2a784aa4cecf15dfd19820704\workspace\transformed\ui-graphics because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\49164c88b7751bec4b556246e6cabe96\workspace\transformed\animation-core because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c1fd7451e690d84b913a1272269ab402\workspace\transformed\ui-unit because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9270c184d47583ebbc254881ca2da7ad\workspace\transformed\ui-util because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e18e4eeca50cc23e4a9f455f86ffaeb6\workspace\transformed\ui-geometry because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\f0439dc34168735caaba1b95872c831e\workspace\transformed\ui-tooling-preview because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\94614936bb084d419e14a4346e916d9e\workspace\transformed\ui-text because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bc8dcc52724732e0eb2167c294609cd4\workspace\transformed\ui-tooling because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3d51bed5970c10f27443921475d85f7c\workspace\transformed\material-icons-extended-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\840a72a878a04121ad4a37e89b15bde4\workspace\transformed\material3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\eab93eece7f5bd35c5585f2fee41246d\workspace\transformed\ui because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\8f5fa830a92346b43e428b9f709f71a9\workspace\transformed\firebase-auth-24.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\40c5594e3bf79426d188a2b574b8b356\workspace\transformed\material-icons-core-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\253f8c12067d958a0d3f82e1350a54cf\workspace\transformed\firebase-firestore-26.0.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\11a9a01a9a330ce7994cf3aedb5a8fe9\workspace\transformed\activity-ktx-1.12.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\8a11066213e502cc25d2e5cb8dd13234\workspace\transformed\credentials-play-services-auth-1.2.0-rc01 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\2eac33698557a1cc23094d15ad188c0d\workspace\transformed\play-services-auth-20.7.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\73257579fc6a6520f921022f270de021\workspace\transformed\credentials-1.2.0-rc01 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\4ea870f1d52f91e8d85ea86010d26c3e\workspace\transformed\play-services-auth-api-phone-18.0.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\4aa9e1ae8df80449f0a2284cd80e9ee2\workspace\transformed\integrity-1.3.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\95f07a57f703d8d97c4a7e8a9f9d1aa2\workspace\transformed\recaptcha-18.6.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\550ccd324d0aaf6479dd357a809bf4a6\workspace\transformed\firebase-appcheck-interop-17.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\84a3f61af48fba173fa835e410c09c1c\workspace\transformed\firebase-auth-interop-20.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3d42203738fbcba8d6185cfdd746b3fb\workspace\transformed\firebase-common-22.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\115a2d964fb08e2f18dd1da7dafb1159\workspace\transformed\firebase-database-collection-18.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\741f50854d9f8ab0ef9d39af29ced4da\workspace\transformed\play-services-fido-20.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e2ea95979e4bfa06d330984e69b41802\workspace\transformed\play-services-auth-base-18.0.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\eaefc8efdf02309ad35f73672e32b067\workspace\transformed\play-services-base-18.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\ab776666e04ea3ef0422f81e94a24ff5\workspace\transformed\browser-1.4.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bf1e73f566dc1440c6035ad247d1401d\workspace\transformed\window-core because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\2321d6924f2d9855a5fe71cbfd85ff08\workspace\transformed\window-1.5.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\366fa8a1679b85221f32d90b7b2864e8\workspace\transformed\autofill-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9125c4f005514e40a79dd8c7bcf1dde6\workspace\transformed\transition-1.6.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9a89bd0398a6019da618918bafaf03cc\workspace\transformed\dynamicanimation-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\6931bb2bae5a339eacde9410a3290a8e\workspace\transformed\loader-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\86a509761f44a6ca415f7bcff0854656\workspace\transformed\customview-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\b0b4f2fd6307eaf490eca134d3650f03\workspace\transformed\emoji2-1.4.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\83afd88c257f4e7bb90c0ab75137d51c\workspace\transformed\viewpager-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\50e889c4b3992c3a66f334eb64426b0a\workspace\transformed\legacy-support-core-utils-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\0276206acd8570936c2dae9852b46f5e\workspace\transformed\graphics-path-1.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c258a94bf4d2010897471ad183bd7981\workspace\transformed\core-1.17.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\df3a7c43e1822359f2c0a104fd04dd4c\workspace\transformed\junit-ktx-1.1.5 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\d2101d7af06a029955596199b3af164c\workspace\transformed\lifecycle-process-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\f99772482e92ddfc66c8d984f16075b0\workspace\transformed\lifecycle-livedata-core-ktx-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e6a23294055afa8db594784e69d6ed66\workspace\transformed\lifecycle-livedata-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\d2c9dd4824e57ca38a54bc8a3fcfcd66\workspace\transformed\lifecycle-livedata-core-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\00b3f2b4c3452f034361cee1bf5f9361\workspace\transformed\lifecycle-viewmodel-savedstate-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3c49d75c0d001b8e99ee10846be7dbe5\workspace\transformed\lifecycle-runtime-ktx because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\fe0b0d3b3ac70e3eb0cc342f7c50e810\workspace\transformed\lifecycle-viewmodel-ktx-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\fe299144b21aacf4c8cfa609b6f919a5\workspace\transformed\lifecycle-viewmodel-2.9.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\5d9803f417f1c03b96d2da476342dba6\workspace\transformed\runtime-retain because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\dcaa91cb225eeb260b383c9aa495443b\workspace\transformed\runtime-annotation because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e9264499559e740271c214a70c490511\workspace\transformed\lifecycle-viewmodel-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\29e02012ff8da11562328c5c52182629\workspace\transformed\savedstate-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\ead3922522bdda19fb4a4db323e18c89\workspace\transformed\savedstate-ktx-1.3.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\d4624f69789f9d01eed4c6d96a8dceeb\workspace\transformed\runtime because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\1d9eb4706c65098541f33870f79e64f7\workspace\transformed\runtime-saveable because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\60685169c54ec4d5eac225d34ad33a31\workspace\transformed\savedstate-compose because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\737e205bfbbab8da1f24f067f6bc4130\workspace\transformed\lifecycle-runtime-compose-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c8f0ca55f9c94857d8333ab35ba9b095\workspace\transformed\lifecycle-runtime-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\be358ad905093d13b94e38320b89e673\workspace\transformed\datastore-preferences-core-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\846267ab2ea3954e862da82c15c019c5\workspace\transformed\datastore-core-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\6e76fbbaf8a0b727f6561a0ffaa8ad5c\workspace\transformed\datastore-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\12683f1678c28c6b66ddad88c1e7d760\workspace\transformed\datastore-preferences-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\01ce235cf989a94a9bce12831573c9d6\workspace\transformed\buffer-release because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\56d4b2dd0fcd0fb29c9baa8b41cea127\workspace\transformed\play-services-tasks-18.2.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\7f46655b4cc621609485d37d76fab8d9\workspace\transformed\play-services-basement-18.8.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e8758868dc5e16b79286f807fd0cf9e4\workspace\transformed\fragment-1.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\76848ea84ee38c2832cfa630d0c32f3e\workspace\transformed\activity-1.12.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\b1f60942d20ab99e410a8ec804eaea69\workspace\transformed\activity-compose-1.12.4 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\dfbc23eca46becd5c37fc4df8852b1a4\workspace\transformed\customview-poolingcontainer-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9246a6b4a45dc958b84f6725db432617\workspace\transformed\core-ktx-1.17.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e9570a2dd3ebf74aff213c0b6a2331ea\workspace\transformed\googleid-1.1.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\2bd02c4418ee3defe605771cd6a4ea17\workspace\transformed\annotation-experimental-1.4.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\0a75f4b58873b5406571a9f6cef0c9ef\workspace\transformed\core-viewtree-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\c38702456b7351a2f7a4827c9e8744ba\workspace\transformed\interpolator-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\3b65c4238d158278a70351e936ee0d62\workspace\transformed\startup-runtime-1.1.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\903d8837ad2f9058e810c4134d205a1e\workspace\transformed\versionedparcelable-1.1.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\a47f9c3523e7c2d2549be74987a4e221\workspace\transformed\localbroadcastmanager-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\9068249bfc019027d6019f6803d83415\workspace\transformed\profileinstaller-1.4.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\92b49dcd19fc6f20736a469a44631a91\workspace\transformed\firebase-components-19.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\bdf4706a03d5a713924c1a91c066cf53\workspace\transformed\tracing-1.2.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\e6a37ff5bdff853d0ecd31f004d4c8e9\workspace\transformed\junit-1.1.5 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\521bbd9273b197dc5ccd228cd3b49baa\workspace\transformed\core-runtime-2.2.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\4f467120d574ffff5108be37ed01e406\workspace\transformed\documentfile-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\64a0f88b349a27e4c5434affb8b6e467\workspace\transformed\print-1.0.0 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\ba6207bbedafd16510ada30b02fc25a9\workspace\transformed\grpc-android-1.62.2 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\b6a25e89cf36669ff4222d204283c315\workspace\transformed\mobile-wallet-adapter-clientlib-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\afe90adebb29eafef6069840c1db3577\workspace\transformed\protolite-well-known-types-18.0.1 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\00069bc2891d0cb61df17c28e4cfe919\workspace\transformed\mobile-wallet-adapter-common-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for AarTransform: C:\Users\USER\.gradle\caches\9.3.0\transforms\dd4a5822c747deadc7985ca945a09aea\workspace\transformed\core-common-2.0.3 because:
+  Build cache is disabled
+  Caching not enabled.
+Caching disabled for task ':app:processDebugMainManifest' because:
+  Build cache is disabled
+Task ':app:processDebugMainManifest' is not up-to-date because:
+  No history is available.
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\9fb5d6fa448be83a1cc4a8c36c81c00d\workspace\transformed\mobile-wallet-adapter-clientlib-ktx-2.0.3\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\89ac29aad6de38cf9cab2a5df116c5b7\workspace\transformed\navigationevent\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e8ddd4a8c08b6c26ddfbe844776a8543\workspace\transformed\navigationevent-compose\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\49164c88b7751bec4b556246e6cabe96\workspace\transformed\animation-core\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\9d154109d1d153f327f49caf3b082c04\workspace\transformed\material-ripple\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\02d53936b8d2d6c687822b3a49d6628c\workspace\transformed\animation\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\8e1076e5c66139471137c277c4444574\workspace\transformed\foundation-layout\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\bcf6e13b70ac06c1b156007bfa258bbc\workspace\transformed\foundation\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\375abedea83076fcdf85a8afc1ec4d76\workspace\transformed\ui-tooling-data\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\c1fd7451e690d84b913a1272269ab402\workspace\transformed\ui-unit\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e14a18e2a784aa4cecf15dfd19820704\workspace\transformed\ui-graphics\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e18e4eeca50cc23e4a9f455f86ffaeb6\workspace\transformed\ui-geometry\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\9270c184d47583ebbc254881ca2da7ad\workspace\transformed\ui-util\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\94614936bb084d419e14a4346e916d9e\workspace\transformed\ui-text\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\f0439dc34168735caaba1b95872c831e\workspace\transformed\ui-tooling-preview\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\bc8dcc52724732e0eb2167c294609cd4\workspace\transformed\ui-tooling\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\840a72a878a04121ad4a37e89b15bde4\workspace\transformed\material3\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\3d51bed5970c10f27443921475d85f7c\workspace\transformed\material-icons-extended-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\40c5594e3bf79426d188a2b574b8b356\workspace\transformed\material-icons-core-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\eab93eece7f5bd35c5585f2fee41246d\workspace\transformed\ui\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\11a9a01a9a330ce7994cf3aedb5a8fe9\workspace\transformed\activity-ktx-1.12.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\8f5fa830a92346b43e428b9f709f71a9\workspace\transformed\firebase-auth-24.0.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\253f8c12067d958a0d3f82e1350a54cf\workspace\transformed\firebase-firestore-26.0.2\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\73257579fc6a6520f921022f270de021\workspace\transformed\credentials-1.2.0-rc01\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\8a11066213e502cc25d2e5cb8dd13234\workspace\transformed\credentials-play-services-auth-1.2.0-rc01\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\2eac33698557a1cc23094d15ad188c0d\workspace\transformed\play-services-auth-20.7.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\4ea870f1d52f91e8d85ea86010d26c3e\workspace\transformed\play-services-auth-api-phone-18.0.2\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\95f07a57f703d8d97c4a7e8a9f9d1aa2\workspace\transformed\recaptcha-18.6.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\4aa9e1ae8df80449f0a2284cd80e9ee2\workspace\transformed\integrity-1.3.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\550ccd324d0aaf6479dd357a809bf4a6\workspace\transformed\firebase-appcheck-interop-17.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\84a3f61af48fba173fa835e410c09c1c\workspace\transformed\firebase-auth-interop-20.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\3d42203738fbcba8d6185cfdd746b3fb\workspace\transformed\firebase-common-22.0.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\115a2d964fb08e2f18dd1da7dafb1159\workspace\transformed\firebase-database-collection-18.0.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\741f50854d9f8ab0ef9d39af29ced4da\workspace\transformed\play-services-fido-20.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e2ea95979e4bfa06d330984e69b41802\workspace\transformed\play-services-auth-base-18.0.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\eaefc8efdf02309ad35f73672e32b067\workspace\transformed\play-services-base-18.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\ab776666e04ea3ef0422f81e94a24ff5\workspace\transformed\browser-1.4.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\366fa8a1679b85221f32d90b7b2864e8\workspace\transformed\autofill-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\9125c4f005514e40a79dd8c7bcf1dde6\workspace\transformed\transition-1.6.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\bf1e73f566dc1440c6035ad247d1401d\workspace\transformed\window-core\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\2321d6924f2d9855a5fe71cbfd85ff08\workspace\transformed\window-1.5.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\83afd88c257f4e7bb90c0ab75137d51c\workspace\transformed\viewpager-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\9a89bd0398a6019da618918bafaf03cc\workspace\transformed\dynamicanimation-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\50e889c4b3992c3a66f334eb64426b0a\workspace\transformed\legacy-support-core-utils-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\6931bb2bae5a339eacde9410a3290a8e\workspace\transformed\loader-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\86a509761f44a6ca415f7bcff0854656\workspace\transformed\customview-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\b0b4f2fd6307eaf490eca134d3650f03\workspace\transformed\emoji2-1.4.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\0276206acd8570936c2dae9852b46f5e\workspace\transformed\graphics-path-1.0.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\c258a94bf4d2010897471ad183bd7981\workspace\transformed\core-1.17.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\df3a7c43e1822359f2c0a104fd04dd4c\workspace\transformed\junit-ktx-1.1.5\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\d2101d7af06a029955596199b3af164c\workspace\transformed\lifecycle-process-2.9.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\f99772482e92ddfc66c8d984f16075b0\workspace\transformed\lifecycle-livedata-core-ktx-2.9.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\d2c9dd4824e57ca38a54bc8a3fcfcd66\workspace\transformed\lifecycle-livedata-core-2.9.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e6a23294055afa8db594784e69d6ed66\workspace\transformed\lifecycle-livedata-2.9.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\00b3f2b4c3452f034361cee1bf5f9361\workspace\transformed\lifecycle-viewmodel-savedstate-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\3c49d75c0d001b8e99ee10846be7dbe5\workspace\transformed\lifecycle-runtime-ktx\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\fe0b0d3b3ac70e3eb0cc342f7c50e810\workspace\transformed\lifecycle-viewmodel-ktx-2.9.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\fe299144b21aacf4c8cfa609b6f919a5\workspace\transformed\lifecycle-viewmodel-2.9.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e9264499559e740271c214a70c490511\workspace\transformed\lifecycle-viewmodel-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\5d9803f417f1c03b96d2da476342dba6\workspace\transformed\runtime-retain\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\dcaa91cb225eeb260b383c9aa495443b\workspace\transformed\runtime-annotation\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\29e02012ff8da11562328c5c52182629\workspace\transformed\savedstate-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\ead3922522bdda19fb4a4db323e18c89\workspace\transformed\savedstate-ktx-1.3.2\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\60685169c54ec4d5eac225d34ad33a31\workspace\transformed\savedstate-compose\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\d4624f69789f9d01eed4c6d96a8dceeb\workspace\transformed\runtime\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\1d9eb4706c65098541f33870f79e64f7\workspace\transformed\runtime-saveable\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\737e205bfbbab8da1f24f067f6bc4130\workspace\transformed\lifecycle-runtime-compose-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\c8f0ca55f9c94857d8333ab35ba9b095\workspace\transformed\lifecycle-runtime-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\846267ab2ea3954e862da82c15c019c5\workspace\transformed\datastore-core-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\be358ad905093d13b94e38320b89e673\workspace\transformed\datastore-preferences-core-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\6e76fbbaf8a0b727f6561a0ffaa8ad5c\workspace\transformed\datastore-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\12683f1678c28c6b66ddad88c1e7d760\workspace\transformed\datastore-preferences-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\01ce235cf989a94a9bce12831573c9d6\workspace\transformed\buffer-release\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\56d4b2dd0fcd0fb29c9baa8b41cea127\workspace\transformed\play-services-tasks-18.2.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\7f46655b4cc621609485d37d76fab8d9\workspace\transformed\play-services-basement-18.8.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e8758868dc5e16b79286f807fd0cf9e4\workspace\transformed\fragment-1.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\76848ea84ee38c2832cfa630d0c32f3e\workspace\transformed\activity-1.12.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\b1f60942d20ab99e410a8ec804eaea69\workspace\transformed\activity-compose-1.12.4\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\dfbc23eca46becd5c37fc4df8852b1a4\workspace\transformed\customview-poolingcontainer-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\9246a6b4a45dc958b84f6725db432617\workspace\transformed\core-ktx-1.17.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\2bd02c4418ee3defe605771cd6a4ea17\workspace\transformed\annotation-experimental-1.4.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\0a75f4b58873b5406571a9f6cef0c9ef\workspace\transformed\core-viewtree-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e9570a2dd3ebf74aff213c0b6a2331ea\workspace\transformed\googleid-1.1.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\c38702456b7351a2f7a4827c9e8744ba\workspace\transformed\interpolator-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\9068249bfc019027d6019f6803d83415\workspace\transformed\profileinstaller-1.4.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\3b65c4238d158278a70351e936ee0d62\workspace\transformed\startup-runtime-1.1.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\bdf4706a03d5a713924c1a91c066cf53\workspace\transformed\tracing-1.2.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\903d8837ad2f9058e810c4134d205a1e\workspace\transformed\versionedparcelable-1.1.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\a47f9c3523e7c2d2549be74987a4e221\workspace\transformed\localbroadcastmanager-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\92b49dcd19fc6f20736a469a44631a91\workspace\transformed\firebase-components-19.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\e6a37ff5bdff853d0ecd31f004d4c8e9\workspace\transformed\junit-1.1.5\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\521bbd9273b197dc5ccd228cd3b49baa\workspace\transformed\core-runtime-2.2.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\4f467120d574ffff5108be37ed01e406\workspace\transformed\documentfile-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\64a0f88b349a27e4c5434affb8b6e467\workspace\transformed\print-1.0.0\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\b6a25e89cf36669ff4222d204283c315\workspace\transformed\mobile-wallet-adapter-clientlib-2.0.3\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\ba6207bbedafd16510ada30b02fc25a9\workspace\transformed\grpc-android-1.62.2\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\afe90adebb29eafef6069840c1db3577\workspace\transformed\protolite-well-known-types-18.0.1\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\00069bc2891d0cb61df17c28e4cfe919\workspace\transformed\mobile-wallet-adapter-common-2.0.3\AndroidManifest.xml
+Loading library manifest C:\Users\USER\.gradle\caches\9.3.0\transforms\dd4a5822c747deadc7985ca945a09aea\workspace\transformed\core-common-2.0.3\AndroidManifest.xml
+Merging main manifest C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml
+
+Merging result: ERROR
+[com.solanamobile:mobile-wallet-adapter-clientlib-ktx:2.0.3] C:\Users\USER\.gradle\caches\9.3.0\transforms\9fb5d6fa448be83a1cc4a8c36c81c00d\workspace\transformed\mobile-wallet-adapter-clientlib-ktx-2.0.3\AndroidManifest.xml Error:
+	Namespace 'com.solana.mobilewalletadapter.clientlib' is used in multiple modules and/or libraries: com.solanamobile:mobile-wallet-adapter-clientlib-ktx:2.0.3, com.solanamobile:mobile-wallet-adapter-clientlib:2.0.3. Please ensure that all modules and libraries have a unique namespace. For more information, See https://developer.android.com/studio/build/configure-app-module#set-namespace
+C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml Error:
+	Validation failed, exiting
+-- Merging decision tree log ---
+manifest
+ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:2:1-30:12
+	xmlns:tools
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:3:5-51
+	xmlns:android
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:2:11-69
+uses-permission#android.permission.INTERNET
+ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:5:5-67
+	android:name
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:5:22-64
+application
+ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:7:5-28:19
+	android:supportsRtl
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:14:9-35
+	android:label
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:12:9-41
+	android:fullBackupContent
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:10:9-54
+	android:roundIcon
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:13:9-54
+	tools:targetApi
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:16:9-29
+	android:icon
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:11:9-43
+	android:allowBackup
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:8:9-35
+	android:theme
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:15:9-49
+	android:dataExtractionRules
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:9:9-65
+activity#com.thinkblox.radiantrush.MainActivity
+ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:17:9-27:20
+	android:screenOrientation
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:21:13-49
+	android:label
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:20:13-45
+	android:exported
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:19:13-36
+	android:theme
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:22:13-53
+	android:name
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:18:13-41
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:23:13-26:29
+action#android.intent.action.MAIN
+ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:24:17-69
+	android:name
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:24:25-66
+category#android.intent.category.LAUNCHER
+ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:25:17-77
+	android:name
+		ADDED from C:\2026\SolanaHackaton\RadiantRushPhase1Android\app\src\main\AndroidManifest.xml:25:27-74
+
+
+See https://developer.android.com/r/studio-ui/build/manifest-merger for more information about the manifest merger.
+
+
+> Task :app:processDebugMainManifest FAILED
+Build 1f8bb97c-f9e2-4591-9aa5-7d2a55b65466 is closed
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:processDebugMainManifest'.
+> Manifest merger failed with multiple errors, see logs
+
+* Try:
+> Run with --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+* Exception is:
+org.gradle.api.tasks.TaskExecutionException: Execution failed for task ':app:processDebugMainManifest'.
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.lambda$executeIfValid$1(ExecuteActionsTaskExecuter.java:135)
+	at org.gradle.internal.Try$Failure.ifSuccessfulOrElse(Try.java:288)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:133)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.execute(ExecuteActionsTaskExecuter.java:121)
+	at org.gradle.api.internal.tasks.execution.ProblemsTaskPathTrackingTaskExecuter.execute(ProblemsTaskPathTrackingTaskExecuter.java:41)
+	at org.gradle.api.internal.tasks.execution.FinalizePropertiesTaskExecuter.execute(FinalizePropertiesTaskExecuter.java:46)
+	at org.gradle.api.internal.tasks.execution.ResolveTaskExecutionModeExecuter.execute(ResolveTaskExecutionModeExecuter.java:51)
+	at org.gradle.api.internal.tasks.execution.SkipTaskWithNoActionsExecuter.execute(SkipTaskWithNoActionsExecuter.java:57)
+	at org.gradle.api.internal.tasks.execution.SkipOnlyIfTaskExecuter.execute(SkipOnlyIfTaskExecuter.java:74)
+	at org.gradle.api.internal.tasks.execution.CatchExceptionTaskExecuter.execute(CatchExceptionTaskExecuter.java:36)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.executeTask(EventFiringTaskExecuter.java:77)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:55)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter$1.call(EventFiringTaskExecuter.java:52)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.api.internal.tasks.execution.EventFiringTaskExecuter.execute(EventFiringTaskExecuter.java:52)
+	at org.gradle.execution.plan.DefaultNodeExecutor.executeLocalTaskNode(DefaultNodeExecutor.java:55)
+	at org.gradle.execution.plan.DefaultNodeExecutor.execute(DefaultNodeExecutor.java:34)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:355)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$InvokeNodeExecutorsAction.execute(DefaultTaskExecutionGraph.java:343)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.lambda$execute$0(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.internal.operations.CurrentBuildOperationRef.with(CurrentBuildOperationRef.java:84)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:339)
+	at org.gradle.execution.taskgraph.DefaultTaskExecutionGraph$BuildOperationAwareExecutionAction.execute(DefaultTaskExecutionGraph.java:328)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.execute(DefaultPlanExecutor.java:459)
+	at org.gradle.execution.plan.DefaultPlanExecutor$ExecutorWorker.run(DefaultPlanExecutor.java:376)
+	at org.gradle.internal.concurrent.ExecutorPolicy$CatchAndRecordFailures.onExecute(ExecutorPolicy.java:64)
+	at org.gradle.internal.concurrent.AbstractManagedExecutor$1.run(AbstractManagedExecutor.java:47)
+Caused by: java.lang.RuntimeException: Manifest merger failed with multiple errors, see logs
+	at com.android.build.gradle.internal.tasks.manifest.ManifestHelperKt.mergeManifests(ManifestHelper.kt:135)
+	at com.android.build.gradle.internal.tasks.manifest.ManifestHelperKt.mergeManifests$default(ManifestHelper.kt:46)
+	at com.android.build.gradle.tasks.ProcessApplicationManifest.doTaskAction(ProcessApplicationManifest.kt:162)
+	at com.android.build.gradle.internal.tasks.NonIncrementalTask$taskAction$$inlined$recordTaskAction$1.invoke(BaseTask.kt:79)
+	at com.android.build.gradle.internal.tasks.Blocks.recordSpan(Blocks.java:51)
+	at com.android.build.gradle.internal.tasks.NonIncrementalTask.taskAction(NonIncrementalTask.kt:78)
+	at org.gradle.internal.reflect.JavaMethod.invoke(JavaMethod.java:125)
+	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.doExecute(StandardTaskAction.java:58)
+	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:51)
+	at org.gradle.api.internal.project.taskfactory.StandardTaskAction.execute(StandardTaskAction.java:29)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$3.run(TaskExecution.java:259)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:29)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$1.execute(DefaultBuildOperationRunner.java:26)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.run(DefaultBuildOperationRunner.java:47)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeAction(TaskExecution.java:244)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeActions(TaskExecution.java:227)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.executeWithPreviousOutputFiles(TaskExecution.java:210)
+	at org.gradle.api.internal.tasks.execution.TaskExecution.execute(TaskExecution.java:176)
+	at org.gradle.internal.execution.steps.ExecuteStep.executeInternal(ExecuteStep.java:110)
+	at org.gradle.internal.execution.steps.ExecuteStep.access$000(ExecuteStep.java:47)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:64)
+	at org.gradle.internal.execution.steps.ExecuteStep$1.call(ExecuteStep.java:61)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:209)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$CallableBuildOperationWorker.execute(DefaultBuildOperationRunner.java:204)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:66)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner$2.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:166)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.execute(DefaultBuildOperationRunner.java:59)
+	at org.gradle.internal.operations.DefaultBuildOperationRunner.call(DefaultBuildOperationRunner.java:53)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:61)
+	at org.gradle.internal.execution.steps.ExecuteStep.execute(ExecuteStep.java:47)
+	at org.gradle.internal.execution.steps.CancelExecutionStep.execute(CancelExecutionStep.java:42)
+	at org.gradle.internal.execution.steps.TimeoutStep.executeWithoutTimeout(TimeoutStep.java:75)
+	at org.gradle.internal.execution.steps.TimeoutStep.execute(TimeoutStep.java:55)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:51)
+	at org.gradle.internal.execution.steps.PreCreateOutputParentsStep.execute(PreCreateOutputParentsStep.java:29)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:70)
+	at org.gradle.internal.execution.steps.RemovePreviousOutputsStep.executeMutable(RemovePreviousOutputsStep.java:40)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:62)
+	at org.gradle.internal.execution.steps.BroadcastChangingOutputsStep.execute(BroadcastChangingOutputsStep.java:27)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:69)
+	at org.gradle.internal.execution.steps.CaptureOutputsAfterExecutionStep.execute(CaptureOutputsAfterExecutionStep.java:46)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveInputChangesStep.executeMutable(ResolveInputChangesStep.java:28)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.BuildCacheStep.executeWithoutCache(BuildCacheStep.java:192)
+	at org.gradle.internal.execution.steps.BuildCacheStep.lambda$execute$1(BuildCacheStep.java:76)
+	at org.gradle.internal.Either$Right.fold(Either.java:176)
+	at org.gradle.internal.execution.caching.CachingState.fold(CachingState.java:62)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:74)
+	at org.gradle.internal.execution.steps.BuildCacheStep.execute(BuildCacheStep.java:49)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:46)
+	at org.gradle.internal.execution.steps.StoreExecutionStateStep.execute(StoreExecutionStateStep.java:35)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.executeBecause(SkipUpToDateStep.java:75)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.lambda$execute$2(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:53)
+	at org.gradle.internal.execution.steps.SkipUpToDateStep.execute(SkipUpToDateStep.java:35)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:37)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsFinishedStep.execute(MarkSnapshottingInputsFinishedStep.java:27)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:49)
+	at org.gradle.internal.execution.steps.ResolveIncrementalCachingStateStep.executeDelegate(ResolveIncrementalCachingStateStep.java:27)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:71)
+	at org.gradle.internal.execution.steps.AbstractResolveCachingStateStep.execute(AbstractResolveCachingStateStep.java:39)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:63)
+	at org.gradle.internal.execution.steps.ResolveChangesStep.executeMutable(ResolveChangesStep.java:34)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:64)
+	at org.gradle.internal.execution.steps.ValidateStep.execute(ValidateStep.java:42)
+	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:77)
+	at org.gradle.internal.execution.steps.AbstractCaptureStateBeforeExecutionStep.execute(AbstractCaptureStateBeforeExecutionStep.java:46)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.executeWithNonEmptySources(AbstractSkipEmptyWorkStep.java:133)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:59)
+	at org.gradle.internal.execution.steps.AbstractSkipEmptyWorkStep.execute(AbstractSkipEmptyWorkStep.java:36)
+	at org.gradle.internal.execution.steps.legacy.MarkSnapshottingInputsStartedStep.execute(MarkSnapshottingInputsStartedStep.java:38)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:36)
+	at org.gradle.internal.execution.steps.LoadPreviousExecutionStateStep.execute(LoadPreviousExecutionStateStep.java:23)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:77)
+	at org.gradle.internal.execution.steps.HandleStaleOutputsStep.executeMutable(HandleStaleOutputsStep.java:43)
+	at org.gradle.internal.execution.steps.MutableStep.execute(MutableStep.java:25)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.lambda$execute$0(AssignMutableWorkspaceStep.java:35)
+	at org.gradle.api.internal.tasks.execution.TaskExecution$4.withWorkspace(TaskExecution.java:305)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:31)
+	at org.gradle.internal.execution.steps.AssignMutableWorkspaceStep.execute(AssignMutableWorkspaceStep.java:22)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:40)
+	at org.gradle.internal.execution.steps.ChoosePipelineStep.execute(ChoosePipelineStep.java:23)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.lambda$execute$2(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:67)
+	at org.gradle.internal.execution.steps.ExecuteWorkBuildOperationFiringStep.execute(ExecuteWorkBuildOperationFiringStep.java:39)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:46)
+	at org.gradle.internal.execution.steps.IdentityCacheStep.execute(IdentityCacheStep.java:34)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:44)
+	at org.gradle.internal.execution.steps.IdentifyStep.execute(IdentifyStep.java:31)
+	at org.gradle.internal.execution.impl.DefaultExecutionEngine$1.execute(DefaultExecutionEngine.java:68)
+	at org.gradle.api.internal.tasks.execution.ExecuteActionsTaskExecuter.executeIfValid(ExecuteActionsTaskExecuter.java:132)
+	... 30 more
+
+
+BUILD FAILED in 17s
+3 actionable tasks: 3 executed
+Watched directory hierarchies: [C:\2026\SolanaHackaton\RadiantRushPhase1Android]

@@ -6,12 +6,12 @@ This documentation set was created from an audit of the Blox Monster Adventure s
 
 - Project name: `RadiantSolanaHackatonAndroid`
 - Target: Android app for a Solana hackathon.
-- Current state: `Radiant Rush` Phase 2 Firebase foundation is underway: native Compose shell plus Firebase Auth/Firestore profile and progress persistence, with Mobile Wallet Adapter next.
+- Current state: `Radiant Rush` Phase 3 Mobile Wallet Adapter wallet connection is underway: native Compose shell, Firebase Auth/Firestore profile/progress persistence, and real MWA wallet authorization.
 - BMA source role: reference project only. Do not copy Roblox/Luau/Studio-specific code into this Android app.
 
 ## Canonical documentation map
 
-Keep this project lean. The maintained operating-system documentation set should stay small. App phase docs may live one level above this folder, such as `docs/PHASE_2_FIREBASE_FOUNDATION.md`.
+Keep this project lean. The maintained operating-system documentation set should stay small. App phase docs may live one level above this folder, such as `docs/PHASE_3_MWA_WALLET_CONNECT.md`.
 
 1. `README.md` — entry point, document map, read order.
 2. `AGENTS.md` — AI/developer workflow and source-control contract.
@@ -30,6 +30,7 @@ Phase-specific implementation docs outside this folder:
 
 - `docs/PHASE_1_NATIVE_ANDROID_APP.md`
 - `docs/PHASE_2_FIREBASE_FOUNDATION.md`
+- `docs/PHASE_3_MWA_WALLET_CONNECT.md`
 
 ## Required read order for new work
 
