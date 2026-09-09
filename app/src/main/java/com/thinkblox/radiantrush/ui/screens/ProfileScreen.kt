@@ -83,7 +83,7 @@ fun ProfileScreen(
         item {
             SectionTitle(
                 title = "Identity readiness",
-                body = "Phase 5 links Firebase Auth, public wallet address, signed proof, devnet memo proof, and a read-only mainnet SKR Passport scan that should not open Phantom.",
+                body = "Phase 6 links Firebase Auth, public wallet address, signed proof, devnet memo proof, read-only SKR Passport, and a judge-ready proof summary.",
             )
         }
 

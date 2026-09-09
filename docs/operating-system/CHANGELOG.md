@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.0-phase6 — Demo Polish + Retention
+
+- Added a new `Demo` bottom navigation tab for hackathon judging and recording.
+- Added a 3-minute demo walkthrough covering Firebase, MWA wallet connect, message signing, devnet Memo proof, SKR Passport, Profile proof summary, and security boundaries.
+- Added a demo readiness card with quest completion count, XP, streak, wallet, signed proof, memo proof, and SKR scan state.
+- Updated Welcome, Home, Quests, and Profile copy to explain the judge flow more clearly.
+- Bumped Android app version to `versionCode = 6`, `versionName = "0.6.0-phase6"`.
+
 
 ## 0.5.1-phase5 — UX Tap Reliability Fix
 

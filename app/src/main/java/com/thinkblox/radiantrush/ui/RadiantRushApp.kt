@@ -45,6 +45,7 @@ import com.thinkblox.radiantrush.ui.screens.BadgesScreen
 import com.thinkblox.radiantrush.ui.screens.HomeScreen
 import com.thinkblox.radiantrush.ui.screens.LeaderboardScreen
 import com.thinkblox.radiantrush.ui.screens.ProfileScreen
+import com.thinkblox.radiantrush.ui.screens.DemoScreen
 import com.thinkblox.radiantrush.ui.screens.QuestsScreen
 import com.thinkblox.radiantrush.ui.screens.WelcomeScreen
 import kotlinx.coroutines.launch
@@ -388,6 +389,7 @@ private fun RadiantRushShell(
                             AppDestination.Badges -> "Badges"
                             AppDestination.Leaderboard -> "Ranks"
                             AppDestination.Profile -> "Profile"
+                            AppDestination.Demo -> "Demo"
                         },
                         maxLines = 1,
                     )
@@ -422,6 +424,7 @@ private fun RadiantRushShell(
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Ranks"
                                     AppDestination.Profile -> "Me"
+                                    AppDestination.Demo -> "Demo"
                                 },
                                 tinyText = when (item) {
                                     AppDestination.Home -> "Home"
@@ -429,6 +432,7 @@ private fun RadiantRushShell(
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Rank"
                                     AppDestination.Profile -> "Me"
+                                    AppDestination.Demo -> "Demo"
                                 },
                             )
                         },
@@ -483,5 +487,6 @@ private fun ScreenContent(
             onConnectWallet = onConnectWallet,
             onDisconnectWallet = onDisconnectWallet,
         )
+        AppDestination.Demo -> DemoScreen(contentPadding, uiState)
     }
 }

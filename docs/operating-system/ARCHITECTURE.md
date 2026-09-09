@@ -330,3 +330,15 @@ Network split:
 - `FirebaseRadiantRepository` stores the public SKR snapshot and derived app UX tier.
 
 The UI must display SKR tier and multiplier as app status, not as an on-chain authority decision.
+
+## Phase 6 demo polish boundary
+
+Phase 6 adds a UI-only `Demo` tab. This screen may summarize current app state for judges, but it must not become a second source of truth.
+
+Rules:
+
+- Demo cards read from existing `RushUiState`.
+- Demo cards do not mark quests complete.
+- Demo cards do not call wallet, Solana RPC, or Firebase writes.
+- Demo copy must distinguish devnet memo proof from mainnet SKR balance scanning.
+- Demo mode must not create fake balances, fake signatures, or fake transaction hashes.

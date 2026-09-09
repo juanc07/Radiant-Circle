@@ -327,3 +327,18 @@ RadiantRushSKR
 - Double-tap each action quickly and confirm only one request is accepted.
 - Tap Refresh Firebase while a proof is running and confirm the app asks you to wait instead of interrupting the action.
 - After success, restart the app and confirm completed quests stay Done for the current day.
+
+## Phase 6 demo polish testing
+
+Before committing Phase 6:
+
+1. Build with `./gradlew :app:assembleDebug`.
+2. Confirm the bottom navigation includes `Demo`.
+3. Open `Demo` on a small Android phone and check for clipped text.
+4. Complete the normal quest flow from Today, not from the Demo screen.
+5. Confirm Demo readiness updates after quests are completed.
+6. Confirm SKR Passport still scans inside the app without Phantom.
+7. Confirm Sign Proof and Send Memo still use Phantom / MWA.
+8. Confirm Profile still shows wallet address, signed proof, memo transaction/explorer link, and SKR tier.
+
+Known acceptable issue: some wallets may still need more than one visible memo attempt because of wallet authorization handoff behavior. This does not block Phase 6 if the transaction proof eventually completes and is saved.

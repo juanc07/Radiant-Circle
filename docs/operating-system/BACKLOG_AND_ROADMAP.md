@@ -28,11 +28,17 @@ Immediate owner task: test Phase 5 on a real Android phone, then confirm Firesto
 - Add SKR badge state and Profile/Home display.
 - Clearly distinguish devnet quest proofs from mainnet SKR balance reads.
 
-## Phase 6 candidate scope
+## Phase 6 delivered scope
+
+- Added judge-friendly Demo tab and 3-minute walkthrough.
+- Added demo readiness state using existing quest, wallet, Firebase, and SKR data.
+- Updated onboarding and screen copy for the hackathon recording flow.
+
+## Phase 7 candidate scope
 
 - Add transaction confirmation polling and explorer status refresh.
 - Add richer SKR Passport visuals/profile frame.
-- Add Seeker-specific polish and demo flow.
+- Add app icon/splash polish and final demo screenshots.
 - Prepare APK, demo video, GitHub README, and pitch deck.
 
 ## Deferred until core proof flow is stable
