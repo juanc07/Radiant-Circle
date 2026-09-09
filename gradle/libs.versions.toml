@@ -8,7 +8,6 @@ firebaseBom = "34.6.0"
 googleServices = "4.5.0"
 mwaClient = "2.2.0-agp9-beta1"
 web3Solana = "0.2.5"
-rpcCore = "0.2.7"
 multimult = "0.2.3"
 
 [libraries]
@@ -25,7 +24,6 @@ firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
 solana-mwa-client = { group = "com.solanamobile", name = "mobile-wallet-adapter-clientlib-ktx", version.ref = "mwaClient" }
 solana-web3 = { group = "com.solanamobile", name = "web3-solana", version.ref = "web3Solana" }
-solana-rpc-core = { group = "com.solanamobile", name = "rpc-core", version.ref = "rpcCore" }
 multimult = { group = "io.github.funkatronics", name = "multimult", version.ref = "multimult" }
 
 [plugins]

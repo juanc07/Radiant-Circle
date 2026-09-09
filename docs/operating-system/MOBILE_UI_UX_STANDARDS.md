@@ -122,3 +122,13 @@ Before a UI change is accepted:
 8. No required text clips, bleeds, collides, or hides behind ellipsis.
 9. Wallet/transaction stages are named accurately.
 10. No UI-only state pretends to be authoritative chain state.
+
+## Responsive text and button rules
+
+- Primary buttons must use adaptive labels with full, compact, and tiny variants when text can exceed the available width.
+- Small screens and large Android font scale must prefer shorter labels such as `Sign`, `Memo`, `Connect`, `Refresh`, or `Done` instead of forcing long labels into one line.
+- Primary action text may wrap to two lines inside a taller button; it must not shrink into unreadable single letters.
+- Fixed button heights are not allowed for reusable action components. Use minimum heights that grow with content.
+- Bottom navigation labels must use short names on compact screens and may hide unselected labels on very small screens.
+- Proof/status chips must use compact names such as `Cloud`, `Wallet`, `Sign`, `Memo`, and `SKR` on tiny screens.
+- Large-font testing is required after every screen that adds or modifies buttons, chips, bottom navigation, or primary action cards.

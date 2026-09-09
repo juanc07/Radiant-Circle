@@ -1,5 +1,6 @@
 package com.thinkblox.radiantrush.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -7,7 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -27,12 +28,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
+import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 
 @Composable
 fun ProfileScreen(
@@ -43,24 +49,25 @@ fun ProfileScreen(
     onDisconnectWallet: () -> Unit,
 ) {
     val user = uiState.user
+    val responsive = rememberResponsiveUiSpec()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = 20.dp,
+            start = responsive.screenPadding,
             top = 14.dp,
-            end = 20.dp,
+            end = responsive.screenPadding,
             bottom = 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 12.dp else 16.dp),
     ) {
         item {
             GradientHeroCard(
                 title = user.displayName,
                 subtitle = if (uiState.isWalletConnected) {
-                    "${user.walletStatus}. Public Solana address is linked to your Firebase profile."
+                    "${user.walletStatus}. Public Solana address is linked."
                 } else {
-                    "${user.walletStatus}. Connect with Mobile Wallet Adapter to link a public Solana address."
+                    "${user.walletStatus}. Connect with Mobile Wallet Adapter."
                 },
             )
         }
@@ -76,7 +83,7 @@ fun ProfileScreen(
         item {
             SectionTitle(
                 title = "Identity readiness",
-                body = "Phase 3 links Firebase Anonymous Auth to a public Solana wallet address through Mobile Wallet Adapter. Signing and transactions start in Phase 4.",
+                body = "Phase 4 links Firebase Auth, public wallet address, signed proof, and devnet memo proof.",
             )
         }
 
@@ -84,7 +91,7 @@ fun ProfileScreen(
             ProfileInfoRow(
                 title = "Firebase Profile",
                 value = "${user.xp} XP • ${user.currentStreak}-day streak • ${uiState.todayKey}",
-                helper = "Saved in users/{uid}, users/{uid}/completedQuests, and leaderboard/{uid}.",
+                helper = "Saved in users/{uid}, completedQuests, and leaderboard/{uid}.",
                 icon = Icons.Filled.Storage,
             )
         }
@@ -98,6 +105,8 @@ fun ProfileScreen(
                     "Tap Connect Wallet to authorize through an MWA-compatible Solana wallet."
                 },
                 icon = Icons.Filled.AccountBalanceWallet,
+                copyValue = user.walletAddress.takeIf { uiState.isWalletConnected },
+                copyLabel = "Copy Address",
             )
         }
         item {
@@ -107,6 +116,30 @@ fun ProfileScreen(
                 helper = "Phase 5: token balance determines XP boosts and badges.",
                 icon = Icons.Filled.Token,
             )
+        }
+        if (!user.lastSignedMessageSignature.isNullOrBlank()) {
+            item {
+                ProfileInfoRow(
+                    title = "Last Signed Proof",
+                    value = shortenForProfile(user.lastSignedMessageSignature.orEmpty()),
+                    helper = "MWA message signature saved in today’s completedQuests document.",
+                    icon = Icons.Filled.Security,
+                    copyValue = user.lastSignedMessageSignature,
+                    copyLabel = "Copy Signature",
+                )
+            }
+        }
+        if (!user.lastOnChainTxSignature.isNullOrBlank()) {
+            item {
+                ProfileInfoRow(
+                    title = "Last Memo Transaction",
+                    value = shortenForProfile(user.lastOnChainTxSignature.orEmpty()),
+                    helper = user.lastOnChainExplorerUrl ?: "Saved devnet transaction signature.",
+                    icon = Icons.Filled.Token,
+                    copyValue = user.lastOnChainExplorerUrl ?: user.lastOnChainTxSignature,
+                    copyLabel = if (!user.lastOnChainExplorerUrl.isNullOrBlank()) "Copy Explorer" else "Copy TX",
+                )
+            }
         }
         item {
             ProfileInfoRow(
@@ -120,12 +153,12 @@ fun ProfileScreen(
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .heightIn(min = responsive.buttonHeight),
                 enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && !uiState.isWalletConnected,
                 shape = RoundedCornerShape(16.dp),
                 onClick = onConnectWallet,
             ) {
-                Text(if (uiState.walletActionInProgress) "Opening Wallet…" else "Connect Wallet")
+                AdaptiveButtonText(if (uiState.walletActionInProgress) "Opening Wallet…" else "Connect Wallet")
             }
         }
         if (uiState.isWalletConnected) {
@@ -133,12 +166,12 @@ fun ProfileScreen(
                 OutlinedButton(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .heightIn(min = responsive.buttonHeight),
                     enabled = !uiState.walletActionInProgress,
                     shape = RoundedCornerShape(16.dp),
                     onClick = onDisconnectWallet,
                 ) {
-                    Text("Disconnect Wallet")
+                    AdaptiveButtonText("Disconnect Wallet")
                 }
             }
         }
@@ -146,14 +179,19 @@ fun ProfileScreen(
             OutlinedButton(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
+                    .heightIn(min = responsive.buttonHeight),
                 shape = RoundedCornerShape(16.dp),
                 onClick = onRetryFirebase,
             ) {
-                Text("Refresh Firebase Sync")
+                AdaptiveButtonText("Refresh Firebase Sync")
             }
         }
     }
+}
+
+private fun shortenForProfile(value: String): String {
+    val clean = value.trim()
+    return if (clean.length <= 18) clean else "${clean.take(8)}…${clean.takeLast(8)}"
 }
 
 @Composable
@@ -162,7 +200,13 @@ private fun ProfileInfoRow(
     value: String,
     helper: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    copyValue: String? = null,
+    copyLabel: String = "Copy",
 ) {
+    val responsive = rememberResponsiveUiSpec()
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -171,7 +215,7 @@ private fun ProfileInfoRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(responsive.cardPadding),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -183,23 +227,48 @@ private fun ProfileInfoRow(
             Spacer(modifier = Modifier.size(2.dp))
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
                 )
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 3,
+                    overflow = TextOverflow.Clip,
                 )
                 Text(
                     text = helper,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (!copyValue.isNullOrBlank()) {
+                    OutlinedButton(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = if (responsive.isTiny) 46.dp else 48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        onClick = {
+                            clipboardManager.setText(AnnotatedString(copyValue))
+                            Toast.makeText(context, "$copyLabel copied", Toast.LENGTH_SHORT).show()
+                        },
+                    ) {
+                        AdaptiveButtonText(
+                            text = copyLabel,
+                            compactText = copyLabel.replace("Copy ", "Copy "),
+                            tinyText = when {
+                                copyLabel.contains("Signature") -> "Copy Sign"
+                                copyLabel.contains("Explorer") -> "Copy Link"
+                                copyLabel.contains("Address") -> "Copy Addr"
+                                else -> "Copy"
+                            },
+                        )
+                    }
+                }
             }
         }
     }

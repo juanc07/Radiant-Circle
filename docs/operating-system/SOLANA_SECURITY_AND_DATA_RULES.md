@@ -186,3 +186,39 @@ Before release/demo:
 - RPC timeout and offline states are handled.
 - Local persistence contains no secrets.
 - UI clearly identifies network and demo mode.
+
+## Phase 4 signed proof and memo rules
+
+Phase 4 adds real MWA signing and devnet memo transactions.
+
+Rules:
+
+- `Sign Daily Proof` is an off-chain wallet signature. It proves wallet control, but it is not an on-chain transaction.
+- `On-Chain Memo Proof` is a devnet transaction submitted by the wallet through `signAndSendTransactions`.
+- Mainnet/live mode is not required for Phase 4 and should not be forced while testing.
+- The memo transaction may require devnet SOL for fees.
+- A signed message is not the same as a submitted transaction.
+- A submitted transaction signature is not the same as confirmed/finalized chain state.
+- Phase 4 may save submitted transaction signatures to Firestore, but must not claim final confirmation until confirmation polling is added.
+- Firestore proof documents are app records, not reward authority.
+- No seed phrase, private key, mint authority, reward authority, or wallet auth token should be stored.
+
+
+## Phase 4 MWA authorization recovery rule
+
+If a wallet returns `authorization request failed` during Phase 4 proof actions, do not fake completion and do not retry silently in a loop.
+
+Rules:
+
+- Use a fresh MWA authorization session for each signed proof or memo transaction request when wallet reauthorization is unstable.
+- Keep Devnet explicit for Phase 4 proof work.
+- Only mark `Sign Daily Proof` complete after a message signature is returned and saved.
+- Only mark `On-Chain Memo Proof` complete after a transaction signature is returned and saved.
+- The user must approve each wallet signing/transaction request.
+- The app may show a recoverable error telling the user to reopen Phantom/confirm Devnet, but it must not auto-complete or spam repeated wallet prompts.
+
+## Phase 4 Memo Proof Network Rule
+
+The memo proof must fetch devnet chain context before wallet handoff. This prevents the app from opening Phantom when the phone cannot reach devnet RPC. The wallet may only be asked to sign/send after the app has a fresh blockhash and context slot.
+
+For Phantom compatibility, memo submission should pass `minContextSlot` to `signAndSendTransactions` whenever available.

@@ -207,3 +207,87 @@ Before Phase 3 is called stable:
 - Wallet Ready quest/badge updates after successful authorization.
 - Disconnect Wallet clears the stored public wallet state.
 - No message signing, transaction success, or SKR verification is claimed in Phase 3.
+
+## Phase 4 Solana proof test matrix
+
+Before accepting Phase 4 as stable, test these flows on a physical Android device with Phantom in test/devnet mode:
+
+- App opens without crash after Phase 4 patch.
+- Firebase Anonymous Auth still signs in.
+- Wallet connect still works.
+- `Sign Daily Proof` opens the wallet.
+- User rejection of message signing does not complete the quest.
+- Successful message signing saves `sign-daily-proof_<date>` under `users/{uid}/completedQuests`.
+- `On-Chain Memo Proof` opens the wallet.
+- User rejection of transaction signing does not complete the quest.
+- Successful memo submission saves `on-chain-proof_<date>` under `users/{uid}/completedQuests`.
+- Profile shows latest message signature and memo transaction signature.
+- Duplicate same-day proof quests do not award duplicate XP.
+- Wallet/RPC failure shows a recoverable message and does not crash.
+
+Evidence labels:
+
+- Use `Wallet tested` only after Phantom actually opened and returned a result.
+- Use `RPC tested` only after the app fetched a devnet blockhash and attempted/submitted a memo transaction.
+- Use `Submitted` for Phase 4 memo results, not `confirmed`, until confirmation polling exists.
+
+
+## Phase 4 memo proof regression test
+
+For every Phase 4 build after the memo proof fix, test this exact flow on a real Android phone:
+
+1. Connect an MWA-compatible wallet in devnet/test mode.
+2. Tap `Submit Memo Proof` once.
+3. Approve the wallet request.
+4. Return to Radiant Rush.
+5. Confirm the on-chain memo quest enters a saving/syncing state and cannot be tapped repeatedly.
+6. Confirm the quest changes to completed after Firebase saves the transaction proof.
+7. Restart the app and confirm the quest remains completed for that date.
+8. Check Firestore for `lastOnChainProofDate`, `lastOnChainTxSignature`, and the completed quest document.
+
+
+## Phase 4 MWA fresh-session regression test
+
+Run this after applying the MWA reauthorization/signature action fix:
+
+1. Force stop Phantom and Radiant Rush, then reopen Phantom.
+2. Confirm Phantom is on Devnet and has devnet SOL.
+3. Open Radiant Rush and connect wallet.
+4. Tap `Sign Daily Proof` once and approve.
+5. Confirm the quest becomes completed and the Profile screen shows `Last Signed Proof`.
+6. Tap `Copy Signature` and confirm Android shows a copied toast.
+7. Tap `Submit Memo Proof` once and approve the new authorization/sign-and-send prompt.
+8. Confirm Logcat includes `Memo proof using fresh MWA authorization session on solana:devnet`.
+9. Confirm the memo quest only completes after a transaction signature is returned and saved to Firestore.
+10. Confirm the Profile screen shows `Last Memo Transaction` and `Copy Explorer` after success.
+
+Failure evidence to capture:
+
+```text
+RadiantRushWallet
+authorization request failed
+Memo transaction failed
+FATAL EXCEPTION
+```
+
+Do not call Phase 4 stable until both signing and memo submission work on a physical Android device with Phantom Devnet.
+
+## Phase 4 Memo Preflight Regression Test
+
+After applying the memo preflight fix:
+
+1. Build `./gradlew :app:assembleDebug`.
+2. Run on a physical Android device with Phantom installed.
+3. Set Phantom to Devnet and ensure the wallet has devnet SOL.
+4. Connect wallet in Radiant Rush once.
+5. Tap `Send Memo` once.
+6. Confirm Phantom shows a transaction approval, not only a connect approval.
+7. Approve the transaction and return to the app.
+8. Confirm the memo quest becomes Done and Firestore stores the transaction signature.
+9. Filter Logcat by `RadiantRushWallet` and confirm `Devnet chain context ready` appears before `Memo proof using active MWA session`.
+
+If the app shows an RPC/DNS error before opening Phantom, test phone connectivity first. Do not keep tapping the memo button repeatedly.
+
+## Phase 4 memo auth auto-retry test
+
+When testing the memo proof, one first-attempt Phantom/MWA authorization failure may occur after earlier builds or stale wallet sessions. The app should now clear the cached auth token and retry once automatically. The test passes only when the final Logcat result includes `Memo proof MWA success. signatureReturned=true` and the memo quest becomes Done without requiring repeated user taps.

@@ -1,4 +1,63 @@
+# Changelog
+
+## 0.4.5-phase4 — Memo Preflight + Min Context Slot Fix
+
+- Fixed Phase 4 memo proof flow where tapping `Send Memo` could only open Phantom connection and never reach transaction approval.
+- Fetch devnet blockhash before wallet handoff so RPC/DNS failures are caught before Phantom opens.
+- Parse devnet context slot and pass it as MWA `TransactionParams.minContextSlot` for Phantom compatibility.
+- Reuse the active wallet authorization for memo submission instead of forcing a fresh connection-only prompt.
+- Clear wallet auth token on authorization/auth-token failure so reconnecting can recover cleanly.
+- Added clearer Logcat and user-facing errors for devnet RPC/DNS/timeout issues.
+
 # RadiantSolanaHackatonAndroid — Changelog
+
+All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` section at the top.
+
+## [Unreleased]
+
+### Fixed
+
+- Fixed Phase 4 memo proof authorization failure caused by reusing a Mobile Wallet Adapter session that could enter a failing `reauthorize` path in Phantom.
+- Proof signing and memo submission now use fresh devnet MWA authorization sessions while keeping wallet connect/disconnect state separate.
+- Replaced fake-clickable proof/status chips with passive pills so `Signature` no longer looks like a dead button.
+- Added copy actions in Profile for wallet address, signed proof signature, and memo explorer/transaction values.
+
+
+### UI / Mobile Responsiveness
+
+- Added shared responsive sizing helpers for screen padding, card padding, button height, button text size, and bottom navigation text size.
+- Updated action buttons to use adaptive labels and two-line-safe text instead of clipped one-line labels.
+- Shortened Phase 4 quest copy for small Android phones and accessibility font scaling.
+- Updated Home, Quest, Welcome, Profile, Badges, and Leaderboard screens to reduce text clipping on compact devices.
+
+
+### Added
+
+- Added Phase 4 Solana proof quests:
+  - `Sign Daily Proof` uses Mobile Wallet Adapter `signMessagesDetached` to request a real wallet signature.
+  - `On-Chain Memo Proof` builds a devnet Memo transaction and submits it through Mobile Wallet Adapter `signAndSendTransactions`.
+- Added devnet Solana Memo transaction builder in `MobileWalletRepository`.
+- Added Firebase persistence for signed message signatures, memo transaction signatures, explorer URL, and Phase 4 proof quest completion documents.
+- Added `docs/PHASE_4_SOLANA_PROOF_QUESTS.md` and `docs/PHASE_4_PATCH_APPLY_AND_TEST.md`.
+- Added `rpc-ktordriver` dependency for Solana RPC HTTP transport.
+
+### Changed
+
+- Bumped Android app version to `versionCode = 4`, `versionName = "0.4.0-phase4"`.
+- Updated quest list from Phase 3 wallet-only state to Phase 4 wallet proof state.
+- Updated Home, Quests, and Profile screens to show signed proof and memo proof actions/results.
+- Updated Firebase profile phase writes from `3` to `4`.
+
+### Fixed
+
+- Kept the Phase 3 lifecycle fix: `MobileWalletRepository` remains created in `MainActivity.onCreate()` before Compose content.
+
+### Known gaps
+
+- Memo transaction confirmation polling is not implemented yet; Phase 4 saves submitted transaction signatures returned by the wallet.
+- SKR token balance detection and XP multipliers remain Phase 5.
+- MWA auth token persistence is still deferred.
+- Mainnet/live mode is not the Phase 4 target; test/devnet mode is expected.
 
 ## 2026-09-09 — Phase 3 MWA lifecycle crash fix
 
@@ -8,52 +67,24 @@
 - Added `docs/PHASE_3_MWA_LIFECYCLE_CRASH_FIX.md`.
 - Version unchanged: runtime crash fix only, no new milestone APK accepted yet.
 
+## 2026-09-09 — Phase 4 RPC import fix
 
-All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` section at the top.
+- Fixed Kotlin compile failure caused by unresolved `com.solana.rpc.SolanaRpcClient` import.
+- Removed direct `rpc-core` / `rpc-ktordriver` dependency usage from Phase 4.
+- Added local JSON-RPC `getLatestBlockhash` fetch inside the Solana boundary.
+- Kept transaction building with `web3-solana` and transaction signing/submission through Mobile Wallet Adapter.
+- Version not changed because this is a build fix inside the same Phase 4 milestone.
 
-## [Unreleased]
+## 2026-09-09 - Phase 4 memo proof state fix
 
-### Added
+- Fixed a Phase 4 UX/data-state bug where `Submit Memo Proof` could remain actionable after wallet approval while Firebase proof persistence was still in progress.
+- Added syncing state handling for signed proof and memo proof saves.
+- Added profile-level completion fallback using `lastSignedProofDate` and `lastOnChainProofDate`.
+- Added `RadiantRushWallet` Logcat markers for wallet signature-return diagnostics.
+- No version bump; patch fixes Phase 4 behavior without changing the public milestone.
 
-- Added Phase 3 Mobile Wallet Adapter wallet connection: Solana MWA dependencies, wallet repository boundary, real wallet connect/disconnect actions, Firebase wallet address persistence, Wallet Ready quest/badge state, and Phase 3 documentation.
-- Added `docs/PHASE_3_MWA_WALLET_CONNECT.md`.
+### Phase 4 memo auth auto-retry fix
 
-- Added Phase 2 Firebase foundation: Firebase dependencies, safe no-config fallback, anonymous Auth bootstrap, Firestore profile/progress save, leaderboard rows, Firestore rules, and setup documentation.
-- Added `PHASE_2_FIREBASE_FOUNDATION.md`, `firebase/firestore.rules`, and `app/google-services.json.example`.
-
-- Added Git metadata delivery rules forbidding `.git/` folders and internal Git files in patch/full-source ZIPs.
-- Initial Android/Solana development documentation generated from the Blox Monster Adventure source audit.
-- Source authority, mobile UI, Solana security, architecture, testing, and roadmap rules.
-- `PHASED_DELIVERY_PLAN.md` covering Radiant Rush phases from repository foundation through final APK, demo video, GitHub repo, and pitch deck.
-- `DOCUMENTATION_AND_VERSIONING_RULES.md` covering when to update changelog, architecture, agent rules, testing rules, UI standards, Solana security rules, and Android app versions.
-- `GRADLE_AAR_METADATA_FIX_COMPOSE_202608.md` documenting the Compose/Core dependency compatibility fix.
-
-### Changed
-
-- Bumped Android app version to `versionCode = 3`, `versionName = "0.3.0-phase3"` for the Mobile Wallet Adapter connection milestone.
-- Updated home/welcome/profile/quest copy from Phase 2 Firebase-only wording to Phase 3 wallet-connect wording.
-- Updated Firebase profile bootstrap to create default fields only for new users, preventing saved XP/streak/wallet fields from being overwritten on app restart.
-
-- Bumped Android app version to `versionCode = 2`, `versionName = "0.2.0-phase2"` for the Firebase foundation milestone.
-- Updated the app shell copy and dynamic UI state so screens display Firebase readiness/progress instead of Phase 1 static preview only.
-
-- Updated `AGENTS.md` and `DOCUMENTATION_AND_VERSIONING_RULES.md` to require Git-metadata-free packaging and no-Git checks before delivery.
-- Updated `README.md` to include the Radiant Rush product direction and new phased delivery plan.
-- Updated `BACKLOG_AND_ROADMAP.md` to prioritize the wallet connect -> quest proof -> Firebase save -> XP/streak MVP flow.
-- Updated `AGENTS.md`, `ARCHITECTURE.md`, `TESTING_AND_RELEASE.md`, and docs `README.md` to enforce documentation/versioning decisions for future patches.
-- Downgraded Phase 1 AndroidX/Compose dependency pins to avoid API 37 / AGP 9.1+ AAR metadata requirements while staying on AGP 9.0.1 and compileSdk 36.
-
-### Fixed
-
-- Fixed Android Studio AAR metadata sync failure caused by Compose 1.12.x and AndroidX Core 1.19.x requiring API 37 and newer Android Gradle Plugin than the Phase 1 baseline.
-
-### Known gaps
-
-- Phase 3 requires an MWA-compatible Solana wallet installed on the Android device.
-- Phase 3 does not sign messages, submit transactions, verify SKR, or persist MWA auth tokens yet.
-
-- Firebase sync requires the owner to add a real `app/google-services.json`, enable Anonymous Auth, create Firestore, and apply the included rules.
-- Phase 2 client-side XP/streak writes are MVP-only and must not be treated as secure reward authority.
-- Exact Android package/module structure is not yet audited.
-- Exact Solana SDK/wallet integration choice is not yet locked.
-- No build/test evidence exists yet for this new Android project.
+- Added a one-time automatic retry for devnet memo proof when Phantom/MWA rejects a stale authorization token.
+- The retry clears the cached wallet authorization, rebuilds a fresh devnet memo transaction, and reopens Phantom once.
+- Memo proof still only completes after a real transaction signature is returned.

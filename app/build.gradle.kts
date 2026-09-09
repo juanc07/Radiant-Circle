@@ -18,8 +18,8 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.3.0-phase3"
+        versionCode = 4
+        versionName = "0.4.0-phase4"
     }
 
     buildFeatures {
@@ -55,7 +55,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Phase 3 MWA connect only.
+    // Phase 4 MWA wallet connect, message signing, and devnet memo proof.
     // Exclude test/mock dependencies that older MWA KTX metadata can expose transitively.
     // Those libraries are not needed by the production app and can trigger noisy/failing
     // Android manifest/resource merges in newer Android Studio/AGP combinations.
@@ -66,7 +66,6 @@ dependencies {
         exclude(group = "org.mockito.kotlin")
     }
     implementation(libs.solana.web3)
-    implementation(libs.solana.rpc.core)
     implementation(libs.multimult)
 
     debugImplementation(libs.androidx.compose.ui.tooling)

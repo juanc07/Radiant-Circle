@@ -24,26 +24,29 @@ import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.LeaderboardPreview
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.StatusPill
+import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 
 @Composable
 fun LeaderboardScreen(
     contentPadding: PaddingValues,
     leaderboard: List<LeaderboardPreview>,
 ) {
+    val responsive = rememberResponsiveUiSpec()
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = 20.dp,
+            start = responsive.screenPadding,
             top = 14.dp,
-            end = 20.dp,
+            end = responsive.screenPadding,
             bottom = 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 12.dp else 14.dp),
     ) {
         item {
             SectionTitle(
                 title = "Firebase leaderboard",
-                body = "Phase 2 stores the current user’s XP and streak in Firestore. Phase 3+ will add wallet identity and real proof validation.",
+                body = "Firestore stores XP and streaks. Wallet identity and proof validation are layered on top.",
             )
         }
 
@@ -55,6 +58,8 @@ fun LeaderboardScreen(
 
 @Composable
 private fun LeaderboardRow(row: LeaderboardPreview) {
+    val responsive = rememberResponsiveUiSpec()
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -63,8 +68,8 @@ private fun LeaderboardRow(row: LeaderboardPreview) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(responsive.cardPadding),
+            horizontalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
@@ -77,6 +82,8 @@ private fun LeaderboardRow(row: LeaderboardPreview) {
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Clip,
                 )
             }
             Column(
@@ -86,16 +93,23 @@ private fun LeaderboardRow(row: LeaderboardPreview) {
                 Text(
                     text = row.name,
                     style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
                 )
                 Text(
                     text = "${row.xp} XP • ${row.streak}-day streak",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
                 )
+                if (responsive.isTiny || responsive.hasLargeText) {
+                    StatusPill(row.tier)
+                }
             }
-            StatusPill(row.tier)
+            if (!responsive.isTiny && !responsive.hasLargeText) {
+                StatusPill(row.tier)
+            }
         }
     }
 }
