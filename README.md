@@ -1,8 +1,8 @@
-# Radiant Rush — Phase 6 Demo Polish + Retention
+# Radiant Rush — Phase 7 Final QA + Automated Tests
 
 Radiant Rush is a native Android / Jetpack Compose app for Solana Mobile daily quests.
 
-Phase 6 keeps the working Phase 4/5 proof stack and adds a judge-friendly demo layer:
+Phase 7 keeps the working Phase 4/5/6 proof stack and adds final release QA support:
 
 - Firebase anonymous profile, XP, streaks, quests, and leaderboard
 - Mobile Wallet Adapter wallet connect
@@ -10,7 +10,36 @@ Phase 6 keeps the working Phase 4/5 proof stack and adds a judge-friendly demo l
 - Devnet Memo transaction proof
 - Read-only mainnet SKR Passport scan
 - SKR tier and XP multiplier display
-- New `Demo` tab with a 3-minute hackathon walkthrough
+- Demo tab with a 3-minute hackathon walkthrough
+- New JVM unit tests for SKR tier rules and quest interaction rules
+- New Compose instrumented smoke tests for Welcome → shell → Demo navigation
+- Local test scripts and GitHub Actions CI for repeatable checks
+
+## Important test boundary
+
+Most app logic can now be tested automatically, but real wallet approval still needs a human because Phantom/MWA is an external wallet authorization flow.
+
+Automated without phone/wallet:
+
+```text
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+```
+
+Needs an emulator or Android phone:
+
+```text
+./gradlew :app:connectedDebugAndroidTest
+```
+
+Still manual for final demo QA:
+
+```text
+Connect Wallet
+Sign Daily Proof
+Send Memo Proof
+Scan SKR Passport on a real wallet address
+```
 
 ## Important network split
 
@@ -24,19 +53,25 @@ Official SKR mint used by the app:
 SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3
 ```
 
-## Phase 6 behavior
+## Run Phase 7 tests
 
-The new Demo tab is for your recording and judge walkthrough. It summarizes:
+Git Bash / macOS / Linux:
 
-1. Firebase sync
-2. Wallet connect
-3. Message signature proof
-4. Devnet memo proof
-5. Mainnet SKR Passport scan
-6. Profile proof summary
-7. Security boundaries
+```bash
+./scripts/run_phase7_tests.sh
+```
 
-The patch does not add fake balances, fake transactions, token transfers, or backend reward authority.
+PowerShell:
+
+```powershell
+.\scripts\run_phase7_tests.ps1
+```
+
+Manual emulator/phone smoke test:
+
+```bash
+./gradlew :app:connectedDebugAndroidTest
+```
 
 ## Build
 
@@ -52,15 +87,17 @@ PowerShell:
 .\gradlew.bat :app:assembleDebug
 ```
 
-## Test
+## Final QA checklist
 
-1. Open the app on Android.
-2. Confirm the bottom navigation has `Demo`.
-3. Complete or review Today quests.
-4. Open the Demo tab and confirm the 3-minute flow is readable on phone.
-5. Confirm Connect Wallet / Sign Proof / Send Memo still behave like Phase 5.
-6. Confirm SKR Passport still scans inside the app with no Phantom popup.
-7. Open Profile and confirm proof/status fields are still present.
+1. Fresh install app.
+2. Open Radiant Rush.
+3. Complete Firebase check-in.
+4. Connect wallet with Phantom/MWA.
+5. Sign daily proof.
+6. Send devnet memo proof. A second MWA attempt is acceptable if the first authorization handoff expires.
+7. Scan SKR Passport. It should not open Phantom.
+8. Open Profile and confirm wallet, signature, memo tx, explorer link, SKR tier, XP, and streak.
+9. Open Demo tab and use it for the 3-minute video walkthrough.
 
 ## Do not commit secrets
 

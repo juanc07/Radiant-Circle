@@ -24,6 +24,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import com.thinkblox.radiantrush.data.AppDestination
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.PreviewContent
@@ -48,6 +49,7 @@ import com.thinkblox.radiantrush.ui.screens.ProfileScreen
 import com.thinkblox.radiantrush.ui.screens.DemoScreen
 import com.thinkblox.radiantrush.ui.screens.QuestsScreen
 import com.thinkblox.radiantrush.ui.screens.WelcomeScreen
+import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import kotlinx.coroutines.launch
 
 @Composable
@@ -406,6 +408,16 @@ private fun RadiantRushShell(
             ) {
                 AppDestination.entries.forEach { item ->
                     NavigationBarItem(
+                        modifier = Modifier.testTag(
+                            when (item) {
+                                AppDestination.Home -> UiTestTags.NAV_HOME
+                                AppDestination.Quests -> UiTestTags.NAV_QUESTS
+                                AppDestination.Badges -> UiTestTags.NAV_BADGES
+                                AppDestination.Leaderboard -> UiTestTags.NAV_LEADERBOARD
+                                AppDestination.Profile -> UiTestTags.NAV_PROFILE
+                                AppDestination.Demo -> UiTestTags.NAV_DEMO
+                            },
+                        ),
                         selected = destination == item,
                         onClick = { destination = item },
                         alwaysShowLabel = !responsive.isTiny,

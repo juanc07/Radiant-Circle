@@ -342,3 +342,33 @@ Before committing Phase 6:
 8. Confirm Profile still shows wallet address, signed proof, memo transaction/explorer link, and SKR tier.
 
 Known acceptable issue: some wallets may still need more than one visible memo attempt because of wallet authorization handoff behavior. This does not block Phase 6 if the transaction proof eventually completes and is saved.
+
+
+## Phase 7 automated testing
+
+Phase 7 introduces repeatable local/CI checks so most regressions can be caught without repeatedly using a phone.
+
+Fast automated checks:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+```
+
+Convenience scripts:
+
+```bash
+./scripts/run_phase7_tests.sh
+```
+
+```powershell
+.\scripts\run_phase7_tests.ps1
+```
+
+Emulator or physical-device Compose smoke test:
+
+```bash
+./gradlew :app:connectedDebugAndroidTest
+```
+
+Manual wallet approval is still required for Connect Wallet, Sign Daily Proof, and Send Memo Proof because MWA must preserve user consent in the wallet app. SKR Passport should remain read-only and should not open Phantom.

@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +42,7 @@ import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.StatusPill
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
+import com.thinkblox.radiantrush.ui.testing.UiTestTags
 
 @Composable
 fun DemoScreen(
@@ -56,7 +58,9 @@ fun DemoScreen(
     val progress = completedCount.toFloat() / uiState.quests.size.coerceAtLeast(1).toFloat()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag(UiTestTags.DEMO_SCREEN),
         contentPadding = PaddingValues(
             start = responsive.screenPadding,
             top = 14.dp,
