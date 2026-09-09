@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -37,9 +38,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.StatusPill
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
+import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 
 @Composable
 fun WelcomeScreen(
@@ -48,17 +51,19 @@ fun WelcomeScreen(
     onRetryFirebase: () -> Unit,
     onConnectWallet: () -> Unit,
 ) {
+    val responsive = rememberResponsiveUiSpec()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .navigationBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 18.dp),
+            .padding(horizontal = responsive.screenPadding, vertical = 18.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 14.dp else 20.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -83,7 +88,7 @@ fun WelcomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "Phase 3 Mobile Wallet Adapter",
+                        text = "Phase 4 Solana Proof",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -92,7 +97,7 @@ fun WelcomeScreen(
 
             GradientHeroCard(
                 title = "Connect. Quest. Prove.",
-                subtitle = "Firebase progress is live, and Phase 3 now connects a real Solana wallet through Mobile Wallet Adapter.",
+                subtitle = "Firebase progress, wallet connect, signed proof, and devnet memo quests.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -126,16 +131,23 @@ fun WelcomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        text = "What works in Phase 3",
+                        text = "What works in Phase 4",
                         style = MaterialTheme.typography.titleLarge,
                     )
-                    PhaseBullet("Firebase Anonymous Auth and Firestore profile/progress remain live")
-                    PhaseBullet("Connect Wallet opens a real MWA-compatible Solana wallet on Android")
-                    PhaseBullet("The app saves only the public wallet address and optional account label")
-                    PhaseBullet("No seed phrase, private key, signing, transaction, or SKR verification is faked")
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        StatusPill("Firebase: live")
-                        StatusPill("MWA: connect")
+                    PhaseBullet("Firebase profile, XP, streaks, and quests remain live")
+                    PhaseBullet("Connect Wallet opens a real MWA-compatible Solana wallet")
+                    PhaseBullet("The app saves public wallet address only")
+                    PhaseBullet("Signed proof and memo proof are real; SKR stays Phase 5")
+                    if (responsive.isTiny || responsive.hasLargeText) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusPill("Firebase")
+                            StatusPill("MWA")
+                        }
+                    } else {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            StatusPill("Firebase: live")
+                            StatusPill("MWA: proof")
+                        }
                     }
                 }
             }
@@ -150,20 +162,17 @@ fun WelcomeScreen(
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .heightIn(min = responsive.buttonHeight),
                 shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues(horizontal = 18.dp),
+                contentPadding = PaddingValues(horizontal = responsive.buttonHorizontalPadding, vertical = 8.dp),
                 onClick = onEnterDemoShell,
             ) {
-                Text(
-                    text = "Open Radiant Rush",
-                    style = MaterialTheme.typography.labelLarge,
-                )
+                AdaptiveButtonText("Open Radiant Rush")
             }
             OutlinedButton(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp),
+                    .heightIn(min = responsive.buttonHeight),
                 shape = RoundedCornerShape(18.dp),
                 enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
                 onClick = onConnectWallet,
@@ -173,14 +182,12 @@ fun WelcomeScreen(
                     contentDescription = null,
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Text(
+                AdaptiveButtonText(
                     text = if (uiState.isWalletConnected) "Wallet Connected" else "Connect Wallet",
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Text(
-                text = "Connect uses Mobile Wallet Adapter. Phase 4 will add signed daily proof and an on-chain memo transaction.",
+                text = "Use Phantom test/devnet mode for Phase 4 proof quests.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

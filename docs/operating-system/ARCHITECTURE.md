@@ -271,3 +271,49 @@ Objects that register Activity Result launchers, request Activity-owned launcher
 
 For Phase 3 Mobile Wallet Adapter, `MobileWalletRepository` is created in `MainActivity.onCreate()` and passed into Compose. Compose may call wallet actions through callbacks, but it must not construct `ActivityResultSender` or other registration-sensitive MWA objects during composition.
 
+
+## Phase 4 implemented structure
+
+Current package structure intentionally remains simple for hackathon speed:
+
+```text
+app/src/main/java/com/thinkblox/radiantrush/
+  MainActivity.kt                         Activity lifecycle owner
+  data/PhaseOneModels.kt                  UI/domain models for quests, badges, user state
+  firebase/FirebaseRadiantRepository.kt   Firebase Auth + Firestore profile/proof persistence
+  solana/MobileWalletRepository.kt        MWA wallet connect, message signing, memo transaction proof
+  ui/                                     Compose app shell, screens, components, theme
+```
+
+### Phase 4 ownership boundary
+
+`MobileWalletRepository` owns all Solana/MWA work:
+
+- Wallet connection/disconnection.
+- `signMessagesDetached` daily proof request.
+- Devnet Memo transaction construction.
+- `signAndSendTransactions` submission.
+- Public signature/explorer URL result mapping.
+
+`FirebaseRadiantRepository` owns app-progress persistence only:
+
+- Anonymous Firebase profile.
+- Completed quest proof documents.
+- XP, level, streak, badge state inputs.
+- Leaderboard rows for MVP/demo use.
+
+The UI must not build Solana transactions directly. It may call the repository through app-level event handlers only.
+
+
+## Phase 4 MWA proof-session note
+
+The Solana boundary keeps `MobileWalletRepository` as the only owner of MWA calls.
+
+After the Phantom devnet test failure on 2026-09-09, proof actions were adjusted so:
+
+- Wallet connect/disconnect uses a connection-scoped `MobileWalletAdapter`.
+- `Sign Daily Proof` creates a fresh devnet `MobileWalletAdapter` for that one proof request.
+- `On-Chain Memo Proof` creates a fresh devnet `MobileWalletAdapter` for that one transaction request.
+- The UI still treats wallet connection as public-address state only; it does not own or persist wallet auth tokens.
+
+Reason: the log showed memo proof failing inside the MWA `reauthorize` path before the transaction proof could complete. Fresh proof sessions avoid stale/broken auth-token reuse while preserving explicit wallet approval for every sensitive action.

@@ -2,75 +2,40 @@
 
 ## Current phase
 
-Radiant Rush is moving through Phase 3: Mobile Wallet Adapter wallet connection. The app now has a native Compose shell, Firebase profile/progress persistence, and a wallet boundary for real MWA authorization. The immediate owner task is to test Connect Wallet on a real Android device with an MWA-compatible Solana wallet, confirm the public wallet address saves to Firestore, and verify XP/streak still persist after restart.
+Radiant Rush is moving through **Phase 4: Solana proof quests**. The app now has a native Compose shell, Firebase profile/progress persistence, Mobile Wallet Adapter wallet connection, MWA daily message signing, and a devnet Memo transaction proof path.
+
+Immediate owner task: test Phase 4 on a real Android phone using Phantom in test/devnet mode, then confirm Firestore receives `sign-daily-proof_<date>` and `on-chain-proof_<date>` documents.
 
 ## Owner-ordered near-term work
 
 1. Create or audit the Android project skeleton. — done for Phase 1
 2. Add native mobile-first Compose shell for Radiant Rush. — done for Phase 1
 3. Add Firebase Auth and Firestore profile/quest persistence. — done for Phase 2
-4. Add safe environment configuration: dev/demo/production separation. — partial, continue after wallet flow
-5. Add Mobile Wallet Adapter connection flow. — Phase 3 patch delivered, needs real-device wallet testing
-6. Add signed daily proof quest. — next phase
-7. Add memo transaction proof quest.
+4. Add Mobile Wallet Adapter connection flow. — done for Phase 3
+5. Add signed daily proof quest. — delivered in Phase 4 patch
+6. Add devnet memo transaction proof quest. — delivered in Phase 4 patch, needs device/RPC test
+7. Add transaction confirmation polling and status refresh.
 8. Add SKR balance/tier detection and XP multiplier.
-9. Add streaks, badges, and leaderboard.
+9. Add streaks, badges, and leaderboard polish.
 10. Polish mobile UI for small phones and Seeker device demo.
 11. Prepare APK, demo video, GitHub repo, and pitch deck.
 
-## Foundation backlog
+## Phase 5 candidate scope
 
-### A. Architecture
+- Read SKR token balance on mainnet-beta using the connected wallet public address.
+- Keep SKR read-only at first; do not require paid transactions.
+- Add SKR tiers and XP multipliers.
+- Add SKR badge/profile frame.
+- Make UI clearly distinguish devnet quest proofs from mainnet SKR balance reads.
 
-- Confirm package/module structure.
-- Add feature ownership map.
-- Add dependency injection if not present.
-- Define result/error types for wallet/RPC flows.
-- Prevent UI from calling RPC directly unless documented as a prototype exception.
-
-### B. Solana/security
-
-- Add network selector or locked environment config.
-- Add wallet connection/session state.
-- Add transaction status model: signed/submitted/pending/confirmed/failed.
-- Add RPC timeout/retry boundaries.
-- Confirm no secrets are stored or logged.
-- Add production guard for mock/demo mode.
-
-### C. Mobile UI
-
-- Build small-phone-first home flow.
-- Add clear network/demo indicator.
-- Add no-wallet, rejected, offline, and stale-data screens.
-- Add transaction review screen before signing.
-- Test large font and keyboard insets.
-
-### D. Testing/release
-
-- Add Gradle build/test/lint commands to project docs.
-- Add unit tests for use cases and state transitions.
-- Add emulator smoke test checklist.
-- Add release ZIP/export process.
-- Add changelog discipline.
-
-### E. Demo/pitch
-
-- Define one wow moment.
-- Keep the live demo flow under 2 minutes.
-- Prepare fallback path if RPC/wallet/network fails during judging.
-- Prepare screenshots/video backup if allowed by hackathon rules.
-
-## Deferred until MVP flow works
+## Deferred until core proof flow is stable
 
 - Token launch/minting logic.
-- NFT/SFT flows.
-- Marketplace/trading flows.
+- NFT/SFT reward minting.
 - Custom on-chain program integration.
 - Cloud Functions or paid backend services.
 - Push notifications beyond optional local reminder.
-- Advanced social/referral features.
-- Analytics beyond basic event tracking.
-- Production mainnet launch.
+- Production mainnet write transactions.
 - Real reward distribution requiring server authority.
 
 ## Execution rule

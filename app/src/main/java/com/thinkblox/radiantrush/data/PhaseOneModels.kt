@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Route
@@ -16,11 +17,11 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Shared app models for the Phase 1 UI shell, Phase 2 Firebase foundation,
- * and Phase 3 Mobile Wallet Adapter connection flow.
+ * Shared app models for the native Android shell, Firebase foundation, Mobile
+ * Wallet Adapter connection flow, and Phase 4 proof quests.
  *
- * Phase 3 stores public wallet identity only. It does not sign messages,
- * submit transactions, or verify SKR ownership yet.
+ * Phase 4 adds real wallet message signing and a devnet Memo transaction. The
+ * app still does not verify SKR ownership, mint rewards, or store private keys.
  */
 data class QuestPreview(
     val id: String,
@@ -34,7 +35,8 @@ data class QuestPreview(
 enum class QuestStatus(val label: String, val icon: ImageVector) {
     Ready("Ready", Icons.Filled.RadioButtonUnchecked),
     Completed("Done", Icons.Filled.CheckCircle),
-    Locked("Phase 4+", Icons.Filled.Shield),
+    Blocked("Wallet", Icons.Filled.AccountBalanceWallet),
+    Locked("Phase 5+", Icons.Filled.Lock),
     Syncing("Syncing", Icons.Filled.HourglassTop),
 }
 
@@ -60,6 +62,9 @@ data class UserPreview(
     val xp: Int,
     val level: Int,
     val currentStreak: Int,
+    val lastSignedMessageSignature: String? = null,
+    val lastOnChainTxSignature: String? = null,
+    val lastOnChainExplorerUrl: String? = null,
 )
 
 data class RushUiState(
@@ -120,6 +125,7 @@ enum class AppDestination(
 object QuestIds {
     const val DAILY_CHECK_IN = "daily-check-in"
     const val WALLET_CONNECT = "wallet-connect"
+    const val SIGN_DAILY_PROOF = "sign-daily-proof"
     const val ON_CHAIN_PROOF = "on-chain-proof"
     const val SKR_HOLDER = "skr-holder"
 }
@@ -138,8 +144,8 @@ object PreviewContent {
     val quests = listOf(
         QuestPreview(
             id = QuestIds.DAILY_CHECK_IN,
-            title = "Daily Firebase Check-In",
-            description = "Save today’s quest progress to Firebase. This is cloud progress only, not an on-chain proof yet.",
+            title = "Daily Check-In",
+            description = "Save today’s quest progress to Firebase. This is cloud progress only, not on-chain proof.",
             xp = 50,
             status = QuestStatus.Ready,
             proofType = "Firestore proof",
@@ -147,23 +153,31 @@ object PreviewContent {
         QuestPreview(
             id = QuestIds.WALLET_CONNECT,
             title = "Wallet Ready",
-            description = "Connect a Solana wallet through Mobile Wallet Adapter and save the public wallet address to your Firebase profile.",
+            description = "Connect a Solana wallet with Mobile Wallet Adapter and save the public address.",
             xp = 75,
             status = QuestStatus.Ready,
             proofType = "MWA authorization",
         ),
         QuestPreview(
+            id = QuestIds.SIGN_DAILY_PROOF,
+            title = "Sign Daily Proof",
+            description = "Ask your wallet to sign today’s proof message. This proves wallet control without spending SOL.",
+            xp = 75,
+            status = QuestStatus.Blocked,
+            proofType = "MWA message signature",
+        ),
+        QuestPreview(
             id = QuestIds.ON_CHAIN_PROOF,
-            title = "On-Chain Proof",
-            description = "Phase 4 will submit a lightweight Solana memo transaction as proof.",
+            title = "On-Chain Memo Proof",
+            description = "Submit a lightweight devnet Memo transaction as today’s on-chain proof.",
             xp = 100,
-            status = QuestStatus.Locked,
-            proofType = "Memo transaction",
+            status = QuestStatus.Blocked,
+            proofType = "Devnet memo transaction",
         ),
         QuestPreview(
             id = QuestIds.SKR_HOLDER,
             title = "Prove SKR Holder",
-            description = "Phase 5 will read token accounts and apply the SKR XP boost.",
+            description = "Phase 5 reads token accounts and applies the SKR XP boost.",
             xp = 75,
             status = QuestStatus.Locked,
             proofType = "SKR balance check",
@@ -171,11 +185,11 @@ object PreviewContent {
     )
 
     val badges = listOf(
-        BadgePreview("First Launch", "Open the native Android app shell.", unlocked = true),
-        BadgePreview("Cloud Synced", "Create a Firebase profile and save progress.", unlocked = false),
-        BadgePreview("Wallet Ready", "Connect with Mobile Wallet Adapter.", unlocked = false),
-        BadgePreview("Daily Proof", "Complete the first signed daily quest.", unlocked = false),
-        BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = false),
+        BadgePreview("First Launch", "Open the native Android app.", unlocked = true),
+        BadgePreview("Cloud Synced", "Save Firebase progress.", unlocked = false),
+        BadgePreview("Wallet Ready", "Connect with MWA.", unlocked = false),
+        BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = false),
+        BadgePreview("On-Chain Spark", "Submit first memo proof.", unlocked = false),
         BadgePreview("SKR Radiant", "Hold SKR and unlock boosted status.", unlocked = false),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = false),
     )

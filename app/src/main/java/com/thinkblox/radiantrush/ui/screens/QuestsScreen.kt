@@ -17,9 +17,11 @@ import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.QuestCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
+import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 
 @Composable
 fun QuestsScreen(
@@ -27,22 +29,23 @@ fun QuestsScreen(
     uiState: RushUiState,
     onCompleteQuest: (QuestPreview) -> Unit,
 ) {
+    val responsive = rememberResponsiveUiSpec()
     var selectedQuest by remember { mutableStateOf<QuestPreview?>(null) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
-            start = 20.dp,
+            start = responsive.screenPadding,
             top = 14.dp,
-            end = 20.dp,
+            end = responsive.screenPadding,
             bottom = 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 12.dp else 16.dp),
     ) {
         item {
             SectionTitle(
                 title = "Quest board",
-                body = "Phase 3 adds real Mobile Wallet Adapter authorization. On-chain memo proof and SKR balance checks remain locked until their real implementations exist.",
+                body = "Sign a proof message or submit a devnet Memo transaction. SKR checks stay locked until Phase 5.",
             )
         }
 
@@ -60,6 +63,8 @@ fun QuestsScreen(
                 actionLabel = when (quest.id) {
                     QuestIds.DAILY_CHECK_IN -> "Save Firebase Check-In"
                     QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected) "Wallet Connected" else "Connect Wallet"
+                    QuestIds.SIGN_DAILY_PROOF -> if (quest.status.name == "Completed") "Signed Today" else "Sign Daily Proof"
+                    QuestIds.ON_CHAIN_PROOF -> if (quest.status.name == "Completed") "Memo Submitted" else "Submit Memo Proof"
                     else -> null
                 },
                 actionEnabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
@@ -75,12 +80,12 @@ fun QuestsScreen(
             title = { Text(quest.title) },
             text = {
                 Text(
-                    text = "Proof type: ${quest.proofType}\n\n${quest.description}\n\nPhase 3 can authorize a wallet and save its public address. It does not request message signing, send a transaction, or claim SKR verification yet.",
+                    text = "Proof: ${quest.proofType}\n\n${quest.description}\n\nPhase 4 uses wallet signatures and devnet Memo proof. SKR verification is Phase 5.",
                 )
             },
             confirmButton = {
                 TextButton(onClick = { selectedQuest = null }) {
-                    Text("Got it")
+                    AdaptiveButtonText("Got it")
                 }
             },
         )

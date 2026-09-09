@@ -1,43 +1,45 @@
-# Radiant Rush Phase 3 MWA Lifecycle Crash Fix Patch
+# Radiant Rush Phase 4 MWA Devnet Chain Fix
 
-This is a changed-files-only patch.
+Changed-files-only patch.
 
-## What it fixes
+## Fix
 
-The app built but crashed immediately on the phone because `MobileWalletRepository` was created inside Compose. That repository creates `ActivityResultSender`, which registers an Activity Result launcher. Android requires that registration before the Activity reaches `STARTED`.
+Phase 4 uses Solana devnet for its proof quests. This patch explicitly tells Mobile Wallet Adapter to use `Solana.Devnet` so Phantom receives the same chain context as the app's devnet RPC and devnet explorer URL.
 
-The fix moves `MobileWalletRepository` creation into `MainActivity.onCreate()` before `setContent`.
+Without this, MWA can default to mainnet while the app builds a devnet memo transaction. That can look like Phantom approves something, but the app never receives a usable signature/proof result.
+
+## Files
+
+- `app/src/main/java/com/thinkblox/radiantrush/solana/MobileWalletRepository.kt`
+- `docs/PHASE_4_MWA_DEVNET_CHAIN_FIX.md`
+- `docs/operating-system/PATCH_LOG_PHASE_4_MWA_DEVNET_CHAIN_FIX.md`
 
 ## Apply
 
-Copy this patch folder into your project root and overwrite existing files.
+Copy the contents of this folder into your project root and overwrite existing files.
 
-## Build
+Then build:
 
 ```bash
+./gradlew --stop
 ./gradlew :app:assembleDebug
 ```
 
 PowerShell:
 
 ```powershell
+.\gradlew.bat --stop
 .\gradlew.bat :app:assembleDebug
 ```
 
-## Changed files
+## Test
 
-```text
-app/src/main/java/com/thinkblox/radiantrush/MainActivity.kt
-app/src/main/java/com/thinkblox/radiantrush/ui/RadiantRushApp.kt
-docs/PHASE_3_MWA_LIFECYCLE_CRASH_FIX.md
-docs/operating-system/ARCHITECTURE.md
-docs/operating-system/CHANGELOG.md
-```
+Use Phantom mobile in developer/test mode with the wallet set to **Devnet**.
+
+Do not use Solana testnet unless the app RPC and MWA chain are also changed to testnet.
 
 ## Packaging check
 
-```text
-No .git metadata
-No google-services.json
-Changed-files-only patch
-```
+- No `.git` metadata
+- No `google-services.json`
+- Changed/new files only
