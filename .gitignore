@@ -21,3 +21,9 @@ captures/
 
 # Firebase local config. Add intentionally only for a public demo Firebase project.
 app/google-services.json
+
+# Local submission APKs and build artifacts
+release/
+
+# Local submission APKs and build artifacts
+release/
