@@ -1,91 +1,110 @@
-# Radiant Rush — Phase 1 Android App
+# Radiant Rush Android
 
-Radiant Rush is a native Android Solana Mobile quest/streak app. Phase 1 delivers the mobile-first Kotlin + Jetpack Compose shell that later phases will connect to Firebase, Mobile Wallet Adapter, Solana RPC, and SKR tier logic.
+Radiant Rush is a native Android app for the Solana Mobile hackathon.
 
-## Phase 1 scope
+Product direction:
 
-This package includes:
+> Daily quests for Solana Mobile users: cloud-saved streaks, badges, leaderboard progress, then Mobile Wallet Adapter, on-chain proof, and SKR-powered status.
 
-- Native Android project structure.
-- Kotlin + Jetpack Compose UI.
-- Welcome screen.
-- Bottom navigation.
-- Today/Home screen.
-- Quest board screen.
-- Badge grid screen.
-- Leaderboard preview screen.
-- Profile readiness screen.
-- Operating-system docs copied into `docs/operating-system/`.
+## Current phase
 
-This package intentionally does **not** fake these flows:
+```text
+Phase 2 — Firebase Foundation
+```
 
-- No Firebase persistence yet.
-- No Mobile Wallet Adapter wallet connection yet.
-- No Solana transaction signing yet.
-- No live SKR balance check yet.
-- No live leaderboard yet.
+Phase 2 adds Firebase Auth + Firestore foundations while keeping wallet and Solana features honestly locked until the next phases.
 
-Those start in Phase 2 and Phase 3.
+## What works now
 
-## Build requirements
+- Native Android app, not a WebView wrapper.
+- Kotlin + Jetpack Compose mobile-first shell.
+- Welcome, Today, Quests, Badges, Leaderboard, and Profile screens.
+- Firebase dependencies are present.
+- App still builds before Firebase is configured.
+- Anonymous Auth and Firestore sync work after adding `app/google-services.json`.
+- Daily Firebase check-in saves progress, XP, streak, badges, and leaderboard state.
 
-Recommended current stack used by this project:
+## What does not exist yet
 
-- Android Studio with Android SDK 36 installed.
-- JDK 17+.
-- Gradle 9.x or Android Studio Gradle sync.
-- Kotlin 2.4.20.
-- Android Gradle Plugin 9.0.1.
-- Jetpack Compose BOM 2026.04.01.
-- AndroidX Activity Compose 1.12.4.
-- AndroidX Core KTX 1.17.0.
+- Mobile Wallet Adapter connection — Phase 3.
+- Solana signed messages — Phase 3/4.
+- Solana memo transaction proof — Phase 4.
+- SKR token balance detection — Phase 5.
+- Real reward distribution — later backend/on-chain verified phase.
 
-The ZIP does not include a Gradle wrapper JAR because it was generated in a sandbox without Gradle installed. Open the project in Android Studio and let it sync, or generate a wrapper locally:
+## Firebase setup
+
+1. Create a Firebase project.
+2. Add Android app package:
+
+```text
+com.thinkblox.radiantrush
+```
+
+3. Download Firebase `google-services.json`.
+4. Place it at:
+
+```text
+app/google-services.json
+```
+
+5. Enable Firebase Authentication > Anonymous.
+6. Create Cloud Firestore.
+7. Paste rules from:
+
+```text
+firebase/firestore.rules
+```
+
+8. Sync Gradle and build.
+
+The app intentionally does not commit `app/google-services.json`. Use `app/google-services.json.example` only as a shape reference.
+
+## Build
 
 ```bash
-gradle wrapper --gradle-version 9.0.0
 ./gradlew :app:assembleDebug
 ```
 
-If you already use Android Studio, you can usually open the folder and run the app from the IDE.
-
-## Project layout
+Debug APK path:
 
 ```text
-RadiantRushPhase1Android/
-  app/
-    src/main/
-      java/com/thinkblox/radiantrush/
-        MainActivity.kt
-        data/PhaseOneModels.kt
-        ui/RadiantRushApp.kt
-        ui/components/RushComponents.kt
-        ui/screens/
-        ui/theme/
-      res/
-  docs/operating-system/
-  gradle/libs.versions.toml
-  settings.gradle.kts
-  build.gradle.kts
+app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Next phase
+## Git safety
 
-Phase 2 should add Firebase Authentication and Firestore while preserving the current UI contract:
+Do not commit generated Gradle/Android Studio cache folders:
 
-1. Anonymous Firebase sign-in.
-2. `users/{uid}` document.
-3. Quest progress collection.
-4. Firestore-backed leaderboard.
-5. Loading/error/offline states.
+```text
+.gradle/
+build/
+app/build/
+caches/
+daemon/
+kotlin-profile/
+native/
+wrapper/
+android/
+```
 
-Phase 3 should add Mobile Wallet Adapter. Do not store private keys in the APK.
+The required Gradle wrapper is:
 
-## Android Studio Gradle sync note
+```text
+gradle/wrapper/
+```
 
-This package has been updated for Android Gradle Plugin 9 built-in Kotlin support. The old `org.jetbrains.kotlin.android` plugin was removed because AGP 9 now provides Kotlin support directly. Keep `org.jetbrains.kotlin.plugin.compose` because this app uses Jetpack Compose. See `docs/GRADLE_SYNC_FIX_AGP9.md`.
+## Docs
 
-## Android Studio AAR metadata note
+Main operating-system docs live in:
 
-This package now avoids Compose 1.12.x and AndroidX Core 1.19.x because those dependencies require API 37 and newer Android Gradle Plugin versions than the Phase 1 baseline. The dependency fix is documented in `docs/GRADLE_AAR_METADATA_FIX_COMPOSE_202608.md`.
+```text
+docs/operating-system/
+```
 
+Phase-specific docs:
+
+```text
+docs/PHASE_1_NATIVE_ANDROID_APP.md
+docs/PHASE_2_FIREBASE_FOUNDATION.md
+```

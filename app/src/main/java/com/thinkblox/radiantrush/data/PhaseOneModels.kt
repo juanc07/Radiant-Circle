@@ -3,8 +3,11 @@ package com.thinkblox.radiantrush.data
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudOff
+import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Route
@@ -12,8 +15,8 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
- * Phase 1 data is intentionally static UI-preview content.
- * Firebase persistence starts in Phase 2. Live Solana data starts in Phase 3+.
+ * Shared app models for the Phase 1 UI shell and Phase 2 Firebase foundation.
+ * Live Solana wallet state starts in Phase 3. On-chain proof starts in Phase 4.
  */
 data class QuestPreview(
     val id: String,
@@ -26,8 +29,9 @@ data class QuestPreview(
 
 enum class QuestStatus(val label: String, val icon: ImageVector) {
     Ready("Ready", Icons.Filled.RadioButtonUnchecked),
-    Completed("Preview", Icons.Filled.CheckCircle),
+    Completed("Done", Icons.Filled.CheckCircle),
     Locked("Phase 3+", Icons.Filled.Shield),
+    Syncing("Syncing", Icons.Filled.HourglassTop),
 }
 
 data class BadgePreview(
@@ -54,6 +58,46 @@ data class UserPreview(
     val currentStreak: Int,
 )
 
+data class RushUiState(
+    val firebaseStatus: FirebaseStatus = FirebaseStatus.NotConfigured,
+    val user: UserPreview = PreviewContent.user,
+    val quests: List<QuestPreview> = PreviewContent.quests,
+    val badges: List<BadgePreview> = PreviewContent.badges,
+    val leaderboard: List<LeaderboardPreview> = PreviewContent.leaderboard,
+    val todayKey: String = "local-preview",
+    val lastMessage: String? = null,
+) {
+    val isFirebaseReady: Boolean
+        get() = firebaseStatus == FirebaseStatus.Ready
+}
+
+enum class FirebaseStatus(
+    val label: String,
+    val detail: String,
+    val icon: ImageVector,
+) {
+    Loading(
+        "Firebase syncing",
+        "Signing in anonymously and loading your profile.",
+        Icons.Filled.CloudSync,
+    ),
+    Ready(
+        "Firebase connected",
+        "Anonymous Auth and Firestore are available.",
+        Icons.Filled.CloudSync,
+    ),
+    NotConfigured(
+        "Firebase setup needed",
+        "Add app/google-services.json, enable Anonymous Auth, and create Firestore.",
+        Icons.Filled.CloudOff,
+    ),
+    Error(
+        "Firebase error",
+        "The app stayed usable, but cloud sync failed. Check setup and rules.",
+        Icons.Filled.CloudOff,
+    ),
+}
+
 enum class AppDestination(
     val label: String,
     val icon: ImageVector,
@@ -68,8 +112,8 @@ enum class AppDestination(
 object PreviewContent {
     val user = UserPreview(
         displayName = "Radiant Rookie",
-        walletStatus = "Not connected yet",
-        walletAddress = "MWA connection starts in Phase 3",
+        walletStatus = "Wallet not connected yet",
+        walletAddress = "Mobile Wallet Adapter starts in Phase 3",
         skrTier = "Visitor",
         xp = 0,
         level = 1,
@@ -79,11 +123,19 @@ object PreviewContent {
     val quests = listOf(
         QuestPreview(
             id = "daily-check-in",
-            title = "Daily Check-In",
-            description = "Phase 3 will use Mobile Wallet Adapter to sign a daily proof message.",
+            title = "Daily Firebase Check-In",
+            description = "Save today’s quest progress to Firebase. This is cloud progress only, not an on-chain proof yet.",
             xp = 50,
             status = QuestStatus.Ready,
-            proofType = "Signed message",
+            proofType = "Firestore proof",
+        ),
+        QuestPreview(
+            id = "wallet-connect",
+            title = "Wallet Ready",
+            description = "Phase 3 will connect through Mobile Wallet Adapter and save the public wallet address.",
+            xp = 75,
+            status = QuestStatus.Locked,
+            proofType = "MWA authorization",
         ),
         QuestPreview(
             id = "on-chain-proof",
@@ -105,6 +157,7 @@ object PreviewContent {
 
     val badges = listOf(
         BadgePreview("First Launch", "Open the native Android app shell.", unlocked = true),
+        BadgePreview("Cloud Synced", "Create a Firebase profile and save progress.", unlocked = false),
         BadgePreview("Wallet Ready", "Connect with Mobile Wallet Adapter.", unlocked = false),
         BadgePreview("Daily Proof", "Complete the first signed daily quest.", unlocked = false),
         BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = false),
@@ -113,9 +166,8 @@ object PreviewContent {
     )
 
     val leaderboard = listOf(
-        LeaderboardPreview(1, "Sample Radiant", 9600, 18, "Legend"),
-        LeaderboardPreview(2, "Quest Runner", 7420, 12, "Core"),
-        LeaderboardPreview(3, "Mobile Native", 5880, 9, "Radiant"),
-        LeaderboardPreview(4, "You", 0, 0, "Visitor"),
+        LeaderboardPreview(1, "You", 0, 0, "Visitor"),
     )
+
+    fun defaultState(): RushUiState = RushUiState()
 }

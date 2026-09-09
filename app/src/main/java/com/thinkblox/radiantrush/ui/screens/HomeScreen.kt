@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
@@ -19,16 +18,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.thinkblox.radiantrush.data.PreviewContent
+import com.thinkblox.radiantrush.data.QuestPreview
+import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.MetricCard
 import com.thinkblox.radiantrush.ui.components.ProgressCard
 import com.thinkblox.radiantrush.ui.components.QuestCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
+import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 
 @Composable
-fun HomeScreen(contentPadding: PaddingValues) {
-    val user = PreviewContent.user
+fun HomeScreen(
+    contentPadding: PaddingValues,
+    uiState: RushUiState,
+    onCompleteQuest: (QuestPreview) -> Unit,
+) {
+    val user = uiState.user
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -43,7 +48,14 @@ fun HomeScreen(contentPadding: PaddingValues) {
         item {
             GradientHeroCard(
                 title = "Today’s Rush",
-                subtitle = "Connect, prove activity, and build your streak. Phase 1 is the polished app shell before Firebase and Solana wiring.",
+                subtitle = "Firebase now saves your cloud profile, daily check-in, XP, streak, badges, and leaderboard preview. Wallet actions still start in Phase 3.",
+            )
+        }
+
+        item {
+            SyncStatusCard(
+                status = uiState.firebaseStatus,
+                message = uiState.lastMessage,
             )
         }
 
@@ -56,14 +68,14 @@ fun HomeScreen(contentPadding: PaddingValues) {
                     modifier = Modifier.weight(1f),
                     label = "Streak",
                     value = "${user.currentStreak} days",
-                    supportingText = "Starts after real daily proof.",
+                    supportingText = "Saved by Firebase once per day.",
                     icon = Icons.Filled.LocalFireDepartment,
                 )
                 MetricCard(
                     modifier = Modifier.weight(1f),
                     label = "Level",
                     value = "Lv. ${user.level}",
-                    supportingText = "XP persists in Phase 2.",
+                    supportingText = "${user.xp} XP synced.",
                     icon = Icons.Filled.Bolt,
                 )
             }
@@ -72,7 +84,7 @@ fun HomeScreen(contentPadding: PaddingValues) {
         item {
             ProgressCard(
                 title = "Visitor → Radiant",
-                progress = 0.12f,
+                progress = (user.xp.coerceAtMost(500) / 500f).coerceIn(0f, 1f),
                 caption = "SKR holder boosts and Radiant tier logic arrive in Phase 5.",
             )
         }
@@ -80,18 +92,24 @@ fun HomeScreen(contentPadding: PaddingValues) {
         item {
             SectionTitle(
                 title = "Priority quests",
-                body = "These cards are static previews now. They become real wallet/Firebase flows in later phases.",
+                body = "Phase 2 saves Firebase progress only. No wallet request or Solana transaction is simulated here.",
             )
         }
 
-        items(PreviewContent.quests.size) { index ->
-            QuestCard(quest = PreviewContent.quests[index])
+        items(uiState.quests.size) { index ->
+            val quest = uiState.quests[index]
+            QuestCard(
+                quest = quest,
+                actionLabel = if (quest.id == "daily-check-in") "Save Firebase Check-In" else null,
+                actionEnabled = uiState.isFirebaseReady,
+                onActionClick = { onCompleteQuest(quest) },
+            )
         }
 
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Build target: native Android APK first, then Firebase, then Mobile Wallet Adapter and real Solana proofs.",
+                text = "Build target: Firebase profile/progress first, then Mobile Wallet Adapter and real Solana proofs.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

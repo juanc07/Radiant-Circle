@@ -9,11 +9,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.thinkblox.radiantrush.data.PreviewContent
+import com.thinkblox.radiantrush.data.BadgePreview
 import com.thinkblox.radiantrush.ui.components.BadgeMedallion
 
 @Composable
-fun BadgesScreen(contentPadding: PaddingValues) {
+fun BadgesScreen(
+    contentPadding: PaddingValues,
+    badges: List<BadgePreview>,
+) {
     LazyVerticalGrid(
         modifier = Modifier.fillMaxSize(),
         columns = GridCells.Adaptive(minSize = 148.dp),
@@ -26,7 +29,7 @@ fun BadgesScreen(contentPadding: PaddingValues) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        items(PreviewContent.badges) { badge ->
+        items(badges) { badge ->
             BadgeMedallion(
                 title = badge.title,
                 description = badge.description,

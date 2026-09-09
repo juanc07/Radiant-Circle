@@ -44,6 +44,20 @@ If commands differ, document the actual commands used.
 - Rotation if supported.
 - Background/foreground resume.
 
+### Firebase
+
+- Build without `app/google-services.json` and confirm app shows setup-needed state, not a crash.
+- Add valid `app/google-services.json`.
+- Confirm Gradle applies the Google services plugin.
+- Enable Anonymous Auth and confirm anonymous sign-in succeeds.
+- Create Firestore and apply `firebase/firestore.rules`.
+- Confirm `users/{uid}` is created.
+- Complete daily Firebase check-in and confirm `completedQuests/{questId_date}` is created.
+- Confirm duplicate same-day check-in does not grant extra XP.
+- Confirm leaderboard row updates.
+- Confirm offline or rules failure shows error state, not infinite loading.
+
+
 ### Wallet
 
 - No wallet installed.
@@ -101,6 +115,7 @@ A demo/release candidate cannot be accepted until:
 - Startup works on emulator.
 - Critical target flow works on emulator or device.
 - Wallet rejection/cancel paths are handled.
+- Firebase setup/error/offline path is handled when Firebase is included.
 - RPC error/offline path is handled.
 - Production build disables mock/fake success flows.
 - `CHANGELOG.md` has an `[Unreleased]` entry or release entry describing the change.

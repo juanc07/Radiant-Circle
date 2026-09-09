@@ -22,12 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.LeaderboardPreview
-import com.thinkblox.radiantrush.data.PreviewContent
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.StatusPill
 
 @Composable
-fun LeaderboardScreen(contentPadding: PaddingValues) {
+fun LeaderboardScreen(
+    contentPadding: PaddingValues,
+    leaderboard: List<LeaderboardPreview>,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -40,13 +42,13 @@ fun LeaderboardScreen(contentPadding: PaddingValues) {
     ) {
         item {
             SectionTitle(
-                title = "Ranks preview",
-                body = "This is static layout data. Phase 2 will read from Firestore after quest progress is saved.",
+                title = "Firebase leaderboard",
+                body = "Phase 2 stores the current user’s XP and streak in Firestore. Phase 3+ will add wallet identity and real proof validation.",
             )
         }
 
-        items(PreviewContent.leaderboard.size) { index ->
-            LeaderboardRow(row = PreviewContent.leaderboard[index])
+        items(leaderboard.size) { index ->
+            LeaderboardRow(row = leaderboard[index])
         }
     }
 }

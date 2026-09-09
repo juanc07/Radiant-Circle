@@ -16,10 +16,10 @@ Before coding, read these docs in order:
 8. CHANGELOG.md
 9. BMA_SOURCE_AUDIT_FOR_ANDROID.md
 
-Your first job is to audit the actual Android source tree, identify the package/module structure, current build status, and the safest next step for a Solana hackathon demo app. Do not invent files, APIs, SDK versions, wallet behavior, transaction results, or test results. If you patch code, make the smallest focused change and report exact files changed plus checks actually run.
+Your first job is to audit the actual Android source tree and current Git branch. Current expected phase is Phase 2 Firebase foundation: native Compose shell, Firebase dependencies, safe no-config fallback, anonymous Auth profile creation, Firestore daily check-in progress, badges, and leaderboard. Confirm whether Firebase has been configured with `app/google-services.json` before claiming Firebase sync works. Do not invent files, APIs, SDK versions, wallet behavior, transaction results, Firebase results, or test results. If you patch code, make the smallest focused change and report exact files changed plus checks actually run.
 ```
 
 
 ## Updated direction
 
-Product direction is now `Radiant Rush`: a native Android Solana Mobile quest/streak app using Firebase, Mobile Wallet Adapter, Solana RPC, and SKR-powered boosts/status. Read `PHASED_DELIVERY_PLAN.md` before coding major features.
+Product direction is `Radiant Rush`: a native Android Solana Mobile quest/streak app using Firebase, Mobile Wallet Adapter, Solana RPC, and SKR-powered boosts/status. Read `PHASED_DELIVERY_PLAN.md` and `docs/PHASE_2_FIREBASE_FOUNDATION.md` before coding major features. Next major phase after Firebase config/testing is Phase 3 Mobile Wallet Adapter connection.

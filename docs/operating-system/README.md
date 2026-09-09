@@ -6,12 +6,12 @@ This documentation set was created from an audit of the Blox Monster Adventure s
 
 - Project name: `RadiantSolanaHackatonAndroid`
 - Target: Android app for a Solana hackathon.
-- Current state: product direction is selected: `Radiant Rush`, a native Android Solana Mobile quest/streak app using Firebase, Mobile Wallet Adapter, Solana RPC, and SKR-powered status.
+- Current state: `Radiant Rush` Phase 2 Firebase foundation is underway: native Compose shell plus Firebase Auth/Firestore profile and progress persistence, with Mobile Wallet Adapter next.
 - BMA source role: reference project only. Do not copy Roblox/Luau/Studio-specific code into this Android app.
 
 ## Canonical documentation map
 
-Keep this project lean. The maintained documentation set should stay small; this package has 12 files because the owner explicitly requested the phased delivery plan and documentation/versioning rules to be added to the operating-system docs.
+Keep this project lean. The maintained operating-system documentation set should stay small. App phase docs may live one level above this folder, such as `docs/PHASE_2_FIREBASE_FOUNDATION.md`.
 
 1. `README.md` — entry point, document map, read order.
 2. `AGENTS.md` — AI/developer workflow and source-control contract.
@@ -25,6 +25,11 @@ Keep this project lean. The maintained documentation set should stay small; this
 10. `CHANGELOG.md` — forward-only change record.
 11. `BMA_SOURCE_AUDIT_FOR_ANDROID.md` — what was learned from the BMA audit.
 12. `NEXT_CHAT_START_PROMPT.md` — ready prompt for continuing with another AI session.
+
+Phase-specific implementation docs outside this folder:
+
+- `docs/PHASE_1_NATIVE_ANDROID_APP.md`
+- `docs/PHASE_2_FIREBASE_FOUNDATION.md`
 
 ## Required read order for new work
 

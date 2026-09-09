@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow read, create, update: if owns(userId);
+      allow delete: if false;
+
+      match /completedQuests/{questId} {
+        allow read, create, update: if owns(userId);
+        allow delete: if false;
+      }
+    }
+
+    match /leaderboard/{userId} {
+      allow read: if true;
+      allow create, update: if owns(userId);
+      allow delete: if false;
+    }
+
+    match /quests/{questId} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

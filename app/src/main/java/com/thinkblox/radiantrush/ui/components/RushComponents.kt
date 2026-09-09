@@ -15,7 +15,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -24,6 +27,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +38,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.QuestPreview
+import com.thinkblox.radiantrush.data.QuestStatus
 
 @Composable
 fun GradientHeroCard(
@@ -133,7 +139,10 @@ fun MetricCard(
 fun QuestCard(
     quest: QuestPreview,
     modifier: Modifier = Modifier,
+    actionLabel: String? = null,
+    actionEnabled: Boolean = false,
     onClick: () -> Unit = {},
+    onActionClick: () -> Unit = {},
 ) {
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
@@ -194,6 +203,23 @@ fun QuestCard(
                     maxLines = 1,
                 )
             }
+            if (actionLabel != null) {
+                Button(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    enabled = actionEnabled && quest.status == QuestStatus.Ready,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(),
+                    onClick = onActionClick,
+                ) {
+                    Text(
+                        text = actionLabel,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }
@@ -236,6 +262,67 @@ fun SectionTitle(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+fun SyncStatusCard(
+    status: FirebaseStatus,
+    message: String?,
+    modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = when (status) {
+                FirebaseStatus.Ready -> MaterialTheme.colorScheme.primaryContainer
+                FirebaseStatus.Loading -> MaterialTheme.colorScheme.surfaceVariant
+                FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.errorContainer
+            },
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = status.icon,
+                contentDescription = null,
+                tint = when (status) {
+                    FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
+                    else -> MaterialTheme.colorScheme.primary
+                },
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = status.label,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    text = message ?: status.detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (onRetry != null) {
+                TextButton(onClick = onRetry) {
+                    Icon(
+                        imageVector = Icons.Filled.Refresh,
+                        contentDescription = null,
+                    )
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Text("Retry")
+                }
+            }
         }
     }
 }

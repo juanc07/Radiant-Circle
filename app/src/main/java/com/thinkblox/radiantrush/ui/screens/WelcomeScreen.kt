@@ -36,12 +36,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.StatusPill
+import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 
 @Composable
 fun WelcomeScreen(
+    uiState: RushUiState,
     onEnterDemoShell: () -> Unit,
+    onRetryFirebase: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -78,7 +82,7 @@ fun WelcomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "Phase 1 native Android shell",
+                        text = "Phase 2 Firebase foundation",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -87,7 +91,7 @@ fun WelcomeScreen(
 
             GradientHeroCard(
                 title = "Daily quests for Solana Mobile.",
-                subtitle = "Build streaks, earn badges, and prepare for SKR-powered status. This first phase focuses on native UX only.",
+                subtitle = "Build cloud-saved streaks, badges, and leaderboard progress before wallet and Solana proof flows arrive.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -106,6 +110,12 @@ fun WelcomeScreen(
                 },
             )
 
+            SyncStatusCard(
+                status = uiState.firebaseStatus,
+                message = uiState.lastMessage,
+                onRetry = onRetryFirebase,
+            )
+
             Card(
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
@@ -115,12 +125,13 @@ fun WelcomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        text = "What works in Phase 1",
+                        text = "What works in Phase 2",
                         style = MaterialTheme.typography.titleLarge,
                     )
-                    PhaseBullet("Native Kotlin + Jetpack Compose app shell")
-                    PhaseBullet("Mobile-first screens for Today, Quests, Badges, Ranks, and Profile")
-                    PhaseBullet("No WebView wrapper, no private keys, no fake wallet success")
+                    PhaseBullet("Firebase dependency foundation with safe no-config fallback")
+                    PhaseBullet("Anonymous Auth profile creation when google-services.json is present")
+                    PhaseBullet("Firestore user progress, daily quest proof, badge state, and leaderboard rows")
+                    PhaseBullet("No WebView wrapper, no private keys, no fake wallet or Solana transaction success")
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         StatusPill("Firebase: Phase 2")
                         StatusPill("MWA: Phase 3")
@@ -144,7 +155,7 @@ fun WelcomeScreen(
                 onClick = onEnterDemoShell,
             ) {
                 Text(
-                    text = "Preview Native App Shell",
+                    text = "Open Radiant Rush",
                     style = MaterialTheme.typography.labelLarge,
                 )
             }
@@ -167,7 +178,7 @@ fun WelcomeScreen(
                 Text("Connect Wallet unlocks in Phase 3")
             }
             Text(
-                text = "This screen is intentionally honest: wallet and on-chain actions are not simulated in Phase 1.",
+                text = "Firebase progress is real only after you add your Firebase Android config. Wallet and on-chain actions remain locked.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

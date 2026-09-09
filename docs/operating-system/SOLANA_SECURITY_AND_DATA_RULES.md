@@ -75,6 +75,20 @@ Human-readable summary should include, when applicable:
 - Backend should never receive wallet secrets.
 - Backend trust assumptions must be explicit.
 
+## Firebase Phase 2 data rules
+
+Phase 2 Firebase progress is app-progress persistence only. It is not chain truth and not reward authority.
+
+Rules:
+
+- `app/google-services.json` must not be treated as a private key, but it should not be casually committed to the public repo unless the project is intentionally prepared as a public demo Firebase project.
+- Firebase Anonymous Auth is acceptable for Phase 2 because it only owns app profile/progress.
+- Client-side XP, level, streak, and leaderboard writes are acceptable only for MVP/demo progress with no real reward value.
+- Do not use client-side Firestore writes as authority for SKR rewards, prize claims, token transfers, minting, or leaderboard prizes.
+- When wallet-linked data arrives in Phase 3+, Firestore rules must ensure users can only write their own user documents.
+- Any valuable reward flow must be verified by a backend/serverless function, a trusted indexer, or an on-chain program before reward issuance.
+
+
 ## Persistence rules
 
 Allowed local persistence:

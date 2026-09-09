@@ -208,6 +208,41 @@ Update this file whenever a change affects app structure or ownership. Examples 
 
 Do not update this file for small visual copy changes or dependency compatibility fixes unless they change architecture. For every patch, the handoff must explicitly say whether `ARCHITECTURE.md` was updated and why.
 
+## Current Phase 2 implementation map
+
+The current app is still one Android module:
+
+```text
+app/
+  src/main/java/com/thinkblox/radiantrush/
+    data/                 Shared UI/domain models for early phases
+    firebase/             Firebase Auth + Firestore repository
+    ui/                   Compose app shell, components, and screens
+```
+
+Phase 2 introduces `FirebaseRadiantRepository` as the only Firebase owner. Compose screens display Firebase state and send user intents, but do not call Firebase APIs directly.
+
+Current Firestore ownership:
+
+```text
+users/{uid}                              FirebaseRadiantRepository
+users/{uid}/completedQuests/{questId}    FirebaseRadiantRepository
+leaderboard/{uid}                        FirebaseRadiantRepository
+quests/{questId}                         Reserved read-only config path for later
+```
+
+Current Phase 2 data flow:
+
+```text
+Screen -> RadiantRushApp event -> FirebaseRadiantRepository -> Firebase Auth / Firestore
+Screen <- RadiantRushApp state <- FirebaseRadiantRepository <- Firebase Auth / Firestore
+```
+
+This is an accepted short-term prototype exception to the preferred full clean architecture shape. A separate ViewModel/use-case layer should be added if Firebase, wallet, Solana RPC, and quest rules become complex enough to require independent testing.
+
+Phase 2 does not own wallet identity truth, Solana transaction proof, or SKR balance truth. Those remain locked for Phase 3+.
+
+
 ## Do not port from BMA
 
 Do not port these Roblox concepts directly:

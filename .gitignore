@@ -1,19 +1,15 @@
-# Android Studio / Gradle local state
 .gradle/
 .idea/
 build/
 */build/
 local.properties
-
-# OS / IDE files
 .DS_Store
 *.iml
 captures/
 .externalNativeBuild/
 .cxx/
 
-# Gradle/Kotlin user-home cache folders that must never live in the repo root.
-# These can appear if Gradle user home is accidentally pointed at the project folder.
+# Accidental Gradle/User cache folders that must never be committed
 /caches/
 /daemon/
 /kotlin-profile/
@@ -23,6 +19,5 @@ captures/
 /jdks/
 /notifications/
 
-# Logs and temporary files
-*.log
-*.tmp
+# Firebase local config. Add intentionally only for a public demo Firebase project.
+app/google-services.json

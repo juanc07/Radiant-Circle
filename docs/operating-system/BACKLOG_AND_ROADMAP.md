@@ -2,15 +2,15 @@
 
 ## Current phase
 
-Radiant Rush planning phase. The product direction is selected: a native Android Solana Mobile quest/streak app using Firebase, Mobile Wallet Adapter, Solana RPC, and SKR-powered boosts/status. The next goal is to build the smallest end-to-end flow: wallet connect -> daily quest proof -> Firebase save -> XP/streak update.
+Radiant Rush is moving through Phase 2: Firebase foundation. The app now has a native Compose shell plus Firebase-ready profile/progress persistence. The immediate owner task is to configure Firebase with `app/google-services.json`, enable Anonymous Auth, create Firestore, apply `firebase/firestore.rules`, and confirm the daily Firebase check-in saves XP/streak/leaderboard state on a real device. The next product phase is Mobile Wallet Adapter connection.
 
 ## Owner-ordered near-term work
 
-1. Create or audit the Android project skeleton.
-2. Add native mobile-first Compose shell for Radiant Rush.
-3. Add Firebase Auth and Firestore profile/quest persistence.
-4. Add safe environment configuration: dev/demo/production separation.
-5. Add Mobile Wallet Adapter connection flow.
+1. Create or audit the Android project skeleton. — done for Phase 1
+2. Add native mobile-first Compose shell for Radiant Rush. — done for Phase 1
+3. Add Firebase Auth and Firestore profile/quest persistence. — Phase 2 patch delivered, needs owner Firebase config/testing
+4. Add safe environment configuration: dev/demo/production separation. — partial, continue after Firebase config
+5. Add Mobile Wallet Adapter connection flow. — next phase
 6. Add signed daily proof quest.
 7. Add memo transaction proof quest.
 8. Add SKR balance/tier detection and XP multiplier.

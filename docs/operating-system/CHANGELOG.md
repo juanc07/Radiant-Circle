@@ -6,7 +6,9 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 
 ### Added
 
-- Added `GIT_INITIAL_PUSH_FIX.md` with the correct first Git commit/push flow for the Radiant Rush repository.
+- Added Phase 2 Firebase foundation: Firebase dependencies, safe no-config fallback, anonymous Auth bootstrap, Firestore profile/progress save, leaderboard rows, Firestore rules, and setup documentation.
+- Added `PHASE_2_FIREBASE_FOUNDATION.md`, `firebase/firestore.rules`, and `app/google-services.json.example`.
+
 - Added Git metadata delivery rules forbidding `.git/` folders and internal Git files in patch/full-source ZIPs.
 - Initial Android/Solana development documentation generated from the Blox Monster Adventure source audit.
 - Source authority, mobile UI, Solana security, architecture, testing, and roadmap rules.
@@ -16,7 +18,9 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 
 ### Changed
 
-- Updated `.gitignore` to exclude accidental root-level Gradle/Kotlin cache folders that blocked `git add .`.
+- Bumped Android app version to `versionCode = 2`, `versionName = "0.2.0-phase2"` for the Firebase foundation milestone.
+- Updated the app shell copy and dynamic UI state so screens display Firebase readiness/progress instead of Phase 1 static preview only.
+
 - Updated `AGENTS.md` and `DOCUMENTATION_AND_VERSIONING_RULES.md` to require Git-metadata-free packaging and no-Git checks before delivery.
 - Updated `README.md` to include the Radiant Rush product direction and new phased delivery plan.
 - Updated `BACKLOG_AND_ROADMAP.md` to prioritize the wallet connect -> quest proof -> Firebase save -> XP/streak MVP flow.
@@ -29,6 +33,8 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 
 ### Known gaps
 
+- Firebase sync requires the owner to add a real `app/google-services.json`, enable Anonymous Auth, create Firestore, and apply the included rules.
+- Phase 2 client-side XP/streak writes are MVP-only and must not be treated as secure reward authority.
 - Exact Android package/module structure is not yet audited.
 - Exact Solana SDK/wallet integration choice is not yet locked.
 - No build/test evidence exists yet for this new Android project.
