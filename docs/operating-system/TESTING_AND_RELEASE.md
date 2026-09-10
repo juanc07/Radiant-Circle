@@ -1,3 +1,16 @@
+## Phase 11B.1 device QA gate
+
+Before committing Phase 11B.1:
+
+- Deploy the updated Firestore rules.
+- Connect the same Solana wallet on two Android devices.
+- Confirm both devices show the same remaining ranked-attempt count after refresh.
+- Finish one ranked run and verify both `runWeekly/{week}/entries/{uid}` and `runAllTime/{uid}` are created/updated.
+- Verify `runWalletDaily/{utcDay}/wallets/{walletAddress}.attemptsUsed` increments exactly once per ranked run and never exceeds 3.
+- After the third ranked run, verify the next ticket-backed run is labeled Casual, still awards capped gameplay XP, and does not replace Weekly/All-Time PB.
+- Disconnect the wallet and verify the briefing explicitly says the run is Casual and will not publish a ranked score.
+- Re-run `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:connectedDebugAndroidTest`, and `:app:installDebug`.
+
 ## Phase 10 game-layer gate
 
 Before merging Phase 10, run unit tests, debug build, and connected Android tests. On a physical phone, verify countdown, target taps, Corruption penalty, FEVER combo, 20-second finish, one-ticket consumption, Firebase persistence, capsule reveal, Vault discovery, restart persistence, and wallet-based leaderboard deduplication. Re-test the existing MWA connect/sign/memo and read-only SKR flow after the game QA.
@@ -465,3 +478,31 @@ In addition to the normal unit/build/instrumented gates, verify on a physical ph
 - x10+ combos trigger brief shake and larger burst/shockwave feedback without making targets hard to tap;
 - common rewards remain restrained while Epic+ rewards produce noticeably larger particles and stronger reveal audio;
 - repeated runs do not leave music playing after leaving the game and do not introduce crackle or frame drops.
+
+
+## Phase 11A competition-foundation gate
+
+Before Phase 11B persists or renders competition state, verify the pure Phase 11A rules:
+
+- UTC day reset occurs at 00:00 UTC.
+- ISO weekly key changes at the Monday UTC week boundary.
+- Gameplay XP is performance-derived rather than score 1:1 and cannot exceed 300 XP per UTC day.
+- Connected wallets receive exactly 3 ranked attempts per UTC day; later ticket-backed runs resolve to casual.
+- No-wallet runs are casual and do not consume ranked attempts.
+- Weekly and All-Time ranked stats ignore casual scores.
+- All-Time personal best compares raw score first; combo/PERFECT values are tie-breakers only.
+- Duplicate Firebase UIDs for one wallet collapse to one public run-board identity, including legacy shortened-address compatibility.
+- Explicit `No wallet`/disconnect tombstones never appear on the public run board.
+- Client run records always remain non-payout-eligible.
+
+Required local command once Gradle 9.3 is available:
+
+```bash
+./gradlew :app:testDebugUnitTest
+```
+
+For this foundation-only patch, no device claim should be made unless the Android app itself is rebuilt and tested.
+
+## Phase 11B verification gate — competition persistence and visible ranks
+
+Run `./gradlew :app:testDebugUnitTest` and `./gradlew :app:assembleDebug`, deploy the updated `firebase/firestore.rules`, then run `./gradlew :app:connectedDebugAndroidTest` and physical-device QA. Verify the first three connected-wallet runs in a UTC day are eligible to update ranked PBs, the fourth ticket-backed run is Casual, Casual scores do not replace Weekly/All-Time PBs, gameplay XP stops at the 300 XP UTC-daily cap, PERFECT hits persist correctly, public Run ranks dedupe by wallet, and the existing MWA/signature/Devnet Memo/Mainnet read-only SKR paths still work.

@@ -1,3 +1,50 @@
+# 2026-09-10 — Phase 11B.1 ranked-wallet sync + empty-board diagnostics
+
+- Fixed the confusing case where a completed Radiant Run could award gameplay XP while Weekly/All-Time stayed empty: the UI now states clearly when the run is Casual because no wallet is connected or the daily ranked wallet allowance is exhausted.
+- Ranked-attempt usage is now persisted in `runWalletDaily/{utcDay}/wallets/{walletAddress}` so the same connected Solana wallet shares one 3-attempt UTC-daily allowance across phones/reinstalls instead of receiving 3 attempts per Firebase Anonymous UID.
+- Existing Phase 11B per-UID attempt counters are migrated into the shared wallet/day document on the next saved run.
+- `completeRadiantRun` can recover a canonical wallet address from the existing public leaderboard row when an older profile mirror is missing, then backfills the user profile.
+- Weekly/All-Time score rows remain Firebase-UID-owned and public display still collapses duplicate UIDs by wallet.
+- Client-produced score and wallet/day counters remain prototype competition data only and cannot authorize real SKR payout.
+- Android version bumped to `versionCode = 16`, `versionName = "1.1.1-phase11b1"`.
+- AGENTS decision: unchanged; workflow rules did not change.
+
+# 2026-09-10 — Phase 11A SKR Arena competition foundation
+
+## Phase 11B — Radiant Run competition persistence + visible ranks
+
+- Wired the Phase 11A competition rules into real Radiant Run completion.
+- Added Firebase-backed UTC Weekly and All-Time ranked Personal Best boards, with public rows deduplicated by connected Solana wallet.
+- Added Personal Stats UI, daily ranked-attempt status, and gameplay-XP-cap progress.
+- Added real PERFECT-hit counting to submitted run results.
+- Ranked attempts are equal for every connected wallet: 3 per UTC day; later ticket-backed runs are Casual and cannot replace ranked PBs.
+- Replaced uncapped run-performance XP with the Phase 11 controlled award and 300 XP/day cap. Collectible/shard rewards remain non-token app progression.
+- Added `runWeekly/{weekKey}/entries/{uid}` and `runAllTime/{uid}` Firestore architecture. Client rows are explicitly marked prototype-only and `payoutEligible=false`.
+- Updated Firestore rules so users may write only their own competition rows while ranks remain public-readable.
+- Preserved existing XP leaderboard, MWA/Phantom proof paths, and Mainnet read-only SKR scan.
+- Android version decision: visible milestone patch, so bumped to `versionCode = 15`, `versionName = "1.1.0-phase11b"`.
+- AGENTS decision: unchanged; contributor/patch workflow rules did not change.
+
+
+## Added
+
+- Added pure `Phase11CompetitionRules` models/rules for UTC Weekly and All-Time Radiant Run competition.
+- Added wallet-deduplicated run ranking candidates that preserve the Phase 9.1 disconnect/legacy-short-wallet compatibility behavior.
+- Added equal daily ranked-attempt rules: 3 ranked attempts per connected wallet per UTC day; additional ticket-backed runs are casual.
+- Added controlled run-performance XP conversion with a 300 XP UTC-daily cap. Ranked competition continues to use raw run score, not XP.
+- Added `RunScoreRecord`, `WeeklyRunStats`, `RunPersonalBest`, ranked-attempt, and gameplay-XP decision models for Phase 11B persistence/UI wiring.
+- Added JVM unit-test coverage for UTC boundaries, XP caps/resets, ranked/casual decisions, personal-best ordering, wallet deduplication, disconnect tombstones, and payout-safety metadata.
+
+## Safety
+
+- `RunScoreRecord` is explicitly `ClientReportedPrototype`; its `payoutEligible` property is hard-coded `false`.
+- Phase 11A adds no SKR transfer, wager, staking, treasury key, payout transaction, wallet signing, or RPC behavior.
+- SKR ownership is deliberately absent from ranked-score and ranked-attempt calculations.
+
+## Version
+
+- Android `versionCode` / `versionName` are unchanged in Phase 11A because this patch is a pure competition-domain foundation and not an APK/release handoff.
+
 # 2026-09-10 — Phase 10.1 Radiant Run procedural audio + VFX juice
 
 ## Added

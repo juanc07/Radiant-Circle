@@ -138,6 +138,7 @@ fun RadiantRunScreen(
     var maxCombo by remember { mutableIntStateOf(0) }
     var radiantHits by remember { mutableIntStateOf(0) }
     var corruptedHits by remember { mutableIntStateOf(0) }
+    var perfectHits by remember { mutableIntStateOf(0) }
     var targetSerial by remember { mutableIntStateOf(0) }
     var target by remember { mutableStateOf<RunTarget?>(null) }
     var popText by remember { mutableStateOf("READY") }
@@ -176,6 +177,7 @@ fun RadiantRunScreen(
         maxCombo = 0
         radiantHits = 0
         corruptedHits = 0
+        perfectHits = 0
         targetSerial = 0
         target = null
         popText = "GET READY"
@@ -191,6 +193,7 @@ fun RadiantRunScreen(
             maxCombo = maxCombo,
             radiantHits = radiantHits,
             corruptedHits = corruptedHits,
+            perfectHits = perfectHits,
         ).also { finalResult = it }
         phase = RunPhase.Saving
         onSubmitResult(result)
@@ -255,6 +258,7 @@ fun RadiantRunScreen(
                         maxCombo = maxCombo,
                         radiantHits = radiantHits,
                         corruptedHits = corruptedHits,
+                        perfectHits = perfectHits,
                     )
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     submitFinalResult()
@@ -403,6 +407,7 @@ fun RadiantRunScreen(
                                 combo += 1
                                 maxCombo = maxOf(maxCombo, combo)
                                 radiantHits += 1
+                                if (perfect) perfectHits += 1
                                 val comboGain = combo * 10
                                 val feverGain = if (combo >= 5) 65 else 0
                                 val perfectGain = if (perfect) 50 else 0
@@ -441,7 +446,7 @@ fun RadiantRunScreen(
                 },
             )
             RunPhase.Saving -> SavingPanel(
-                result = finalResult ?: RadiantRunResult(score, maxCombo, radiantHits, corruptedHits),
+                result = finalResult ?: RadiantRunResult(score, maxCombo, radiantHits, corruptedHits, perfectHits),
                 message = uiState.lastMessage,
                 saving = uiState.walletActionInProgress,
                 onRetry = ::submitFinalResult,
@@ -483,9 +488,24 @@ private fun BriefingPanel(
             RunStatRow("Best score", uiState.radiantRun.bestScore.toString())
             RunStatRow("Runs finished", uiState.radiantRun.totalRuns.toString())
             RunStatRow("Collection", "${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal}")
-            RunStatRow("Entry", "1 free Rush Ticket")
+            RunStatRow("Entry", "1 Rush Ticket")
+            RunStatRow(
+                "Competition",
+                when {
+                    !uiState.isWalletConnected ->
+                        "CASUAL • connect wallet to publish ranked score"
+                    uiState.runCompetition.rankedAttemptsRemaining > 0 ->
+                        "RANKED • ${uiState.runCompetition.rankedAttemptsRemaining}/3 wallet attempts left"
+                    else ->
+                        "CASUAL • 3/3 ranked wallet attempts used today"
+                },
+            )
+            RunStatRow(
+                "Gameplay XP",
+                "${uiState.runCompetition.dailyGameplayXpEarned}/${uiState.runCompetition.dailyGameplayXpCap} today",
+            )
             Text(
-                "Finishing saves one capsule reveal, XP, best score, and collectible progress to Firebase. Rush Tickets cannot be bought with SOL/SKR in this phase.",
+                "Ranked uses raw skill score only. The same connected wallet shares 3 ranked attempts per UTC day across devices; extra ticket runs stay Casual. Performance XP is separately capped; SKR wealth never multiplies ranked score.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -984,6 +1004,12 @@ private fun RewardPanel(
             reward?.let {
                 Text(it.description, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             }
+            Text(
+                "${uiState.runCompetition.lastRunMode ?: "Casual"} • +${uiState.runCompetition.lastRunPerformanceXp} performance XP • ${uiState.runCompetition.rankedAttemptsRemaining}/3 ranked attempts left",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
             Text(
                 "Score ${uiState.radiantRun.lastScore} • Best ${uiState.radiantRun.bestScore} • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collected",
                 style = MaterialTheme.typography.bodySmall,

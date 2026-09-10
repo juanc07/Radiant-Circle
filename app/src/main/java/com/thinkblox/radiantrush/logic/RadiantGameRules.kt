@@ -169,4 +169,5 @@ data class RadiantRunResult(
     val maxCombo: Int,
     val radiantHits: Int,
     val corruptedHits: Int,
+    val perfectHits: Int = 0,
 )

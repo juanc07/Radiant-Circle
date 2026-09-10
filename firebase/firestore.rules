@@ -9,6 +9,15 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    // Phase 11B.1 prototype fairness helper. A wallet/day ranked-attempt
+    // document may be updated by any authenticated installation whose own
+    // post-write profile carries that same public wallet address. This is not
+    // payout-grade wallet proof; real SKR payout authority remains server-side.
+    function profileWalletAfterIs(walletAddress) {
+      return signedIn()
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress == walletAddress;
+    }
+
     match /users/{userId} {
       allow read, create, update: if owns(userId);
       allow delete: if false;
@@ -22,6 +31,58 @@ service cloud.firestore {
     match /leaderboard/{userId} {
       allow read: if true;
       allow create, update: if owns(userId);
+      allow delete: if false;
+    }
+
+
+    // Phase 11 Radiant Run competition boards. These are prototype/client-reported
+    // rankings only. They are public-readable for competition display, but each
+    // anonymous Firebase session can write only its own row. payoutEligible must
+    // remain false; real SKR payout authority belongs in a future trusted backend.
+    match /runWeekly/{weekKey}/entries/{userId} {
+      allow read: if true;
+      allow create, update: if owns(userId)
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.payoutEligible == false;
+      allow delete: if false;
+    }
+
+    match /runAllTime/{userId} {
+      allow read: if true;
+      allow create, update: if owns(userId)
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.payoutEligible == false;
+      allow delete: if false;
+    }
+
+    // Shared ranked-attempt budget by connected wallet + UTC day. This closes
+    // the Phase 11B multi-device/reinstall loophole where Firebase Anonymous
+    // Auth produced a separate UID and therefore a second set of attempts.
+    match /runWalletDaily/{dayKey}/wallets/{walletAddress} {
+      allow read: if true;
+
+      // Create allows 1..3 instead of exactly 1 so an existing Phase 11B
+      // per-UID counter can be safely migrated into the shared wallet record.
+      allow create: if profileWalletAfterIs(walletAddress)
+        && request.resource.data.walletAddress == walletAddress
+        && request.resource.data.utcDayKey == dayKey
+        && request.resource.data.attemptsUsed is int
+        && request.resource.data.attemptsUsed >= 1
+        && request.resource.data.attemptsUsed <= 3
+        && request.resource.data.lastWriterUid == request.auth.uid
+        && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
+        && request.resource.data.payoutEligible == false;
+
+      allow update: if profileWalletAfterIs(walletAddress)
+        && request.resource.data.walletAddress == walletAddress
+        && request.resource.data.utcDayKey == dayKey
+        && request.resource.data.attemptsUsed is int
+        && request.resource.data.attemptsUsed == resource.data.attemptsUsed + 1
+        && request.resource.data.attemptsUsed <= 3
+        && request.resource.data.lastWriterUid == request.auth.uid
+        && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
+        && request.resource.data.payoutEligible == false;
+
       allow delete: if false;
     }
 

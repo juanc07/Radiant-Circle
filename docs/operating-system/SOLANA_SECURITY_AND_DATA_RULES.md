@@ -1,3 +1,9 @@
+## Phase 11B.1 competition identity boundary
+
+The shared `runWalletDaily` counter uses a public Solana wallet address as prototype competition identity so one wallet does not gain extra ranked attempts by using multiple Firebase Anonymous UIDs/devices. Firestore rules require the authenticated user's post-write profile wallet to match the wallet document path and enforce a maximum of three attempts.
+
+This is an anti-abuse/prototype fairness measure only. The Android client and Firebase profile can still report client-controlled game state, so neither `runWalletDaily`, `runWeekly`, nor `runAllTime` is trusted evidence for a real SKR payout. No treasury key, payout signer, staking authority, or automatic token transfer is introduced.
+
 ## Phase 10 non-economic game progression
 
 Rush Tickets, Radiant Shards, capsule results, run scores, and collectibles are application progression only. They do not represent SOL, SKR, SPL tokens, NFTs, redeemable prizes, or a claim on value. Starting or completing Radiant Run must never invoke Mobile Wallet Adapter. XP is not wagered.
@@ -284,3 +290,22 @@ Do not implement paid chance mechanics, token staking, token burning, or gamblin
 ## Phase 9.1 public leaderboard identity
 
 The public Solana wallet address may be used as a leaderboard identity/deduplication key because it is public account data. Firebase Anonymous Auth UID remains the write-ownership boundary. Client code must not treat possession of a wallet address string as proof of ownership. This patch therefore does not move client-writable leaderboard documents to `leaderboard/{walletAddress}` and does not grant broader Firestore write permissions.
+
+
+## Phase 11A competition / future SKR payout boundary
+
+Phase 11A formalizes a non-economic competition data model before any prize-pool implementation:
+
+- Android-generated Radiant Run scores are marked `ClientReportedPrototype`.
+- Client-produced run score may drive prototype ranking UI and capped app XP, but `payoutEligible` is always false.
+- No client score, Firebase owner write, cached SKR balance, or UI placement may directly authorize a real SKR payout.
+- A future real SKR Cup payout requires a trusted authority outside the APK (for example a verified backend and/or on-chain program) that independently validates eligibility/results.
+- No treasury private key, seed phrase, signing secret, or automatic prize-transfer authority may exist in the Android APK.
+- Players do not wager SKR to enter Radiant Run competition.
+- SKR balance/tier must not multiply ranked score or increase the fixed ranked-attempt allowance.
+- Phase 11A does not modify MWA, Devnet Memo proof, Mainnet SKR read-only scanning, or wallet-secret handling.
+
+## Phase 11B competition security boundary
+
+Radiant Run score is still produced by the Android client. Firestore rules provide ownership/isolation and force the prototype `payoutEligible` field to remain false, but they do not make the score cryptographically trustworthy. Weekly/All-Time ranks are suitable for hackathon prototype competition and non-cash progression only. Real SKR distribution must be authorized by a future trusted server/program/validator that independently validates eligible results. No treasury private key, payout signer, fake SKR balance, or fake transaction confirmation is added in Phase 11B.
+

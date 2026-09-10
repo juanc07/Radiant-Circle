@@ -590,7 +590,7 @@ private fun ScreenContent(
         )
         AppDestination.Quests -> QuestsScreen(contentPadding, uiState, onCompleteQuest)
         AppDestination.Badges -> BadgesScreen(contentPadding, uiState.badges)
-        AppDestination.Leaderboard -> LeaderboardScreen(contentPadding, uiState.leaderboard)
+        AppDestination.Leaderboard -> LeaderboardScreen(contentPadding, uiState)
         AppDestination.Profile -> ProfileScreen(
             contentPadding = contentPadding,
             uiState = uiState,

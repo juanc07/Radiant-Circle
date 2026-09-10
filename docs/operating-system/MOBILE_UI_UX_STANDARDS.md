@@ -1,3 +1,7 @@
+## Phase 11B.1 competition-state clarity
+
+Radiant Run must never leave the user guessing why a score did or did not enter the ranked boards. Before play, the Competition row must explicitly show one of: `RANKED`, `CASUAL • connect wallet`, or `CASUAL • ranked attempts used`. Empty Weekly/All-Time states must likewise explain when wallet connection is required. Ranked-attempt copy should state that the allowance is shared by the connected wallet across devices.
+
 ## Phase 10 gameplay UI rules
 
 - Radiant Run must remain playable on small Android screens with large touch targets; gameplay cannot depend on tiny text or precision taps.
@@ -168,3 +172,8 @@ Reward screens must clearly say when no wallet popup is expected. The Daily Radi
 - Fast transient gameplay messages must use readable high-contrast semantic accents; hit, perfect, miss, and corruption feedback may use distinct restrained pastel colors rather than low-contrast default text.
 - Screen shake is reserved for high-value milestones (x10+ combo / major reward) and must decay quickly so it does not interfere with target acquisition.
 - Reward celebration intensity should scale with rarity instead of giving common and high-rarity drops identical visual weight.
+
+## Phase 11B competition UI decision
+
+The Ranks destination now uses horizontally scrollable tabs (`Run Weekly`, `Run All-Time`, `My Stats`, `XP`) so small Android screens do not compress four competing labels into clipped fixed-width tabs. Run rows keep score visually dominant while combo/PERFECT/run-count metadata may wrap to two lines. The Radiant Run briefing explicitly shows Ranked vs Casual status and daily gameplay-XP progress before the player spends a ticket. Required security/fairness copy uses wrapping text rather than ellipsis.
+

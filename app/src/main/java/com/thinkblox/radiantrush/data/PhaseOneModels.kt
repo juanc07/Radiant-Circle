@@ -106,6 +106,38 @@ data class LeaderboardPreview(
     val walletLabel: String? = null,
 )
 
+
+
+data class RunLeaderboardPreview(
+    val rank: Int,
+    val name: String,
+    val walletLabel: String?,
+    val score: Int,
+    val bestCombo: Int,
+    val perfectHits: Int,
+    val runsPlayed: Int,
+)
+
+data class RunCompetitionPreview(
+    val weeklyLeaderboard: List<RunLeaderboardPreview> = emptyList(),
+    val allTimeLeaderboard: List<RunLeaderboardPreview> = emptyList(),
+    val weekKey: String = "",
+    val rankedAttemptsUsedToday: Int = 0,
+    val rankedAttemptsRemaining: Int = 3,
+    val dailyGameplayXpEarned: Int = 0,
+    val dailyGameplayXpCap: Int = 300,
+    val personalWeeklyBestScore: Int = 0,
+    val personalAllTimeBestScore: Int = 0,
+    val personalBestCombo: Int = 0,
+    val personalPerfectHits: Int = 0,
+    val personalWeeklyRuns: Int = 0,
+    val lastRunMode: String? = null,
+    val lastRunPerformanceXp: Int = 0,
+) {
+    val gameplayXpRemaining: Int
+        get() = (dailyGameplayXpCap - dailyGameplayXpEarned).coerceAtLeast(0)
+}
+
 data class UserPreview(
     val displayName: String,
     val walletStatus: String,
@@ -150,6 +182,7 @@ data class RushUiState(
     val collection: List<RadiantCollectiblePreview> = PreviewContent.collection,
     val badges: List<BadgePreview> = PreviewContent.badges,
     val leaderboard: List<LeaderboardPreview> = PreviewContent.leaderboard,
+    val runCompetition: RunCompetitionPreview = RunCompetitionPreview(),
     val todayKey: String = "local-preview",
     val lastMessage: String? = null,
     val walletActionInProgress: Boolean = false,

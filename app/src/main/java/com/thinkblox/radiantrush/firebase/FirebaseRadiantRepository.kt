@@ -17,12 +17,19 @@ import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.RadiantChestPreview
 import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.RadiantRunPreview
+import com.thinkblox.radiantrush.data.RunCompetitionPreview
+import com.thinkblox.radiantrush.data.RunLeaderboardPreview
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
 import com.thinkblox.radiantrush.logic.LeaderboardCandidate
 import com.thinkblox.radiantrush.logic.LeaderboardRules
+import com.thinkblox.radiantrush.logic.Phase11CompetitionRules
+import com.thinkblox.radiantrush.logic.RunCompetitionMode
+import com.thinkblox.radiantrush.logic.RunLeaderboardCandidate
+import com.thinkblox.radiantrush.logic.RunPersonalBest
+import com.thinkblox.radiantrush.logic.WeeklyRunStats
 import com.thinkblox.radiantrush.logic.RadiantGameRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.logic.RewardLoopRules
@@ -551,18 +558,72 @@ class FirebaseRadiantRepository(
             maxCombo = result.maxCombo.coerceAtLeast(0),
             radiantHits = result.radiantHits.coerceAtLeast(0),
             corruptedHits = result.corruptedHits.coerceAtLeast(0),
+            perfectHits = result.perfectHits.coerceAtLeast(0),
         )
         val db = FirebaseFirestore.getInstance(session.app)
         val userRef = db.collection(USERS).document(session.uid)
         val leaderboardRef = db.collection(LEADERBOARD).document(session.uid)
+        val completedAtMs = System.currentTimeMillis()
+        val utcDayKey = Phase11CompetitionRules.utcDayKey(completedAtMs)
+        val utcWeekKey = Phase11CompetitionRules.utcWeekKey(completedAtMs)
+        val weeklyRef = db.collection(RUN_WEEKLY)
+            .document(utcWeekKey)
+            .collection(RUN_ENTRIES)
+            .document(session.uid)
+        val allTimeRef = db.collection(RUN_ALL_TIME).document(session.uid)
 
         db.runTransaction { transaction ->
+            // Firestore transactions require all reads before writes.
             val userSnapshot = transaction.get(userRef)
+            val leaderboardSnapshot = transaction.get(leaderboardRef)
+
+            // Phase 11B.1: public competition identity is the connected wallet, not
+            // the Firebase anonymous installation UID. Prefer the canonical user
+            // profile value, but recover an older leaderboard wallet if a legacy
+            // profile somehow lost its mirrored address.
+            val walletAddress = userSnapshot.getString("walletAddress")
+                ?.trim()
+                ?.takeIf { it.isNotBlank() }
+                ?: leaderboardSnapshot.getString("walletAddress")
+                    ?.trim()
+                    ?.takeIf { it.isNotBlank() }
+            val walletConnected = !walletAddress.isNullOrBlank()
+            val walletDailyRef = walletAddress?.let { address ->
+                db.collection(RUN_WALLET_DAILY)
+                    .document(utcDayKey)
+                    .collection(RUN_WALLETS)
+                    .document(address)
+            }
+            val walletDailySnapshot = walletDailyRef?.let { transaction.get(it) }
+            val weeklySnapshot = transaction.get(weeklyRef)
+            val allTimeSnapshot = transaction.get(allTimeRef)
+
             val oldTickets = userSnapshot.getLong("rushTickets")
                 ?: RadiantGameRules.STARTER_TICKETS.toLong()
             if (oldTickets < RadiantGameRules.RUN_TICKET_COST) {
                 throw IllegalStateException("No Rush Tickets left. Complete daily quests or tomorrow's chest to earn more.")
             }
+
+            val legacyAttemptsUsed = (userSnapshot.getLong("rankedAttemptsUsedToday") ?: 0L).toInt()
+            val rankedDecision = Phase11CompetitionRules.rankedAttemptDecision(
+                walletConnected = walletConnected,
+                savedDayKey = walletDailySnapshot?.getString("utcDayKey")
+                    ?: userSnapshot.getString("rankedRunsDayKey"),
+                savedAttemptsUsed = if (walletDailySnapshot?.exists() == true) {
+                    (walletDailySnapshot.getLong("attemptsUsed") ?: 0L).toInt()
+                } else {
+                    legacyAttemptsUsed
+                },
+                completedAtEpochMillis = completedAtMs,
+            )
+            val xpAward = Phase11CompetitionRules.cappedGameplayXp(
+                score = safeResult.score,
+                maxCombo = safeResult.maxCombo,
+                perfectHits = safeResult.perfectHits,
+                savedDayKey = userSnapshot.getString("gameplayXpDayKey"),
+                savedEarnedToday = (userSnapshot.getLong("gameplayXpEarnedToday") ?: 0L).toInt(),
+                completedAtEpochMillis = completedAtMs,
+            )
 
             val oldRuns = (userSnapshot.getLong("totalRuns") ?: 0L).toInt()
             val oldCounts = collectionCounts(userSnapshot)
@@ -578,7 +639,7 @@ class FirebaseRadiantRepository(
             }
             val newCollectionForFirestore = newCounts.mapValues { it.value.toLong() }
             val oldXp = userSnapshot.getLong("xp") ?: 0L
-            val newXp = oldXp + reward.xpReward.toLong()
+            val newXp = oldXp + xpAward.grantedXp.toLong()
             val newLevel = levelForXp(newXp)
             val oldShards = userSnapshot.getLong("radiantShards") ?: 0L
             val newShards = oldShards + reward.duplicateShards.toLong()
@@ -587,16 +648,61 @@ class FirebaseRadiantRepository(
             val newTotalRuns = oldRuns + 1
             val newTickets = oldTickets - RadiantGameRules.RUN_TICKET_COST
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
-            val walletAddress = userSnapshot.getString("walletAddress")
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
             val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
             val collectionOwned = RadiantGameRules.ownedUniqueCount(newCounts)
 
+            val runRecord = Phase11CompetitionRules.createRunScoreRecord(
+                runId = "${session.uid}_$completedAtMs",
+                ownerUid = session.uid,
+                displayName = displayName,
+                walletAddress = walletAddress,
+                walletAddressShort = shortenAddress(walletAddress),
+                score = safeResult.score,
+                maxCombo = safeResult.maxCombo,
+                perfectHits = safeResult.perfectHits,
+                radiantHits = safeResult.radiantHits,
+                corruptedHits = safeResult.corruptedHits,
+                mode = rankedDecision.mode,
+                completedAtEpochMillis = completedAtMs,
+            )
+
+            val currentWeekly = weeklySnapshot.takeIf { it.exists() }?.let { snapshot ->
+                WeeklyRunStats(
+                    utcWeekKey = snapshot.getString("utcWeekKey") ?: utcWeekKey,
+                    bestScore = (snapshot.getLong("score") ?: 0L).toInt(),
+                    bestCombo = (snapshot.getLong("bestCombo") ?: 0L).toInt(),
+                    perfectHitsAtBestScore = (snapshot.getLong("perfectHits") ?: 0L).toInt(),
+                    bestCompletedAtEpochMillis = snapshot.getLong("bestCompletedAtEpochMillis") ?: 0L,
+                    rankedRunsPlayed = (snapshot.getLong("runsPlayed") ?: 0L).toInt(),
+                )
+            }
+            val currentAllTime = allTimeSnapshot.takeIf { it.exists() }?.let { snapshot ->
+                RunPersonalBest(
+                    score = (snapshot.getLong("score") ?: 0L).toInt(),
+                    bestCombo = (snapshot.getLong("bestCombo") ?: 0L).toInt(),
+                    perfectHits = (snapshot.getLong("perfectHits") ?: 0L).toInt(),
+                    completedAtEpochMillis = snapshot.getLong("bestCompletedAtEpochMillis") ?: 0L,
+                    utcWeekKey = snapshot.getString("bestWeekKey") ?: utcWeekKey,
+                )
+            }
+            val newWeekly = Phase11CompetitionRules.updateWeeklyStats(currentWeekly, runRecord)
+            val newAllTime = Phase11CompetitionRules.updatePersonalBest(currentAllTime, runRecord)
+            val allTimeRuns = (allTimeSnapshot.getLong("runsPlayed") ?: 0L).toInt() +
+                if (rankedDecision.mode == RunCompetitionMode.Ranked) 1 else 0
+
             transaction.set(
                 userRef,
                 mapOf(
                     "displayName" to displayName,
+                    "walletAddress" to walletAddress,
+                    "walletAddressShort" to shortenAddress(walletAddress),
+                    "walletStatus" to if (walletConnected) {
+                        "Wallet connected"
+                    } else {
+                        userSnapshot.getString("walletStatus") ?: "Wallet not connected yet"
+                    },
                     "rushTickets" to newTickets,
                     "xp" to newXp,
                     "level" to newLevel,
@@ -604,25 +710,39 @@ class FirebaseRadiantRepository(
                     "totalRuns" to newTotalRuns,
                     "lastRunScore" to safeResult.score,
                     "lastRunMaxCombo" to safeResult.maxCombo,
+                    "lastRunPerfectHits" to safeResult.perfectHits,
                     "lastRunRadiantHits" to safeResult.radiantHits,
                     "lastRunCorruptedHits" to safeResult.corruptedHits,
+                    "lastRunCompetitionMode" to rankedDecision.mode.name,
+                    "lastRunPerformanceXp" to xpAward.grantedXp,
+                    "gameplayXpDayKey" to xpAward.utcDayKey,
+                    "gameplayXpEarnedToday" to xpAward.earnedAfter,
+                    "rankedRunsDayKey" to rankedDecision.utcDayKey,
+                    "rankedAttemptsUsedToday" to rankedDecision.rankedAttemptsUsedAfter,
+                    "runWeeklyKey" to (newWeekly?.utcWeekKey ?: utcWeekKey),
+                    "runWeeklyBestScore" to (newWeekly?.bestScore ?: 0),
+                    "runWeeklyBestCombo" to (newWeekly?.bestCombo ?: 0),
+                    "runWeeklyPerfectHits" to (newWeekly?.perfectHitsAtBestScore ?: 0),
+                    "runWeeklyRunsPlayed" to (newWeekly?.rankedRunsPlayed ?: 0),
+                    "runAllTimeBestScore" to (newAllTime?.score ?: 0),
+                    "runAllTimeBestCombo" to (newAllTime?.bestCombo ?: 0),
+                    "runAllTimePerfectHits" to (newAllTime?.perfectHits ?: 0),
                     "lastRunCapsuleTier" to reward.capsuleTier,
                     "lastRunRewardId" to reward.collectible.id,
                     "lastRunRewardTitle" to reward.collectible.title,
                     "lastRunRewardRarity" to reward.collectible.rarity,
-                    "lastRunRewardXp" to reward.xpReward,
+                    // Phase 11 progression XP is controlled by the daily gameplay cap.
+                    "lastRunRewardXp" to xpAward.grantedXp,
                     "lastRunRewardShards" to reward.duplicateShards,
                     "radiantShards" to newShards,
                     "radiantCollection" to newCollectionForFirestore,
                     "collectionOwned" to collectionOwned,
-                    "phase" to 10,
+                    "phase" to 11,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
             )
 
-            // Keep leaderboard ownership keyed by Firebase UID, while wallet-based
-            // collapse still prevents reinstall-created anonymous duplicates.
             transaction.set(
                 leaderboardRef,
                 mapOf(
@@ -641,18 +761,88 @@ class FirebaseRadiantRepository(
                 SetOptions.merge(),
             )
 
-            reward
+            // Phase 11B.1: ranked-attempt usage is shared by wallet + UTC day,
+            // so using the same wallet on another phone/reinstall cannot create a
+            // second set of ranked attempts. Existing Phase 11B per-UID counters
+            // are migrated into this shared document the next time a run is saved.
+            if (walletDailyRef != null &&
+                (rankedDecision.mode == RunCompetitionMode.Ranked || walletDailySnapshot?.exists() != true)
+            ) {
+                transaction.set(
+                    walletDailyRef,
+                    mapOf(
+                        "walletAddress" to walletAddress,
+                        "walletAddressShort" to shortenAddress(walletAddress),
+                        "utcDayKey" to utcDayKey,
+                        "attemptsUsed" to rankedDecision.rankedAttemptsUsedAfter,
+                        "lastWriterUid" to session.uid,
+                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "payoutEligible" to false,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                    SetOptions.merge(),
+                )
+            }
+
+            if (rankedDecision.mode == RunCompetitionMode.Ranked && newWeekly != null && newAllTime != null) {
+                transaction.set(
+                    weeklyRef,
+                    mapOf(
+                        "ownerUid" to session.uid,
+                        "displayName" to displayName,
+                        "walletAddress" to walletAddress,
+                        "walletAddressShort" to shortenAddress(walletAddress),
+                        "utcWeekKey" to newWeekly.utcWeekKey,
+                        "score" to newWeekly.bestScore,
+                        "bestCombo" to newWeekly.bestCombo,
+                        "perfectHits" to newWeekly.perfectHitsAtBestScore,
+                        "runsPlayed" to newWeekly.rankedRunsPlayed,
+                        "bestCompletedAtEpochMillis" to newWeekly.bestCompletedAtEpochMillis,
+                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "payoutEligible" to false,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                    SetOptions.merge(),
+                )
+                transaction.set(
+                    allTimeRef,
+                    mapOf(
+                        "ownerUid" to session.uid,
+                        "displayName" to displayName,
+                        "walletAddress" to walletAddress,
+                        "walletAddressShort" to shortenAddress(walletAddress),
+                        "score" to newAllTime.score,
+                        "bestCombo" to newAllTime.bestCombo,
+                        "perfectHits" to newAllTime.perfectHits,
+                        "runsPlayed" to allTimeRuns,
+                        "bestCompletedAtEpochMillis" to newAllTime.completedAtEpochMillis,
+                        "bestWeekKey" to newAllTime.utcWeekKey,
+                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "payoutEligible" to false,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                    SetOptions.merge(),
+                )
+            }
+
+            Triple(reward, rankedDecision.mode, xpAward)
         }
-            .addOnSuccessListener { reward ->
+            .addOnSuccessListener { (reward, mode, xpAward) ->
                 val duplicateText = if (reward.duplicate) {
                     " Duplicate converted to +${reward.duplicateShards} Radiant Shards."
                 } else {
                     " New collectible discovered!"
                 }
+                val modeText = if (mode == RunCompetitionMode.Ranked) {
+                    "Ranked run saved to Weekly + All-Time competition"
+                } else {
+                    "Casual run saved; ranked boards unchanged"
+                }
+                val capText = if (xpAward.wasCapped) " Daily gameplay XP cap reached." else ""
                 loadOrCreateProfile(
                     session.uid,
                     onState,
-                    "${reward.capsuleTier} opened: ${reward.collectible.rarity} ${reward.collectible.title}. +${reward.xpReward} XP.$duplicateText",
+                    "$modeText • ${reward.capsuleTier}: ${reward.collectible.rarity} ${reward.collectible.title}. +${xpAward.grantedXp} performance XP.$duplicateText$capText",
                 )
             }
             .addOnFailureListener { error ->
@@ -990,20 +1180,31 @@ class FirebaseRadiantRepository(
                         )
                         val badges = badgeState(user, completedIds)
 
-                        onState(
-                            RushUiState(
-                                firebaseStatus = FirebaseStatus.Ready,
-                                user = user,
-                                quests = quests,
-                                radiantChest = radiantChest,
-                                radiantRun = radiantRun,
-                                collection = collection,
-                                badges = badges,
-                                leaderboard = leaderboard,
-                                todayKey = today,
-                                lastMessage = message,
-                            ),
-                        )
+                        loadRunCompetition(
+                            db = db,
+                            userSnapshot = userSnapshot,
+                            walletConnected = walletConnected,
+                        ) { runCompetition, competitionWarning ->
+                            val mergedMessage = listOfNotNull(message, competitionWarning)
+                                .filter { it.isNotBlank() }
+                                .joinToString(" ")
+                                .takeIf { it.isNotBlank() }
+                            onState(
+                                RushUiState(
+                                    firebaseStatus = FirebaseStatus.Ready,
+                                    user = user,
+                                    quests = quests,
+                                    radiantChest = radiantChest,
+                                    radiantRun = radiantRun,
+                                    collection = collection,
+                                    badges = badges,
+                                    leaderboard = leaderboard,
+                                    runCompetition = runCompetition,
+                                    todayKey = today,
+                                    lastMessage = mergedMessage,
+                                ),
+                            )
+                        }
                     }
                     .addOnFailureListener { error ->
                         onState(errorState("Could not read leaderboard: ${safeMessage(error)}"))
@@ -1013,6 +1214,171 @@ class FirebaseRadiantRepository(
                 onState(errorState("Could not read completed quests: ${safeMessage(error)}"))
             }
     }
+
+    private fun loadRunCompetition(
+        db: FirebaseFirestore,
+        userSnapshot: DocumentSnapshot,
+        walletConnected: Boolean,
+        onLoaded: (RunCompetitionPreview, String?) -> Unit,
+    ) {
+        val now = System.currentTimeMillis()
+        val currentDay = Phase11CompetitionRules.utcDayKey(now)
+        val currentWeek = Phase11CompetitionRules.utcWeekKey(now)
+        val walletAddress = userSnapshot.getString("walletAddress")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+        val legacyAttemptsUsed = Phase11CompetitionRules.rankedAttemptsUsedToday(
+            savedDayKey = userSnapshot.getString("rankedRunsDayKey"),
+            savedAttemptsUsed = (userSnapshot.getLong("rankedAttemptsUsedToday") ?: 0L).toInt(),
+            currentUtcDayKey = currentDay,
+        )
+        val gameplayXp = Phase11CompetitionRules.gameplayXpEarnedToday(
+            savedDayKey = userSnapshot.getString("gameplayXpDayKey"),
+            savedEarned = (userSnapshot.getLong("gameplayXpEarnedToday") ?: 0L).toInt(),
+            currentUtcDayKey = currentDay,
+        )
+        val profileWeek = userSnapshot.getString("runWeeklyKey")
+        val personalWeeklyScore = if (profileWeek == currentWeek) {
+            (userSnapshot.getLong("runWeeklyBestScore") ?: 0L).toInt()
+        } else 0
+        val personalWeeklyRuns = if (profileWeek == currentWeek) {
+            (userSnapshot.getLong("runWeeklyRunsPlayed") ?: 0L).toInt()
+        } else 0
+
+        fun build(
+            attemptsUsed: Int,
+            weeklyRows: List<RunLeaderboardPreview> = emptyList(),
+            allTimeRows: List<RunLeaderboardPreview> = emptyList(),
+        ) = RunCompetitionPreview(
+            weeklyLeaderboard = weeklyRows,
+            allTimeLeaderboard = allTimeRows,
+            weekKey = currentWeek,
+            rankedAttemptsUsedToday = attemptsUsed,
+            rankedAttemptsRemaining = if (walletConnected) {
+                (Phase11CompetitionRules.DAILY_RANKED_ATTEMPTS - attemptsUsed).coerceAtLeast(0)
+            } else 0,
+            dailyGameplayXpEarned = gameplayXp,
+            dailyGameplayXpCap = Phase11CompetitionRules.DAILY_GAMEPLAY_XP_CAP,
+            personalWeeklyBestScore = personalWeeklyScore,
+            personalAllTimeBestScore = (userSnapshot.getLong("runAllTimeBestScore") ?: 0L).toInt(),
+            personalBestCombo = (userSnapshot.getLong("runAllTimeBestCombo") ?: 0L).toInt(),
+            personalPerfectHits = (userSnapshot.getLong("runAllTimePerfectHits") ?: 0L).toInt(),
+            personalWeeklyRuns = personalWeeklyRuns,
+            lastRunMode = userSnapshot.getString("lastRunCompetitionMode"),
+            lastRunPerformanceXp = (userSnapshot.getLong("lastRunPerformanceXp") ?: 0L).toInt(),
+        )
+
+        fun mergeWarnings(vararg warnings: String?): String? =
+            warnings.filterNotNull()
+                .filter { it.isNotBlank() }
+                .joinToString(" ")
+                .takeIf { it.isNotBlank() }
+
+        fun loadBoards(attemptsUsed: Int, attemptWarning: String? = null) {
+            db.collection(RUN_WEEKLY)
+                .document(currentWeek)
+                .collection(RUN_ENTRIES)
+                .orderBy("score", Query.Direction.DESCENDING)
+                .limit(100)
+                .get()
+                .addOnSuccessListener { weeklyQuery ->
+                    val weeklyCandidates = weeklyQuery.documents.map(::runCandidateFromDocument)
+                    val weeklyRows = runRows(weeklyCandidates)
+
+                    db.collection(RUN_ALL_TIME)
+                        .orderBy("score", Query.Direction.DESCENDING)
+                        .limit(100)
+                        .get()
+                        .addOnSuccessListener { allTimeQuery ->
+                            val allTimeCandidates = allTimeQuery.documents.map(::runCandidateFromDocument)
+                            onLoaded(
+                                build(
+                                    attemptsUsed = attemptsUsed,
+                                    weeklyRows = weeklyRows,
+                                    allTimeRows = runRows(allTimeCandidates),
+                                ),
+                                attemptWarning,
+                            )
+                        }
+                        .addOnFailureListener { error ->
+                            onLoaded(
+                                build(attemptsUsed = attemptsUsed, weeklyRows = weeklyRows),
+                                mergeWarnings(
+                                    attemptWarning,
+                                    "All-Time Run ranks are unavailable until the Phase 11 Firestore rules are deployed: ${safeMessage(error)}",
+                                ),
+                            )
+                        }
+                }
+                .addOnFailureListener { error ->
+                    onLoaded(
+                        build(attemptsUsed = attemptsUsed),
+                        mergeWarnings(
+                            attemptWarning,
+                            "Radiant Run ranks are unavailable until the Phase 11 Firestore rules are deployed: ${safeMessage(error)}",
+                        ),
+                    )
+                }
+        }
+
+        // Phase 11B.1: the ranked-attempt counter is wallet/day scoped so the
+        // same Solana wallet receives one shared allowance across multiple
+        // Firebase anonymous UIDs/devices. Fall back to the Phase 11B per-UID
+        // counter only while the shared document has not been created yet.
+        if (walletConnected && walletAddress != null) {
+            db.collection(RUN_WALLET_DAILY)
+                .document(currentDay)
+                .collection(RUN_WALLETS)
+                .document(walletAddress)
+                .get()
+                .addOnSuccessListener { walletDaily ->
+                    val attemptsUsed = if (walletDaily.exists()) {
+                        (walletDaily.getLong("attemptsUsed") ?: 0L)
+                            .toInt()
+                            .coerceIn(0, Phase11CompetitionRules.DAILY_RANKED_ATTEMPTS)
+                    } else {
+                        legacyAttemptsUsed
+                    }
+                    loadBoards(attemptsUsed)
+                }
+                .addOnFailureListener { error ->
+                    loadBoards(
+                        attemptsUsed = legacyAttemptsUsed,
+                        attemptWarning = "Shared wallet ranked-attempt status could not be refreshed: ${safeMessage(error)}",
+                    )
+                }
+        } else {
+            loadBoards(attemptsUsed = 0)
+        }
+    }
+
+    private fun runCandidateFromDocument(document: DocumentSnapshot): RunLeaderboardCandidate =
+        RunLeaderboardCandidate(
+            sourceId = document.id,
+            displayName = document.getString("displayName") ?: "Radiant Rookie",
+            walletAddress = document.getString("walletAddress"),
+            walletAddressShort = document.getString("walletAddressShort"),
+            score = (document.getLong("score") ?: 0L).toInt(),
+            bestCombo = (document.getLong("bestCombo") ?: 0L).toInt(),
+            perfectHits = (document.getLong("perfectHits") ?: 0L).toInt(),
+            runsPlayed = (document.getLong("runsPlayed") ?: 0L).toInt(),
+            bestCompletedAtEpochMillis = document.getLong("bestCompletedAtEpochMillis") ?: 0L,
+            updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
+        )
+
+    private fun runRows(candidates: List<RunLeaderboardCandidate>): List<RunLeaderboardPreview> =
+        Phase11CompetitionRules.collapseRunLeaderboardByWallet(candidates, limit = 20)
+            .mapIndexed { index, row ->
+                RunLeaderboardPreview(
+                    rank = index + 1,
+                    name = row.displayName,
+                    walletLabel = Phase11CompetitionRules.walletLabel(row),
+                    score = row.score,
+                    bestCombo = row.bestCombo,
+                    perfectHits = row.perfectHits,
+                    runsPlayed = row.runsPlayed,
+                )
+            }
 
     private fun currentFirebaseSession(onState: (RushUiState) -> Unit): FirebaseSession? {
         val app = ensureFirebaseApp()
@@ -1214,6 +1580,11 @@ class FirebaseRadiantRepository(
         const val USERS = "users"
         const val COMPLETED_QUESTS = "completedQuests"
         const val LEADERBOARD = "leaderboard"
+        const val RUN_WEEKLY = "runWeekly"
+        const val RUN_ENTRIES = "entries"
+        const val RUN_ALL_TIME = "runAllTime"
+        const val RUN_WALLET_DAILY = "runWalletDaily"
+        const val RUN_WALLETS = "wallets"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100
         const val SKR_SCAN_XP = 50
