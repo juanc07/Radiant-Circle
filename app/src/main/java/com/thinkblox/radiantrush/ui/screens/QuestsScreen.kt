@@ -75,7 +75,7 @@ fun QuestsScreen(
             title = { Text(quest.title) },
             text = {
                 Text(
-                    text = "Proof: ${quest.proofType}\n\n${quest.description}\n\nPhase 6 keeps memo proof on Devnet, scans SKR on mainnet without moving tokens, and adds a demo-ready presentation path.",
+                    text = "Proof: ${quest.proofType}\n\n${quest.description}\n\nPhase 9 keeps memo proof on Devnet, scans SKR on mainnet without moving tokens, and adds a no-loss Daily Radiant Chest after all proofs.",
                 )
             },
             confirmButton = {

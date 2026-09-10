@@ -267,3 +267,14 @@ Rules:
 ## Phase 7 testing safety rule
 
 Automated tests must never fake successful wallet signatures, fake SKR holdings, or store private wallet material. Unit tests may verify pure tier/interaction rules, and UI smoke tests may navigate the app shell, but final wallet approval remains a real manual MWA/Phantom consent step.
+
+## Phase 9 Daily Radiant Chest rule
+
+The Daily Radiant Chest is an in-app Firebase reward loop. It must never spend XP as a wager, move SOL, move SKR, request a wallet signature, or request a wallet transaction. It may only grant bonus XP after all daily proof quests are complete.
+
+Do not implement paid chance mechanics, token staking, token burning, or gambling-style loss mechanics in the Android app without a separate legal/product/security review.
+
+
+## Phase 9.1 public leaderboard identity
+
+The public Solana wallet address may be used as a leaderboard identity/deduplication key because it is public account data. Firebase Anonymous Auth UID remains the write-ownership boundary. Client code must not treat possession of a wallet address string as proof of ownership. This patch therefore does not move client-writable leaderboard documents to `leaderboard/{walletAddress}` and does not grant broader Firestore write permissions.

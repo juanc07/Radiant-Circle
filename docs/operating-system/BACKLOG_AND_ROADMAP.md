@@ -74,3 +74,15 @@ Next release-focused tasks:
 - Do one manual wallet proof pass on the target phone.
 - Record the 3-minute demo from the Demo tab.
 - Prepare final APK and GitHub README for judges.
+
+## Phase 9 completed
+
+- Added no-loss Daily Radiant Chest to improve fun, retention, and demo excitement.
+- Added deterministic reward-loop rules and unit tests.
+
+## Later ideas, not in Phase 9
+
+- Chest animation/VFX polish.
+- Daily countdown to next chest.
+- Cosmetic-only collectible badges from chests.
+- Real reward mechanics only after security/legal review.

@@ -1,46 +1,16 @@
-# Radiant Rush Phase 8 Submission Package Patch
+# Radiant Rush Phase 9.1.1 leaderboard duplicate fix
 
-Apply this patch on branch:
+Changed-files-only patch. Copy the contents of this folder into the project root and overwrite matching files.
 
-```bash
-phase-8-submission-package
-```
+This fixes a legacy case where an old anonymous Firebase leaderboard row could still have a stale full `walletAddress` even after older code wrote `walletAddressShort = "No wallet"`.
 
-This patch adds final hackathon submission materials only. It does not touch wallet logic, Firebase logic, SKR scan logic, Gradle dependencies, or app version.
-
-## Added files
-
-```text
-docs/PHASE_8_SUBMISSION_PACKAGE.md
-docs/submission/JUDGE_README.md
-docs/submission/DEMO_VIDEO_SCRIPT.md
-docs/submission/PITCH_TALKING_POINTS.md
-docs/submission/SCREENSHOT_CHECKLIST.md
-docs/submission/FINAL_RELEASE_CHECKLIST.md
-docs/submission/SUBMISSION_FORM_COPY.md
-docs/submission/KNOWN_LIMITATIONS.md
-scripts/copy_debug_apk_to_submission.sh
-scripts/copy_debug_apk_to_submission.ps1
-```
-
-## Local APK note
-
-Do not commit the APK by default. Keep it local under:
-
-```text
-release/submission/RadiantRush-debug.apk
-```
-
-Upload the APK directly to the hackathon form or GitHub Releases if needed.
-
-## After applying
+After applying, run:
 
 ```bash
-bash scripts/copy_debug_apk_to_submission.sh
-git add docs/PHASE_8_SUBMISSION_PACKAGE.md docs/submission scripts/copy_debug_apk_to_submission.sh scripts/copy_debug_apk_to_submission.ps1
-git status
-git commit -m "Add Phase 8 submission package"
-git push -u origin phase-8-submission-package
+./gradlew --stop
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
 ```
 
-Make sure `app/google-services.json` and `release/submission/*.apk` are not staged.
+Then install/run on the phone and open **Ranks**. Each visible row now shows a short wallet label. The same wallet should appear only once. If two rows remain with two different short wallet labels, those are genuinely different wallet accounts and should not be merged automatically.

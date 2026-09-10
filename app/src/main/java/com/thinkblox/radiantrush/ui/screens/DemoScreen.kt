@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.QuestIds
+import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
@@ -55,6 +56,8 @@ fun DemoScreen(
     val memoDone = uiState.quests.any { it.id == QuestIds.ON_CHAIN_PROOF && it.status == QuestStatus.Completed }
     val skrDone = uiState.quests.any { it.id == QuestIds.SKR_HOLDER && it.status == QuestStatus.Completed }
     val completedCount = uiState.quests.count { it.status == QuestStatus.Completed }
+    val chestClaimed = uiState.radiantChest.status == RadiantChestStatus.Claimed
+    val chestReady = uiState.radiantChest.status == RadiantChestStatus.Ready
     val progress = completedCount.toFloat() / uiState.quests.size.coerceAtLeast(1).toFloat()
 
     LazyColumn(
@@ -72,7 +75,7 @@ fun DemoScreen(
         item {
             GradientHeroCard(
                 title = "Judge Demo Mode",
-                subtitle = "A safe 3-minute walkthrough: native Android UI, Firebase progress, MWA wallet proof, devnet memo, and read-only SKR Passport.",
+                subtitle = "A safe 3-minute walkthrough: native Android UI, Firebase progress, MWA wallet proof, devnet memo, read-only SKR Passport, and a no-loss reward chest.",
             )
         }
 
@@ -96,6 +99,9 @@ fun DemoScreen(
                 skrBalance = uiState.user.skrBalance,
                 streak = uiState.user.currentStreak,
                 xp = uiState.user.xp,
+                chestClaimed = chestClaimed,
+                chestReady = chestReady,
+                chestReward = uiState.radiantChest.rewardText,
             )
         }
 
@@ -149,9 +155,17 @@ fun DemoScreen(
         item {
             DemoStepCard(
                 number = "6",
+                icon = Icons.Filled.Bolt,
+                title = "Open Daily Radiant Chest",
+                body = "After all proofs are complete, open the no-loss reward chest. It grants bonus XP without spending XP, SKR, or SOL.",
+            )
+        }
+        item {
+            DemoStepCard(
+                number = "7",
                 icon = Icons.Filled.CheckCircle,
                 title = "Show Profile proof",
-                body = "Open Profile and show copied wallet address, signature, memo explorer link, SKR tier, XP, streak, and no-secret rule.",
+                body = "Open Profile and show wallet address, signature, memo explorer link, SKR tier, chest reward, XP, streak, and no-secret rule.",
             )
         }
 
@@ -181,6 +195,9 @@ private fun DemoReadinessCard(
     skrBalance: String,
     streak: Int,
     xp: Int,
+    chestClaimed: Boolean,
+    chestReady: Boolean,
+    chestReward: String,
 ) {
     val responsive = rememberResponsiveUiSpec()
 
@@ -216,6 +233,7 @@ private fun DemoReadinessCard(
                     StatusPill(if (signedDone) "Signed" else "Need sign")
                     StatusPill(if (memoDone) "Memo done" else "Need memo")
                     StatusPill(if (skrDone) "SKR scanned" else "Scan SKR")
+                    StatusPill(if (chestClaimed) "Chest claimed" else if (chestReady) "Chest ready" else "Need chest")
                 }
             } else {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -223,10 +241,11 @@ private fun DemoReadinessCard(
                     StatusPill(if (signedDone) "Signed" else "Need sign")
                     StatusPill(if (memoDone) "Memo done" else "Need memo")
                     StatusPill(if (skrDone) "SKR scanned" else "Scan SKR")
+                    StatusPill(if (chestClaimed) "Chest claimed" else if (chestReady) "Chest ready" else "Need chest")
                 }
             }
             Text(
-                text = "SKR Passport: $skrTier • $skrBalance. A zero-SKR wallet is still honest Explorer tier.",
+                text = "SKR Passport: $skrTier • $skrBalance. Chest: $chestReward.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -315,7 +334,7 @@ private fun TalkingPointsCard() {
             TalkingPoint("Mobile Wallet Adapter connects and signs through the user wallet.")
             TalkingPoint("Devnet memo proof gives a real transaction signature for demo safety.")
             TalkingPoint("SKR is read from mainnet by public address only; no spending or fake token.")
-            TalkingPoint("Firebase keeps daily XP, streaks, badges, and leaderboard sticky.")
+            TalkingPoint("Firebase keeps daily XP, streaks, badges, chest rewards, and leaderboard sticky.")
             TalkingPoint("No seed phrase, private key, or reward authority is stored in the APK.")
         }
     }

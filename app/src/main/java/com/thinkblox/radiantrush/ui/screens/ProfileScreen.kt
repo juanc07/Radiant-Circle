@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Token
@@ -83,7 +84,7 @@ fun ProfileScreen(
         item {
             SectionTitle(
                 title = "Identity readiness",
-                body = "Phase 6 links Firebase Auth, public wallet address, signed proof, devnet memo proof, read-only SKR Passport, and a judge-ready proof summary.",
+                body = "Phase 9 links Firebase Auth, public wallet address, signed proof, devnet memo proof, read-only SKR Passport, and the Daily Radiant Chest reward loop.",
             )
         }
 
@@ -91,8 +92,24 @@ fun ProfileScreen(
             ProfileInfoRow(
                 title = "Firebase Profile",
                 value = "${user.xp} XP • ${user.currentStreak}-day streak • ${uiState.todayKey}",
-                helper = "Saved in users/{uid}, completedQuests, and leaderboard/{uid}.",
+                helper = "Firebase UID stays internal; public ranks collapse duplicate rows by connected wallet identity.",
                 icon = Icons.Filled.Storage,
+            )
+        }
+        item {
+            ProfileInfoRow(
+                title = "Daily Radiant Chest",
+                value = if (user.lastChestRewardXp > 0) {
+                    "+${user.lastChestRewardXp} XP • ${user.lastChestRewardRarity ?: "Reward"}"
+                } else {
+                    uiState.radiantChest.status.label
+                },
+                helper = if (user.lastChestRewardXp > 0) {
+                    "${user.lastChestRewardTitle ?: "Daily reward"} claimed ${user.lastChestClaimDate ?: "today"}. Total chest XP: ${user.totalChestXp}."
+                } else {
+                    "Complete all daily proofs to unlock a no-loss chest reveal. XP is never spent as a wager."
+                },
+                icon = Icons.Filled.EmojiEvents,
             )
         }
         item {

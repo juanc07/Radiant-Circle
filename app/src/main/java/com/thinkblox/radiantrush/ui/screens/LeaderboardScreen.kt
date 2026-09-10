@@ -46,7 +46,7 @@ fun LeaderboardScreen(
         item {
             SectionTitle(
                 title = "Firebase leaderboard",
-                body = "Firestore stores XP and streaks. Wallet identity and proof validation are layered on top.",
+                body = "One public rank per connected Solana wallet. The short wallet label below each player makes duplicate test identities easy to verify.",
             )
         }
 
@@ -96,6 +96,15 @@ private fun LeaderboardRow(row: LeaderboardPreview) {
                     maxLines = 2,
                     overflow = TextOverflow.Clip,
                 )
+                row.walletLabel?.let { wallet ->
+                    Text(
+                        text = wallet,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Clip,
+                    )
+                }
                 Text(
                     text = "${row.xp} XP • ${row.streak}-day streak",
                     style = MaterialTheme.typography.bodySmall,

@@ -1,3 +1,53 @@
+# 2026-09-10 — Phase 9.1.1 Leaderboard duplicate compatibility fix
+
+## Fixed
+
+- Exclude legacy leaderboard rows explicitly marked `No wallet` even when an older build left a stale full `walletAddress` field behind.
+- Normalize legacy `AAAA…BBBB` / `AAAA...BBBB` wallet representations before deduplication.
+- Show the shortened wallet identity on each rank row so genuinely different wallets can be distinguished from duplicate Firebase anonymous UIDs.
+
+## Changed
+
+- Bumped Android app version to `versionCode = 11`, `versionName = "0.9.2-phase9.1.1"`.
+
+# 2026-09-10 — Phase 9.1 Leaderboard wallet identity fix
+
+## Fixed
+
+- Public ranks now collapse duplicate Firebase Anonymous Auth rows by connected Solana wallet identity.
+- Leaderboard writes now persist the full public wallet address in addition to the shortened display address.
+- Legacy anonymous rows can no longer crowd the visible Top 20 because reads fetch a wider candidate set before wallet deduplication.
+- Anonymous/no-wallet rows are excluded from public ranks.
+
+## Changed
+
+- Bumped Android app version to `versionCode = 10`, `versionName = "0.9.1-phase9.1"`.
+- Firebase UID remains the internal owner key; no Firestore ownership/security relaxation was introduced.
+
+# 2026-09-10 — Phase 9 Radiant reward loop
+## 2026-09-10 — Phase 9 Welcome compile fix
+
+- Fixed a Kotlin named-argument syntax error in `WelcomeScreen.kt` by adding the missing comma before the `trailing` lambda on the Phase 9 hero card.
+- No wallet, Firebase, SKR, quest, or reward logic changed.
+
+## Added
+
+- Added Daily Radiant Chest reward loop after all daily proof quests are complete.
+- Added deterministic no-loss reward reveal with Spark, Pulse, Flare, Aurora, and Legendary reward tiers.
+- Added Firebase persistence for chest claim date, reward rarity, reward title, bonus XP, and total chest XP.
+- Added Profile and Demo tab support for showing the latest chest reward.
+- Added `RewardLoopRules` and automated unit tests for chest gating and deterministic rewards.
+
+## Changed
+
+- Bumped Android app version to `versionCode = 9`, `versionName = "0.9.0-phase9"`.
+- Updated app copy from pure demo/submission mode toward a daily quest game loop.
+- Updated Firebase profile `phase` writes to `9`.
+
+## Safety
+
+- Chose a no-loss chest reveal instead of XP betting. The chest never spends XP, SOL, SKR, or tokens and never opens the wallet.
+
 # Changelog
 
 ## 2026-09-09 — Phase 7 Final QA + Automated Testing

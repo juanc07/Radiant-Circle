@@ -355,3 +355,18 @@ Phase 7 separates testable product rules from Android/wallet side effects:
 - `app/src/androidTest` covers app launch and Demo navigation on an emulator or Android device.
 
 Wallet approvals are intentionally not bypassed by tests. Real MWA signing and transaction approval remain manual final QA.
+
+## Phase 9 reward-loop boundary
+
+Phase 9 adds `logic/RewardLoopRules.kt` as a pure, testable domain rule object for the Daily Radiant Chest. The UI may display the chest and call the Firebase repository, but reward eligibility and reward selection must remain deterministic and testable outside Compose.
+
+Daily Radiant Chest is not wallet logic. It must not open Mobile Wallet Adapter, request a signature, send a transaction, transfer SKR, or spend SOL. It writes a Firebase proof/reward document only after the existing proof quests are complete.
+
+
+## Phase 9.1 leaderboard identity boundary
+
+- `users/{uid}` and `leaderboard/{uid}` remain Firebase-owned storage keyed by the anonymous Firebase UID.
+- Public ranking identity is the connected Solana wallet address, not the anonymous UID.
+- `LeaderboardRules` collapses duplicate UID-backed rows by wallet before presenting Top 20 ranks.
+- Full wallet address is now persisted on leaderboard writes; legacy short-only rows are supported as a migration fallback.
+- Changing leaderboard document IDs to wallet addresses is intentionally deferred until wallet ownership can be enforced by a stronger backend/rules model.

@@ -90,7 +90,7 @@ fun WelcomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "Phase 6 Demo Polish",
+                        text = "Phase 9 Reward Loop",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -99,7 +99,7 @@ fun WelcomeScreen(
 
             GradientHeroCard(
                 title = "Connect. Quest. Prove.",
-                subtitle = "A judge-ready daily quest loop with Firebase progress, MWA proofs, devnet memo, read-only SKR Passport, and a guided demo tab.",
+                subtitle = "A judge-ready daily quest game with Firebase progress, MWA proofs, devnet memo, read-only SKR Passport, and a no-loss reward chest.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -133,13 +133,14 @@ fun WelcomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        text = "What works in Phase 6",
+                        text = "What works in Phase 9",
                         style = MaterialTheme.typography.titleLarge,
                     )
-                    PhaseBullet("Firebase profile, XP, streaks, and quests remain live")
+                    PhaseBullet("Firebase profile, XP, streaks, quests, and chest rewards remain live")
                     PhaseBullet("Connect Wallet opens a real MWA-compatible Solana wallet")
                     PhaseBullet("The app saves public wallet address only")
                     PhaseBullet("Mainnet SKR scan is read-only and does not open Phantom")
+                    PhaseBullet("Daily Radiant Chest adds a no-loss reward reveal after all proofs")
                     PhaseBullet("Demo tab gives a 3-minute judge walkthrough")
                     if (responsive.isTiny || responsive.hasLargeText) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -150,7 +151,7 @@ fun WelcomeScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusPill("Firebase: live")
                             StatusPill("MWA: proof")
-                            StatusPill("Demo-ready")
+                            StatusPill("Chest loop")
                         }
                     }
                 }
@@ -197,7 +198,7 @@ fun WelcomeScreen(
                 )
             }
             Text(
-                text = "Use Phantom Devnet for signing and memo. SKR scan reads official mainnet SKR by public address only, so no wallet popup or devnet SKR token is needed.",
+                text = "Use Phantom Devnet for signing and memo. SKR scan is read-only mainnet. The Daily Radiant Chest never spends XP, SKR, or SOL.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

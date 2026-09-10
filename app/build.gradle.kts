@@ -18,8 +18,8 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "0.7.0-phase7"
+        versionCode = 11
+        versionName = "0.9.2-phase9.1.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -56,7 +56,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Phase 7 keeps MWA/SKR support and adds automated JVM + Compose smoke tests.
+    // Phase 9 keeps MWA/SKR support and adds the no-loss Radiant Chest reward loop.
     // Exclude test/mock dependencies that older MWA KTX metadata can expose transitively.
     // Those libraries are not needed by the production app and can trigger noisy/failing
     // Android manifest/resource merges in newer Android Studio/AGP combinations.
