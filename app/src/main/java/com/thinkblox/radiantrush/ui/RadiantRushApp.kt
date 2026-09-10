@@ -41,6 +41,7 @@ import com.thinkblox.radiantrush.solana.WalletConnectResult
 import com.thinkblox.radiantrush.solana.WalletDisconnectResult
 import com.thinkblox.radiantrush.solana.WalletMemoProofResult
 import com.thinkblox.radiantrush.solana.WalletSignedProofResult
+import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.ui.components.AdaptiveNavLabel
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.screens.BadgesScreen
@@ -49,6 +50,7 @@ import com.thinkblox.radiantrush.ui.screens.LeaderboardScreen
 import com.thinkblox.radiantrush.ui.screens.ProfileScreen
 import com.thinkblox.radiantrush.ui.screens.DemoScreen
 import com.thinkblox.radiantrush.ui.screens.QuestsScreen
+import com.thinkblox.radiantrush.ui.screens.RadiantRunScreen
 import com.thinkblox.radiantrush.ui.screens.WelcomeScreen
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import kotlinx.coroutines.launch
@@ -65,6 +67,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
     var appState by remember { mutableStateOf(PreviewContent.defaultState()) }
     var enteredShell by rememberSaveable { mutableStateOf(false) }
+    var showRadiantRun by rememberSaveable { mutableStateOf(false) }
 
     fun questsWithStatus(questId: String, status: QuestStatus): List<QuestPreview> =
         appState.quests.map { quest ->
@@ -351,6 +354,26 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun completeRadiantRun(result: RadiantRunResult) {
+        if (appState.walletActionInProgress) {
+            appState = appState.copy(lastMessage = "Please wait for the current save to finish.")
+            return
+        }
+        if (!appState.radiantRun.canPlay) {
+            appState = appState.copy(lastMessage = "No Rush Tickets left. Complete daily quests or the Daily Radiant Chest to earn more.")
+            return
+        }
+
+        appState = appState.copy(
+            walletActionInProgress = true,
+            activeQuestId = QuestIds.RADIANT_RUN,
+            lastMessage = "Saving Radiant Run score and opening capsule…",
+        )
+        repository.completeRadiantRun(result) { nextState ->
+            applyRepositoryState(nextState, QuestIds.RADIANT_RUN)
+        }
+    }
+
     fun completeQuest(quest: QuestPreview) {
         if (appState.walletActionInProgress) {
             appState = appState.copy(
@@ -401,6 +424,19 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         return
     }
 
+    if (showRadiantRun) {
+        RadiantRunScreen(
+            uiState = appState,
+            onSubmitResult = ::completeRadiantRun,
+            onExit = {
+                if (!appState.walletActionInProgress) {
+                    showRadiantRun = false
+                }
+            },
+        )
+        return
+    }
+
     RadiantRushShell(
         uiState = appState,
         onRetryFirebase = ::refreshFirebase,
@@ -408,6 +444,13 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onConnectWallet = ::connectWallet,
         onDisconnectWallet = ::disconnectWallet,
         onClaimRadiantChest = ::claimDailyRadiantChest,
+        onPlayRadiantRun = {
+            if (appState.isFirebaseReady && appState.radiantRun.canPlay && !appState.walletActionInProgress) {
+                showRadiantRun = true
+            } else {
+                appState = appState.copy(lastMessage = "Radiant Run needs Firebase ready and at least 1 Rush Ticket.")
+            }
+        },
     )
 }
 
@@ -420,6 +463,7 @@ private fun RadiantRushShell(
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
     onClaimRadiantChest: () -> Unit,
+    onPlayRadiantRun: () -> Unit,
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
     val responsive = rememberResponsiveUiSpec()
@@ -517,6 +561,7 @@ private fun RadiantRushShell(
                 onConnectWallet = onConnectWallet,
                 onDisconnectWallet = onDisconnectWallet,
                 onClaimRadiantChest = onClaimRadiantChest,
+                onPlayRadiantRun = onPlayRadiantRun,
             )
         }
     }
@@ -532,9 +577,17 @@ private fun ScreenContent(
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
     onClaimRadiantChest: () -> Unit,
+    onPlayRadiantRun: () -> Unit,
 ) {
     when (destination) {
-        AppDestination.Home -> HomeScreen(contentPadding, uiState, onCompleteQuest, onConnectWallet, onClaimRadiantChest)
+        AppDestination.Home -> HomeScreen(
+            contentPadding = contentPadding,
+            uiState = uiState,
+            onCompleteQuest = onCompleteQuest,
+            onConnectWallet = onConnectWallet,
+            onClaimRadiantChest = onClaimRadiantChest,
+            onPlayRadiantRun = onPlayRadiantRun,
+        )
         AppDestination.Quests -> QuestsScreen(contentPadding, uiState, onCompleteQuest)
         AppDestination.Badges -> BadgesScreen(contentPadding, uiState.badges)
         AppDestination.Leaderboard -> LeaderboardScreen(contentPadding, uiState.leaderboard)

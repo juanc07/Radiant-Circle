@@ -16,12 +16,15 @@ import com.thinkblox.radiantrush.data.PreviewContent
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.RadiantChestPreview
 import com.thinkblox.radiantrush.data.RadiantChestStatus
+import com.thinkblox.radiantrush.data.RadiantRunPreview
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
 import com.thinkblox.radiantrush.logic.LeaderboardCandidate
 import com.thinkblox.radiantrush.logic.LeaderboardRules
+import com.thinkblox.radiantrush.logic.RadiantGameRules
+import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.logic.RewardLoopRules
 import com.thinkblox.radiantrush.solana.SkrBalanceSnapshot
 import java.time.LocalDate
@@ -34,7 +37,9 @@ import java.util.Locale
  *
  * Phase 5 persists read-only SKR mainnet balance snapshots after the app
  * queries Solana RPC by public wallet address. Phase 9 adds a no-loss daily
- * Radiant Chest reward loop after all proof quests are completed.
+ * Radiant Chest reward loop after all proof quests are completed. Phase 10
+ * adds persistent Rush Tickets, the Radiant Run score loop, and collectible
+ * rewards. These are app progression only and never move SOL/SKR/tokens.
  */
 class FirebaseRadiantRepository(
     context: Context,
@@ -128,6 +133,10 @@ class FirebaseRadiantRepository(
 
         db.runTransaction { transaction ->
             val userSnapshot = transaction.get(userRef)
+            val walletProofSnapshot = transaction.get(walletProofRef)
+            val firstWalletReward = !walletProofSnapshot.exists()
+            val oldRushTickets = userSnapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()
+            val newRushTickets = oldRushTickets + if (firstWalletReward) RadiantGameRules.QUEST_TICKET_REWARD else 0
             val displayName = userSnapshot.getString("displayName")
                 ?: accountLabel?.takeIf { it.isNotBlank() }
                 ?: "Radiant Rookie"
@@ -150,7 +159,8 @@ class FirebaseRadiantRepository(
                     "level" to level,
                     "currentStreak" to currentStreak,
                     "longestStreak" to longestStreak,
-                    "phase" to 9,
+                    "rushTickets" to newRushTickets,
+                    "phase" to 10,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -166,6 +176,7 @@ class FirebaseRadiantRepository(
                     "walletAddress" to cleanPublicKey,
                     "walletAddressShort" to shortenAddress(cleanPublicKey),
                     "xpEarned" to 0,
+                    "rushTicketsEarned" to if (firstWalletReward) RadiantGameRules.QUEST_TICKET_REWARD else 0,
                     "createdAt" to FieldValue.serverTimestamp(),
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
@@ -293,6 +304,8 @@ class FirebaseRadiantRepository(
             val savedQuestXp = completedSnapshot.getLong("xpEarned") ?: rewardForThisWrite
 
             val oldXp = userSnapshot.getLong("xp") ?: 0L
+            val oldRushTickets = userSnapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()
+            val newRushTickets = oldRushTickets + if (firstScanToday) RadiantGameRules.QUEST_TICKET_REWARD else 0
             val oldStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: oldStreak
             val lastQuestDate = userSnapshot.getString("lastQuestDate")
@@ -313,6 +326,7 @@ class FirebaseRadiantRepository(
                     "walletAddress" to cleanWallet,
                     "walletAddressShort" to shortenAddress(cleanWallet),
                     "xpEarned" to savedQuestXp,
+                    "rushTicketsEarned" to if (firstScanToday) RadiantGameRules.QUEST_TICKET_REWARD else 0,
                     "network" to snapshot.network,
                     "skrMint" to snapshot.mint,
                     "skrBalanceRaw" to snapshot.balanceRawAmount,
@@ -358,7 +372,8 @@ class FirebaseRadiantRepository(
                     "currentStreak" to newStreak,
                     "longestStreak" to newLongestStreak,
                     "lastQuestDate" to if (firstScanToday) today else lastQuestDate,
-                    "phase" to 9,
+                    "rushTickets" to newRushTickets,
+                    "phase" to 10,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -430,6 +445,8 @@ class FirebaseRadiantRepository(
 
             val oldXp = userSnapshot.getLong("xp") ?: 0L
             val oldChestXp = userSnapshot.getLong("totalChestXp") ?: 0L
+            val oldRushTickets = userSnapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()
+            val newRushTickets = oldRushTickets + RadiantGameRules.CHEST_TICKET_REWARD
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
@@ -461,6 +478,7 @@ class FirebaseRadiantRepository(
                     "streakBonusXp" to reward.streakBonusXp,
                     "skrBonusXp" to reward.skrBonusXp,
                     "revealLine" to reward.revealLine,
+                    "rushTicketsEarned" to RadiantGameRules.CHEST_TICKET_REWARD,
                     "noStake" to true,
                     "noLoss" to true,
                     "createdAt" to FieldValue.serverTimestamp(),
@@ -486,7 +504,8 @@ class FirebaseRadiantRepository(
                     "lastChestRewardRarity" to reward.rarity,
                     "lastChestRewardXp" to reward.totalXp,
                     "totalChestXp" to newChestXp,
-                    "phase" to 9,
+                    "rushTickets" to newRushTickets,
+                    "phase" to 10,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -519,6 +538,125 @@ class FirebaseRadiantRepository(
                     "Could not open Daily Radiant Chest: ${safeMessage(error)}"
                 }
                 loadOrCreateProfile(session.uid, onState, message)
+            }
+    }
+
+    fun completeRadiantRun(
+        result: RadiantRunResult,
+        onState: (RushUiState) -> Unit,
+    ) {
+        val session = currentFirebaseSession(onState) ?: return
+        val safeResult = result.copy(
+            score = result.score.coerceAtLeast(0),
+            maxCombo = result.maxCombo.coerceAtLeast(0),
+            radiantHits = result.radiantHits.coerceAtLeast(0),
+            corruptedHits = result.corruptedHits.coerceAtLeast(0),
+        )
+        val db = FirebaseFirestore.getInstance(session.app)
+        val userRef = db.collection(USERS).document(session.uid)
+        val leaderboardRef = db.collection(LEADERBOARD).document(session.uid)
+
+        db.runTransaction { transaction ->
+            val userSnapshot = transaction.get(userRef)
+            val oldTickets = userSnapshot.getLong("rushTickets")
+                ?: RadiantGameRules.STARTER_TICKETS.toLong()
+            if (oldTickets < RadiantGameRules.RUN_TICKET_COST) {
+                throw IllegalStateException("No Rush Tickets left. Complete daily quests or tomorrow's chest to earn more.")
+            }
+
+            val oldRuns = (userSnapshot.getLong("totalRuns") ?: 0L).toInt()
+            val oldCounts = collectionCounts(userSnapshot)
+            val reward = RadiantGameRules.pickRunReward(
+                score = safeResult.score,
+                maxCombo = safeResult.maxCombo,
+                userSeed = session.uid,
+                runSerial = oldRuns + 1,
+                ownedCounts = oldCounts,
+            )
+            val newCounts = oldCounts.toMutableMap().apply {
+                this[reward.collectible.id] = (this[reward.collectible.id] ?: 0) + 1
+            }
+            val newCollectionForFirestore = newCounts.mapValues { it.value.toLong() }
+            val oldXp = userSnapshot.getLong("xp") ?: 0L
+            val newXp = oldXp + reward.xpReward.toLong()
+            val newLevel = levelForXp(newXp)
+            val oldShards = userSnapshot.getLong("radiantShards") ?: 0L
+            val newShards = oldShards + reward.duplicateShards.toLong()
+            val oldBestScore = (userSnapshot.getLong("bestRunScore") ?: 0L).toInt()
+            val newBestScore = maxOf(oldBestScore, safeResult.score)
+            val newTotalRuns = oldRuns + 1
+            val newTickets = oldTickets - RadiantGameRules.RUN_TICKET_COST
+            val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+            val walletAddress = userSnapshot.getString("walletAddress")
+            val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
+            val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
+            val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
+            val collectionOwned = RadiantGameRules.ownedUniqueCount(newCounts)
+
+            transaction.set(
+                userRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "rushTickets" to newTickets,
+                    "xp" to newXp,
+                    "level" to newLevel,
+                    "bestRunScore" to newBestScore,
+                    "totalRuns" to newTotalRuns,
+                    "lastRunScore" to safeResult.score,
+                    "lastRunMaxCombo" to safeResult.maxCombo,
+                    "lastRunRadiantHits" to safeResult.radiantHits,
+                    "lastRunCorruptedHits" to safeResult.corruptedHits,
+                    "lastRunCapsuleTier" to reward.capsuleTier,
+                    "lastRunRewardId" to reward.collectible.id,
+                    "lastRunRewardTitle" to reward.collectible.title,
+                    "lastRunRewardRarity" to reward.collectible.rarity,
+                    "lastRunRewardXp" to reward.xpReward,
+                    "lastRunRewardShards" to reward.duplicateShards,
+                    "radiantShards" to newShards,
+                    "radiantCollection" to newCollectionForFirestore,
+                    "collectionOwned" to collectionOwned,
+                    "phase" to 10,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            // Keep leaderboard ownership keyed by Firebase UID, while wallet-based
+            // collapse still prevents reinstall-created anonymous duplicates.
+            transaction.set(
+                leaderboardRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "walletAddress" to walletAddress,
+                    "walletAddressShort" to shortenAddress(walletAddress),
+                    "xp" to newXp,
+                    "level" to newLevel,
+                    "currentStreak" to currentStreak,
+                    "longestStreak" to longestStreak,
+                    "skrTier" to skrTier,
+                    "bestRunScore" to newBestScore,
+                    "collectionOwned" to collectionOwned,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            reward
+        }
+            .addOnSuccessListener { reward ->
+                val duplicateText = if (reward.duplicate) {
+                    " Duplicate converted to +${reward.duplicateShards} Radiant Shards."
+                } else {
+                    " New collectible discovered!"
+                }
+                loadOrCreateProfile(
+                    session.uid,
+                    onState,
+                    "${reward.capsuleTier} opened: ${reward.collectible.rarity} ${reward.collectible.title}. +${reward.xpReward} XP.$duplicateText",
+                )
+            }
+            .addOnFailureListener { error ->
+                loadOrCreateProfile(session.uid, onState, "Could not save Radiant Run: ${safeMessage(error)}")
             }
     }
 
@@ -590,6 +728,8 @@ class FirebaseRadiantRepository(
 
             val userSnapshot = transaction.get(userRef)
             val oldXp = userSnapshot.getLong("xp") ?: 0L
+            val oldRushTickets = userSnapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()
+            val newRushTickets = oldRushTickets + RadiantGameRules.QUEST_TICKET_REWARD
             val oldStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: oldStreak
             val lastQuestDate = userSnapshot.getString("lastQuestDate")
@@ -610,6 +750,7 @@ class FirebaseRadiantRepository(
                 "walletAddress" to savedWalletAddress,
                 "walletAddressShort" to shortenAddress(savedWalletAddress),
                 "xpEarned" to xpReward,
+                "rushTicketsEarned" to RadiantGameRules.QUEST_TICKET_REWARD,
                 "createdAt" to FieldValue.serverTimestamp(),
                 "updatedAt" to FieldValue.serverTimestamp(),
             )
@@ -626,7 +767,8 @@ class FirebaseRadiantRepository(
                 "currentStreak" to newStreak,
                 "longestStreak" to newLongestStreak,
                 "lastQuestDate" to today,
-                "phase" to 9,
+                "rushTickets" to newRushTickets,
+                "phase" to 10,
                 "updatedAt" to FieldValue.serverTimestamp(),
             )
             userUpdate.putAll(userExtraFields)
@@ -698,7 +840,13 @@ class FirebaseRadiantRepository(
                         "currentStreak" to 0L,
                         "longestStreak" to 0L,
                         "totalChestXp" to 0L,
-                        "phase" to 9,
+                        "rushTickets" to RadiantGameRules.STARTER_TICKETS.toLong(),
+                        "bestRunScore" to 0L,
+                        "totalRuns" to 0L,
+                        "radiantShards" to 0L,
+                        "radiantCollection" to emptyMap<String, Long>(),
+                        "collectionOwned" to 0L,
+                        "phase" to 10,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp(),
                     )
@@ -797,6 +945,21 @@ class FirebaseRadiantRepository(
                         }
 
                         val user = profileToUser(userSnapshot)
+                        val collection = RadiantGameRules.collectionPreview(collectionCounts(userSnapshot))
+                        val radiantRun = RadiantRunPreview(
+                            rushTickets = user.rushTickets,
+                            bestScore = user.bestRunScore,
+                            totalRuns = user.totalRuns,
+                            lastScore = user.lastRunScore,
+                            lastMaxCombo = user.lastRunMaxCombo,
+                            lastRewardTitle = user.lastRunRewardTitle,
+                            lastRewardRarity = user.lastRunRewardRarity,
+                            lastRewardXp = user.lastRunRewardXp,
+                            lastRewardShards = user.lastRunRewardShards,
+                            radiantShards = user.radiantShards,
+                            collectionOwned = collection.count { it.discovered },
+                            collectionTotal = collection.size,
+                        )
                         val quests = PreviewContent.quests.map { quest ->
                             when {
                                 completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
@@ -833,6 +996,8 @@ class FirebaseRadiantRepository(
                                 user = user,
                                 quests = quests,
                                 radiantChest = radiantChest,
+                                radiantRun = radiantRun,
+                                collection = collection,
                                 badges = badges,
                                 leaderboard = leaderboard,
                                 todayKey = today,
@@ -883,6 +1048,18 @@ class FirebaseRadiantRepository(
         null
     }
 
+    private fun collectionCounts(snapshot: DocumentSnapshot): Map<String, Int> {
+        val raw = snapshot.get("radiantCollection") as? Map<*, *> ?: return emptyMap()
+        return raw.entries.mapNotNull { (key, value) ->
+            val id = key as? String ?: return@mapNotNull null
+            val count = when (value) {
+                is Number -> value.toInt()
+                else -> 0
+            }
+            id to count.coerceAtLeast(0)
+        }.toMap()
+    }
+
     private fun profileToUser(snapshot: DocumentSnapshot): UserPreview {
         val uidShort = snapshot.id.take(6).uppercase(Locale.US)
         val walletAddress = snapshot.getString("walletAddress")
@@ -914,6 +1091,17 @@ class FirebaseRadiantRepository(
             lastChestRewardRarity = snapshot.getString("lastChestRewardRarity"),
             lastChestRewardXp = (snapshot.getLong("lastChestRewardXp") ?: 0L).toInt(),
             totalChestXp = (snapshot.getLong("totalChestXp") ?: 0L).toInt(),
+            rushTickets = (snapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()).toInt(),
+            bestRunScore = (snapshot.getLong("bestRunScore") ?: 0L).toInt(),
+            totalRuns = (snapshot.getLong("totalRuns") ?: 0L).toInt(),
+            lastRunScore = (snapshot.getLong("lastRunScore") ?: 0L).toInt(),
+            lastRunMaxCombo = (snapshot.getLong("lastRunMaxCombo") ?: 0L).toInt(),
+            lastRunRewardTitle = snapshot.getString("lastRunRewardTitle"),
+            lastRunRewardRarity = snapshot.getString("lastRunRewardRarity"),
+            lastRunRewardXp = (snapshot.getLong("lastRunRewardXp") ?: 0L).toInt(),
+            lastRunRewardShards = (snapshot.getLong("lastRunRewardShards") ?: 0L).toInt(),
+            radiantShards = (snapshot.getLong("radiantShards") ?: 0L).toInt(),
+            collectionOwned = (snapshot.getLong("collectionOwned") ?: 0L).toInt(),
         )
     }
 
@@ -935,6 +1123,9 @@ class FirebaseRadiantRepository(
         BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = completedIds.contains(QuestIds.ON_CHAIN_PROOF)),
         BadgePreview("SKR Radiant", "Hold real mainnet SKR and unlock boosted status.", unlocked = user.hasSkr),
         BadgePreview("Radiant Chest", "Open the daily no-loss chest after completing all proof quests.", unlocked = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)),
+        BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = user.totalRuns > 0),
+        BadgePreview("Combo Pilot", "Reach a 10-hit combo in Radiant Run.", unlocked = user.lastRunMaxCombo >= 10),
+        BadgePreview("Collector", "Discover three Radiant collectibles.", unlocked = user.collectionOwned >= 3),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = user.currentStreak >= 7),
     )
 

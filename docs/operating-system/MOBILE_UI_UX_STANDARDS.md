@@ -1,3 +1,13 @@
+## Phase 10 gameplay UI rules
+
+- Radiant Run must remain playable on small Android screens with large touch targets; gameplay cannot depend on tiny text or precision taps.
+- Radiant and Corruption targets must differ by both shape/marking and semantic copy, not color alone.
+- Score, combo, and timer stay visible throughout the run.
+- Haptics are feedback, not the only signal.
+- The game must allow exiting without opening a wallet or losing previously earned XP. A ticket is consumed only when a completed run result is successfully persisted.
+- Locked collectibles use clear silhouettes/question marks; never truncate names into meaningless ellipses on small screens.
+- Native Compose-drawn visuals are acceptable production UI for this phase; external art assets are optional polish, not a dependency.
+
 # RadiantSolanaHackatonAndroid — Mobile UI/UX Standards
 
 ## Mobile-first goal

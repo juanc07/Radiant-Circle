@@ -1,3 +1,39 @@
+# 2026-09-10 — Phase 10 Radiant native game layer
+
+## Phase 10 Android UI test v2 launch stability fix
+
+- Migrated the physical-device Compose smoke test to `androidx.compose.ui.test.junit4.v2.createAndroidComposeRule`.
+- Added startup readiness that waits for either Welcome or the already-restored Home shell before assertions.
+- Removed the assumption that a specific lazy-list game CTA must already be composed.
+- Production app behavior is unchanged.
+
+## Phase 10 Android smoke-test Home anchor fix
+
+- Added a stable `screen_home` semantics anchor to the Home `LazyColumn`.
+- Fixed the instrumentation smoke test so it no longer expects the below-the-fold `radiant_run_play` lazy item to be composed immediately after entering the shell.
+- Production gameplay, wallet, Firebase, SKR, rewards, and version metadata are unchanged.
+
+
+## Added
+
+- Added free Rush Tickets as the bridge from real daily proof actions into gameplay.
+- Added a 20-second native Jetpack Compose `Radiant Run` reflex game with target taps, Corruption penalties, combo scoring, FEVER mode, haptics, and a score-based capsule reveal.
+- Added six persistent Radiant collectibles plus duplicate-to-Radiant-Shards conversion.
+- Added Home Radiant Run launcher and Vault collection strip, plus Profile run/ticket/reward details.
+- Added Firebase persistence for tickets, run score/best score, run count, latest capsule, collection counts, shards, and run XP.
+- Added `RadiantGameRulesTest` coverage for ticket defaults, deterministic rewards, duplicate shards, capsule tiers, and collection preview.
+
+## Changed
+
+- New daily proof completions award +1 Rush Ticket; the Daily Radiant Chest awards +2. Existing profiles without the field use a 3-ticket compatibility default.
+- Bumped Android app version to `versionCode = 12`, `versionName = "1.0.0-phase10"`.
+- Firebase profile phase writes now identify Phase 10.
+
+## Safety
+
+- Rush Tickets, Radiant Shards, capsules, and collectibles are app-only progression with no SOL/SKR spend, no XP wagering, no token transfer, and no cash/token redemption.
+- Radiant Run scoring remains client-side for this hackathon slice and must not be treated as economic authority.
+
 # 2026-09-10 — Phase 9.1.1 Leaderboard duplicate compatibility fix
 
 ## Fixed

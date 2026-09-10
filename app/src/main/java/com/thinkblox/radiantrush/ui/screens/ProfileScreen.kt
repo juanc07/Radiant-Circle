@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
@@ -84,7 +86,7 @@ fun ProfileScreen(
         item {
             SectionTitle(
                 title = "Identity readiness",
-                body = "Phase 9 links Firebase Auth, public wallet address, signed proof, devnet memo proof, read-only SKR Passport, and the Daily Radiant Chest reward loop.",
+                body = "Phase 10 links real Solana proofs to a native skill game: quests earn Rush Tickets, runs earn collectible capsules, and Firebase keeps score/progression synced.",
             )
         }
 
@@ -95,6 +97,32 @@ fun ProfileScreen(
                 helper = "Firebase UID stays internal; public ranks collapse duplicate rows by connected wallet identity.",
                 icon = Icons.Filled.Storage,
             )
+        }
+        item {
+            ProfileInfoRow(
+                title = "Radiant Run",
+                value = "Best ${user.bestRunScore} • ${user.totalRuns} runs",
+                helper = "Last ${user.lastRunScore} • x${user.lastRunMaxCombo} combo • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collectibles.",
+                icon = Icons.Filled.Bolt,
+            )
+        }
+        item {
+            ProfileInfoRow(
+                title = "Rush Tickets / Shards",
+                value = "${user.rushTickets} tickets • ${user.radiantShards} shards",
+                helper = "Free in-app progression only. Tickets are earned from proof quests/chests; SOL, SKR, and XP are not wagers.",
+                icon = Icons.Filled.ConfirmationNumber,
+            )
+        }
+        if (!user.lastRunRewardTitle.isNullOrBlank()) {
+            item {
+                ProfileInfoRow(
+                    title = "Last Capsule",
+                    value = "${user.lastRunRewardRarity ?: "Reward"} • ${user.lastRunRewardTitle}",
+                    helper = "+${user.lastRunRewardXp} XP" + if (user.lastRunRewardShards > 0) " • duplicate +${user.lastRunRewardShards} shards" else " • new discovery",
+                    icon = Icons.Filled.EmojiEvents,
+                )
+            }
         }
         item {
             ProfileInfoRow(

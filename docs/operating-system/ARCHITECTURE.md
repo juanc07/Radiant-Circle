@@ -1,3 +1,11 @@
+## Phase 10 — Native game layer
+
+Radiant Rush now has a lightweight game layer above the existing Firebase/Solana proof stack. `RadiantRunScreen` owns transient 20-second gameplay state. `RadiantGameRules` owns pure ticket/capsule/collectible calculations. `FirebaseRadiantRepository.completeRadiantRun` performs the owner-profile transaction that consumes one free Rush Ticket and persists XP, best score, run count, collection counts, shards, and latest reward.
+
+The game layer does not call Mobile Wallet Adapter and does not move SOL/SKR. The stable MWA/SKR repositories remain separate boundaries. Public leaderboard deduplication remains wallet-based while Firestore document ownership stays Firebase-UID-based.
+
+The Phase 10 arcade visuals are produced with native Compose Canvas/Brush/Material primitives and haptics, not a WebView, game engine, or external graphic asset dependency.
+
 # RadiantSolanaHackatonAndroid — Architecture
 
 ## Architecture goal

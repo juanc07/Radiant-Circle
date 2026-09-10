@@ -1,3 +1,9 @@
+## Phase 10 non-economic game progression
+
+Rush Tickets, Radiant Shards, capsule results, run scores, and collectibles are application progression only. They do not represent SOL, SKR, SPL tokens, NFTs, redeemable prizes, or a claim on value. Starting or completing Radiant Run must never invoke Mobile Wallet Adapter. XP is not wagered.
+
+The Phase 10 score is client-generated and therefore not suitable as an authority for valuable rewards. A future competitive/rewarded mode must add trusted verification before assigning anything economically valuable. Existing Solana boundaries remain unchanged: devnet proof transaction/signing and mainnet read-only SKR lookup.
+
 # RadiantSolanaHackatonAndroid — Solana Security and Data Rules
 
 ## Security goal
