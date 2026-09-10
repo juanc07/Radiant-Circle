@@ -90,7 +90,7 @@ fun WelcomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        text = "Phase 9 Reward Loop",
+                        text = "Phase 10 Game Layer",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -99,7 +99,7 @@ fun WelcomeScreen(
 
             GradientHeroCard(
                 title = "Connect. Quest. Prove.",
-                subtitle = "A judge-ready daily quest game with Firebase progress, MWA proofs, devnet memo, read-only SKR Passport, and a no-loss reward chest.",
+                subtitle = "Real Solana proof quests now feed a native 20-second arcade run, capsule reveal, and persistent collectible Vault.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -133,14 +133,14 @@ fun WelcomeScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     Text(
-                        text = "What works in Phase 9",
+                        text = "What works in Phase 10",
                         style = MaterialTheme.typography.titleLarge,
                     )
-                    PhaseBullet("Firebase profile, XP, streaks, quests, and chest rewards remain live")
-                    PhaseBullet("Connect Wallet opens a real MWA-compatible Solana wallet")
-                    PhaseBullet("The app saves public wallet address only")
-                    PhaseBullet("Mainnet SKR scan is read-only and does not open Phantom")
-                    PhaseBullet("Daily Radiant Chest adds a no-loss reward reveal after all proofs")
+                    PhaseBullet("Real proof quests earn XP plus free Rush Tickets")
+                    PhaseBullet("Radiant Run is a native 20-second Compose skill game")
+                    PhaseBullet("Combo + FEVER scoring turns proof progress into gameplay")
+                    PhaseBullet("Capsules reveal six persistent collectibles; duplicates become shards")
+                    PhaseBullet("MWA signing/memo and read-only mainnet SKR stay isolated and safe")
                     PhaseBullet("Demo tab gives a 3-minute judge walkthrough")
                     if (responsive.isTiny || responsive.hasLargeText) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -151,7 +151,7 @@ fun WelcomeScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             StatusPill("Firebase: live")
                             StatusPill("MWA: proof")
-                            StatusPill("Chest loop")
+                            StatusPill("Native game")
                         }
                     }
                 }
@@ -198,7 +198,7 @@ fun WelcomeScreen(
                 )
             }
             Text(
-                text = "Use Phantom Devnet for signing and memo. SKR scan is read-only mainnet. The Daily Radiant Chest never spends XP, SKR, or SOL.",
+                text = "Use Phantom Devnet for signing and memo. SKR scan is read-only mainnet. Rush Tickets/capsules are free app progression and never spend XP, SKR, or SOL.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

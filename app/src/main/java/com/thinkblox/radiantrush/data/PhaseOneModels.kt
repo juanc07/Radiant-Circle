@@ -18,8 +18,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * Shared app models for the native Android shell, Firebase foundation, Mobile
- * Wallet Adapter connection flow, proof quests, SKR Passport, and the Phase 9
- * reward loop.
+ * Wallet Adapter connection flow, proof quests, SKR Passport, the Phase 9
+ * reward loop, and the Phase 10 native Compose game layer.
  */
 data class QuestPreview(
     val id: String,
@@ -34,7 +34,7 @@ enum class QuestStatus(val label: String, val icon: ImageVector) {
     Ready("Ready", Icons.Filled.RadioButtonUnchecked),
     Completed("Done", Icons.Filled.CheckCircle),
     Blocked("Wallet", Icons.Filled.AccountBalanceWallet),
-    Locked("Phase 9+", Icons.Filled.Lock),
+    Locked("Later", Icons.Filled.Lock),
     Syncing("Syncing", Icons.Filled.HourglassTop),
 }
 
@@ -55,6 +55,40 @@ enum class RadiantChestStatus(val label: String) {
     Ready("Ready"),
     Opening("Opening"),
     Claimed("Claimed"),
+}
+
+data class RadiantCollectiblePreview(
+    val id: String,
+    val title: String,
+    val rarity: String,
+    val symbol: String,
+    val description: String,
+    val power: Int,
+    val count: Int,
+) {
+    val discovered: Boolean
+        get() = count > 0
+}
+
+data class RadiantRunPreview(
+    val rushTickets: Int = 3,
+    val bestScore: Int = 0,
+    val totalRuns: Int = 0,
+    val lastScore: Int = 0,
+    val lastMaxCombo: Int = 0,
+    val lastRewardTitle: String? = null,
+    val lastRewardRarity: String? = null,
+    val lastRewardXp: Int = 0,
+    val lastRewardShards: Int = 0,
+    val radiantShards: Int = 0,
+    val collectionOwned: Int = 0,
+    val collectionTotal: Int = 6,
+) {
+    val canPlay: Boolean
+        get() = rushTickets > 0
+
+    val collectionProgress: Float
+        get() = if (collectionTotal <= 0) 0f else collectionOwned.toFloat() / collectionTotal.toFloat()
 }
 
 data class BadgePreview(
@@ -94,6 +128,17 @@ data class UserPreview(
     val lastChestRewardRarity: String? = null,
     val lastChestRewardXp: Int = 0,
     val totalChestXp: Int = 0,
+    val rushTickets: Int = 3,
+    val bestRunScore: Int = 0,
+    val totalRuns: Int = 0,
+    val lastRunScore: Int = 0,
+    val lastRunMaxCombo: Int = 0,
+    val lastRunRewardTitle: String? = null,
+    val lastRunRewardRarity: String? = null,
+    val lastRunRewardXp: Int = 0,
+    val lastRunRewardShards: Int = 0,
+    val radiantShards: Int = 0,
+    val collectionOwned: Int = 0,
 )
 
 data class RushUiState(
@@ -101,6 +146,8 @@ data class RushUiState(
     val user: UserPreview = PreviewContent.user,
     val quests: List<QuestPreview> = PreviewContent.quests,
     val radiantChest: RadiantChestPreview = PreviewContent.radiantChest,
+    val radiantRun: RadiantRunPreview = PreviewContent.radiantRun,
+    val collection: List<RadiantCollectiblePreview> = PreviewContent.collection,
     val badges: List<BadgePreview> = PreviewContent.badges,
     val leaderboard: List<LeaderboardPreview> = PreviewContent.leaderboard,
     val todayKey: String = "local-preview",
@@ -167,13 +214,14 @@ object QuestIds {
     const val ON_CHAIN_PROOF = "on-chain-proof"
     const val SKR_HOLDER = "skr-holder"
     const val DAILY_RADIANT_CHEST = "daily-radiant-chest"
+    const val RADIANT_RUN = "radiant-run"
 }
 
 object PreviewContent {
     val user = UserPreview(
         displayName = "Radiant Rookie",
         walletStatus = "Wallet not connected yet",
-        walletAddress = "Connect with Mobile Wallet Adapter in Phase 3",
+        walletAddress = "Connect with Mobile Wallet Adapter",
         skrTier = "Explorer",
         xp = 0,
         level = 1,
@@ -224,6 +272,8 @@ object PreviewContent {
     )
 
     val radiantChest = RadiantChestPreview()
+    val radiantRun = RadiantRunPreview()
+    val collection = emptyList<RadiantCollectiblePreview>()
 
     val badges = listOf(
         BadgePreview("First Launch", "Open the native Android app.", unlocked = true),
@@ -233,6 +283,8 @@ object PreviewContent {
         BadgePreview("On-Chain Spark", "Submit first memo proof.", unlocked = false),
         BadgePreview("SKR Radiant", "Hold real mainnet SKR and unlock boosted status.", unlocked = false),
         BadgePreview("Radiant Chest", "Complete all daily proofs and claim a no-loss reward reveal.", unlocked = false),
+        BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = false),
+        BadgePreview("Collector", "Discover three Radiant collectibles.", unlocked = false),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = false),
     )
 

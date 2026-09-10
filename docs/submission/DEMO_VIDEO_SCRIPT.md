@@ -1,124 +1,83 @@
-# Radiant Rush — 3-Minute Demo Video Script
+# Radiant Rush — Phase 10 3-Minute Demo Script
 
-Target length: 2:30 to 3:00.
+Target: 2:35–2:55. The key story is **real Solana proof → free game ticket → native skill run → collectible**.
 
 ## 0:00–0:15 — Hook
 
 Say:
 
-> Radiant Rush is a daily quest and proof app for Solana Mobile users. It turns wallet activity, on-chain proof, and SKR holder status into a simple mobile habit loop.
+> Radiant Rush turns Solana Mobile participation into a daily game. Real wallet proofs earn free Rush Tickets, and those tickets unlock a native 20-second skill run with collectible rewards.
 
-Show:
+Show Welcome, then Today with the Radiant Run card/Vault.
 
-- App icon / phone home screen.
-- Open Radiant Rush.
-- Welcome/Home screen.
-
-## 0:15–0:35 — Problem
+## 0:15–0:40 — Native + wallet proof
 
 Say:
 
-> Crypto apps often feel like one-time utility tools. Radiant Rush makes participation repeatable by giving users daily quests, streaks, XP, and proof history.
+> This is native Android with Jetpack Compose and Mobile Wallet Adapter. We never import private keys.
 
-Show:
+Show Connect Wallet and return from Phantom/MWA. Keep public wallet info only.
 
-- Today screen.
-- Quest cards.
-- Streak/XP/profile summary.
-
-## 0:35–1:05 — Wallet connection
+## 0:40–1:15 — Proof actions
 
 Say:
 
-> The app is native Android and uses Mobile Wallet Adapter so the user can connect a wallet from the phone without importing keys.
+> The daily loop uses a signed message plus a lightweight devnet Memo transaction as proof. The app also scans official SKR on mainnet by public address only.
 
-Show:
+Show Sign Daily Proof, Memo Proof, then SKR Passport. If the demo wallet has 0 SKR, explicitly say Explorer is the honest result.
 
-- Tap Connect Wallet.
-- Phantom/wallet approval.
-- Return to app with connected wallet visible.
-
-Important recording tip:
-
-- Keep wallet already funded for devnet memo if required.
-- Avoid showing private information beyond public wallet address.
-
-## 1:05–1:35 — Daily proof quests
+## 1:15–1:35 — Chest + ticket bridge
 
 Say:
 
-> A user can complete a signed daily proof and an on-chain memo proof. The signature is lightweight, while the memo transaction creates visible Solana proof.
+> Completing proofs gives XP and free Rush Tickets. The Daily Radiant Chest adds bonus XP and two more tickets. Nothing here spends SOL, SKR, or earned XP.
 
-Show:
+Show the ticket count and chest state/reveal.
 
-- Tap Sign Daily Proof.
-- Approve in wallet.
-- Return to app showing Done.
-- Tap Send Memo Proof.
-- Approve in wallet.
-- Return to app showing Done.
+## 1:35–2:15 — Radiant Run wow moment
 
-If memo requires retry:
-
-> The wallet handoff can sometimes require one retry on fresh sessions, so the app includes retry/status handling.
-
-## 1:35–2:00 — SKR Passport
+Tap **Play • 1 Rush Ticket**.
 
 Say:
 
-> SKR is used as a read-only passport signal. Radiant Rush checks the connected wallet's SKR balance on mainnet and assigns a tier and XP multiplier. It does not move or spend tokens.
+> Now the proof app becomes a game. This entire arcade field is drawn with Compose Canvas — no WebView, no game engine, and no external graphics are required.
 
 Show:
 
-- Tap Scan SKR Passport, then open Daily Radiant Chest.
-- No wallet popup.
-- App shows tier, balance, and status.
+- 3-2-1 countdown.
+- Tap bright Radiant targets.
+- Build at least a 5-hit combo so FEVER appears.
+- Ignore red Corruption if possible; intentionally tap one only if you want to show the penalty.
+- Let the 20-second timer finish.
 
-If wallet has 0 SKR:
-
-> This wallet has zero SKR, so it receives the Explorer tier. The quest still completes honestly because the scan itself is the proof.
-
-## 2:00–2:25 — Profile and proof history
+## 2:15–2:35 — Capsule + collection
 
 Say:
 
-> The profile stores safe public proof data: wallet address, daily signature, memo transaction signature, explorer link, SKR tier, streak, XP, and badges.
+> The run opens a score-based capsule. New items fill the Radiant Vault; duplicates convert to Radiant Shards. Best score, collection, XP, and ticket balance persist in Firebase.
 
-Show:
+Show the capsule result, then return to Today and show Vault progress.
 
-- Profile screen.
-- Wallet address.
-- Memo transaction/explorer button.
-- SKR tier/balance card.
-
-## 2:25–2:45 — Demo tab / judge walkthrough
+## 2:35–2:50 — Profile / ranking integrity
 
 Say:
 
-> The Demo tab summarizes the end-to-end product story and gives judges a quick checklist of what the app proves.
+> Profile keeps public proof metadata and game progression. Public ranks collapse reinstall-created anonymous Firebase accounts by connected Solana wallet, so one wallet appears once.
 
-Show:
+Show Profile and Ranks briefly.
 
-- Open Demo tab.
-- Scroll demo checklist.
-
-## 2:45–3:00 — Close
+## 2:50–2:58 — Close
 
 Say:
 
-> Radiant Rush makes Solana Mobile participation feel like a daily game: connect, prove, scan SKR, build streaks, and come back tomorrow.
+> Radiant Rush makes Solana Mobile activity something you can prove, play, collect, and come back to tomorrow.
 
-Show:
+End on Today / Radiant Vault.
 
-- Home screen with completed quests.
-- Streak/XP/proof summary.
+## Recording notes
 
-## Recording tips
-
-- Use a fresh install or clear app data before recording.
-- Use a phone with stable internet.
-- Make text large enough to see in the recording.
-- Record portrait mode unless the submission guidelines prefer landscape.
-- Avoid showing secret recovery phrases, private keys, or account settings.
-- Start with wallet already installed and ready.
-- Keep the demo wallet public and disposable.
+- Pre-fund the demo wallet with devnet SOL if the Memo transaction needs fees.
+- Do not show recovery phrases/private keys.
+- Practice the run once so you can trigger FEVER during the recording.
+- Keep the phone in the orientation used by the submission APK.
+- Do not claim a Memo is confirmed unless the explorer actually shows confirmation; the app saves the submitted transaction proof/signature.

@@ -1,3 +1,9 @@
+## Phase 10 game-layer gate
+
+Before merging Phase 10, run unit tests, debug build, and connected Android tests. On a physical phone, verify countdown, target taps, Corruption penalty, FEVER combo, 20-second finish, one-ticket consumption, Firebase persistence, capsule reveal, Vault discovery, restart persistence, and wallet-based leaderboard deduplication. Re-test the existing MWA connect/sign/memo and read-only SKR flow after the game QA.
+
+A successful Gradle build is not enough for Phase 10: touch target size, haptics, timer legibility, small-screen text clipping, and save/reveal transitions require device QA.
+
 # RadiantSolanaHackatonAndroid — Testing and Release
 
 ## Testing principle
@@ -419,3 +425,14 @@ Manual phone QA:
 - A legacy short-only wallet row collapses into the matching unique full-wallet row.
 - Two genuinely different full Solana wallet addresses remain two rows.
 - Ranks displays a shortened wallet label so QA can verify whether remaining rows are the same or different wallet identities.
+
+
+## Phase 10 Compose lazy-screen smoke-test rule
+
+For app-shell smoke tests, assert a stable screen-root tag such as `screen_home`. Do not require an item deep inside a `LazyColumn`/`LazyRow` to exist before scrolling; Compose may not compose below-the-fold lazy children until they enter the viewport. Gameplay behavior still requires the Phase 10 physical-device QA in addition to instrumentation smoke tests.
+## Phase 10 physical-device Compose rule
+
+The Phase 10 instrumentation smoke test uses `androidx.compose.ui.test.junit4.v2.createAndroidComposeRule<MainActivity>()` and waits for stable screen-level semantics before interacting. This is intentional: physical devices can take longer to expose the first Compose hierarchy, and Home uses lazy content whose off-screen children are not guaranteed to be composed.
+
+If the test reports `No compose hierarchies found in the app` after the v2 migration, collect Activity crash logs with `adb logcat` before changing production code.
+

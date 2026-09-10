@@ -75,7 +75,7 @@ fun DemoScreen(
         item {
             GradientHeroCard(
                 title = "Judge Demo Mode",
-                subtitle = "A safe 3-minute walkthrough: native Android UI, Firebase progress, MWA wallet proof, devnet memo, read-only SKR Passport, and a no-loss reward chest.",
+                subtitle = "A 3-minute walkthrough from real Solana proof to a native 20-second skill game, capsule reveal, and persistent collection.",
             )
         }
 
@@ -108,7 +108,7 @@ fun DemoScreen(
         item {
             SectionTitle(
                 title = "3-minute demo path",
-                body = "Use this order in the recording. It shows the app is not a website wrapper and every proof stays inside safe Solana/Firebase boundaries.",
+                body = "Use this order in the recording. The hook is proof → ticket → playable run → collectible, while Solana/security boundaries stay explicit.",
             )
         }
 
@@ -163,9 +163,17 @@ fun DemoScreen(
         item {
             DemoStepCard(
                 number = "7",
+                icon = Icons.Filled.Bolt,
+                title = "Play Radiant Run",
+                body = "Spend one free Rush Ticket on the native 20-second tap game. Build a combo, avoid Corruption, then reveal the saved collectible capsule.",
+            )
+        }
+        item {
+            DemoStepCard(
+                number = "8",
                 icon = Icons.Filled.CheckCircle,
-                title = "Show Profile proof",
-                body = "Open Profile and show wallet address, signature, memo explorer link, SKR tier, chest reward, XP, streak, and no-secret rule.",
+                title = "Show Profile + Vault",
+                body = "Show wallet proof metadata, best run score, Rush Tickets, Radiant Shards, latest capsule, collection progress, XP, and streak.",
             )
         }
 

@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.RadiantChestStatus
@@ -27,10 +28,13 @@ import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.MetricCard
 import com.thinkblox.radiantrush.ui.components.ProgressCard
 import com.thinkblox.radiantrush.ui.components.RadiantChestCard
+import com.thinkblox.radiantrush.ui.components.RadiantRunLauncherCard
+import com.thinkblox.radiantrush.ui.components.RadiantVaultStrip
 import com.thinkblox.radiantrush.ui.components.QuestCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
+import com.thinkblox.radiantrush.ui.testing.UiTestTags
 
 @Composable
 fun HomeScreen(
@@ -39,12 +43,15 @@ fun HomeScreen(
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
     onClaimRadiantChest: () -> Unit,
+    onPlayRadiantRun: () -> Unit,
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
 
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag(UiTestTags.HOME_SCREEN),
         contentPadding = PaddingValues(
             start = responsive.screenPadding,
             top = 14.dp,
@@ -56,7 +63,7 @@ fun HomeScreen(
         item {
             GradientHeroCard(
                 title = "Today’s Rush",
-                subtitle = "Complete proof quests, open the Daily Radiant Chest, then show the reward loop in the demo.",
+                subtitle = "Complete real Solana proof quests, earn Rush Tickets, then turn them into a 20-second skill run and collectible reveal.",
             )
         }
 
@@ -138,6 +145,23 @@ fun HomeScreen(
         }
 
         item {
+            RadiantRunLauncherCard(
+                run = uiState.radiantRun,
+                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
+                onPlay = onPlayRadiantRun,
+            )
+        }
+
+        if (uiState.collection.isNotEmpty()) {
+            item {
+                RadiantVaultStrip(
+                    collection = uiState.collection,
+                    run = uiState.radiantRun,
+                )
+            }
+        }
+
+        item {
             RadiantChestCard(
                 chest = uiState.radiantChest,
                 actionEnabled = uiState.isFirebaseReady &&
@@ -182,7 +206,7 @@ fun HomeScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Use Phantom Devnet for Sign Proof and Send Memo. SKR Passport is read-only. The Daily Radiant Chest is no-loss: it never spends XP or opens a wallet.",
+                text = "Use Phantom Devnet for Sign Proof and Send Memo. SKR Passport is read-only. Radiant Run uses free in-app Rush Tickets only; it never spends SOL, SKR, or earned XP.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

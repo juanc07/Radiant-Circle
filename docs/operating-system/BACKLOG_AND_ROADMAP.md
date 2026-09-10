@@ -1,3 +1,9 @@
+## Phase 10 — Radiant game layer
+
+**Implemented vertical slice:** proof quest → free Rush Ticket → 20-second Radiant Run → score/combo → capsule → collectible/duplicate shards → persisted progression.
+
+**After Phase 10 is stable:** tune target cadence and score curve on real phones; add richer capsule reveal motion/SFX; consider weekly run-score ranking only after anti-cheat/server validation exists; expand Vault presentation; add optional original art without making gameplay depend on asset downloads. Do not add paid/random token wagering.
+
 # RadiantSolanaHackatonAndroid — Backlog and Roadmap
 
 ## Current phase

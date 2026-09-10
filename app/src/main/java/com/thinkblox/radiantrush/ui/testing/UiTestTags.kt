@@ -10,5 +10,7 @@ object UiTestTags {
     const val NAV_LEADERBOARD = "nav_leaderboard"
     const val NAV_PROFILE = "nav_profile"
     const val NAV_DEMO = "nav_demo"
+    const val HOME_SCREEN = "screen_home"
     const val DEMO_SCREEN = "screen_demo"
+    const val RADIANT_RUN_PLAY = "radiant_run_play"
 }
