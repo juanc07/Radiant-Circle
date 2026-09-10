@@ -70,7 +70,7 @@ Say:
 
 Show:
 
-- Tap Scan SKR Passport.
+- Tap Scan SKR Passport, then open Daily Radiant Chest.
 - No wallet popup.
 - App shows tier, balance, and status.
 

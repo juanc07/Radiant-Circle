@@ -25,4 +25,11 @@ class QuestInteractionRulesTest {
         assertFalse(QuestInteractionRules.opensExternalWallet(QuestInteractionRules.DAILY_CHECK_IN))
         assertFalse(QuestInteractionRules.isReadOnlyRpcQuest(QuestInteractionRules.DAILY_CHECK_IN))
     }
+
+    @Test
+    fun dailyRadiantChestDoesNotOpenWalletOrSpendXp() {
+        assertFalse(QuestInteractionRules.requiresConnectedWallet(QuestInteractionRules.DAILY_RADIANT_CHEST))
+        assertFalse(QuestInteractionRules.opensExternalWallet(QuestInteractionRules.DAILY_RADIANT_CHEST))
+        assertFalse(QuestInteractionRules.spendsUserXp(QuestInteractionRules.DAILY_RADIANT_CHEST))
+    }
 }

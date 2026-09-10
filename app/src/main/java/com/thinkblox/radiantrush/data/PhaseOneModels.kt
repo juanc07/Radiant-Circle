@@ -18,11 +18,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
  * Shared app models for the native Android shell, Firebase foundation, Mobile
- * Wallet Adapter connection flow, and Phase 4 proof quests.
- *
- * Phase 5 adds read-only SKR balance scanning on Solana mainnet. Phase 6
- * adds demo-ready retention polish without changing private-key or token
- * transfer boundaries.
+ * Wallet Adapter connection flow, proof quests, SKR Passport, and the Phase 9
+ * reward loop.
  */
 data class QuestPreview(
     val id: String,
@@ -37,8 +34,27 @@ enum class QuestStatus(val label: String, val icon: ImageVector) {
     Ready("Ready", Icons.Filled.RadioButtonUnchecked),
     Completed("Done", Icons.Filled.CheckCircle),
     Blocked("Wallet", Icons.Filled.AccountBalanceWallet),
-    Locked("Phase 6+", Icons.Filled.Lock),
+    Locked("Phase 9+", Icons.Filled.Lock),
     Syncing("Syncing", Icons.Filled.HourglassTop),
+}
+
+data class RadiantChestPreview(
+    val status: RadiantChestStatus = RadiantChestStatus.Locked,
+    val title: String = "Daily Radiant Chest",
+    val subtitle: String = "Complete every daily proof to unlock a no-loss reward reveal.",
+    val progressText: String = "0/5 daily proofs ready",
+    val rewardText: String = "Reward: locked",
+    val buttonLabel: String = "Unlock Chest",
+    val lastRewardRarity: String? = null,
+    val lastRewardTitle: String? = null,
+    val lastRewardXp: Int = 0,
+)
+
+enum class RadiantChestStatus(val label: String) {
+    Locked("Locked"),
+    Ready("Ready"),
+    Opening("Opening"),
+    Claimed("Claimed"),
 }
 
 data class BadgePreview(
@@ -72,12 +88,18 @@ data class UserPreview(
     val skrMint: String = "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
     val lastSkrChecked: String? = null,
     val hasSkr: Boolean = false,
+    val lastChestClaimDate: String? = null,
+    val lastChestRewardTitle: String? = null,
+    val lastChestRewardRarity: String? = null,
+    val lastChestRewardXp: Int = 0,
+    val totalChestXp: Int = 0,
 )
 
 data class RushUiState(
     val firebaseStatus: FirebaseStatus = FirebaseStatus.NotConfigured,
     val user: UserPreview = PreviewContent.user,
     val quests: List<QuestPreview> = PreviewContent.quests,
+    val radiantChest: RadiantChestPreview = PreviewContent.radiantChest,
     val badges: List<BadgePreview> = PreviewContent.badges,
     val leaderboard: List<LeaderboardPreview> = PreviewContent.leaderboard,
     val todayKey: String = "local-preview",
@@ -90,6 +112,12 @@ data class RushUiState(
 
     val isWalletConnected: Boolean
         get() = user.walletStatus == "Wallet connected"
+
+    val completedQuestCount: Int
+        get() = quests.count { it.status == QuestStatus.Completed }
+
+    val dailyQuestProgressLabel: String
+        get() = "$completedQuestCount/${quests.size} daily proofs"
 }
 
 enum class FirebaseStatus(
@@ -137,6 +165,7 @@ object QuestIds {
     const val SIGN_DAILY_PROOF = "sign-daily-proof"
     const val ON_CHAIN_PROOF = "on-chain-proof"
     const val SKR_HOLDER = "skr-holder"
+    const val DAILY_RADIANT_CHEST = "daily-radiant-chest"
 }
 
 object PreviewContent {
@@ -193,6 +222,8 @@ object PreviewContent {
         ),
     )
 
+    val radiantChest = RadiantChestPreview()
+
     val badges = listOf(
         BadgePreview("First Launch", "Open the native Android app.", unlocked = true),
         BadgePreview("Cloud Synced", "Save Firebase progress.", unlocked = false),
@@ -200,6 +231,7 @@ object PreviewContent {
         BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = false),
         BadgePreview("On-Chain Spark", "Submit first memo proof.", unlocked = false),
         BadgePreview("SKR Radiant", "Hold real mainnet SKR and unlock boosted status.", unlocked = false),
+        BadgePreview("Radiant Chest", "Complete all daily proofs and claim a no-loss reward reveal.", unlocked = false),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = false),
     )
 

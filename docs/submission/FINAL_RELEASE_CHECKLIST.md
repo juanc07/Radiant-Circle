@@ -67,7 +67,7 @@ Perform on a real Android phone:
 - Wallet connect opens wallet and returns to app.
 - Sign Daily Proof opens wallet and completes.
 - Send Memo Proof opens wallet and completes.
-- SKR Passport scan completes inside app with no wallet popup.
+- SKR Passport and Daily Radiant Chest scan completes inside app with no wallet popup.
 - Profile shows wallet/proof/SKR info.
 - Demo tab opens and reads correctly.
 - No obvious text clipping on small screen.

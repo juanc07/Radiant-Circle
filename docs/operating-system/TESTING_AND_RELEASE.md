@@ -372,3 +372,32 @@ Emulator or physical-device Compose smoke test:
 ```
 
 Manual wallet approval is still required for Connect Wallet, Sign Daily Proof, and Send Memo Proof because MWA must preserve user consent in the wallet app. SKR Passport should remain read-only and should not open Phantom.
+
+## Phase 9 reward-loop tests
+
+Run before committing Phase 9:
+
+```bash
+./gradlew --stop
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+```
+
+Expected automated coverage:
+
+```text
+RewardLoopRulesTest
+QuestInteractionRulesTest
+SkrTierRulesTest
+```
+
+Manual phone QA:
+
+```text
+1. Complete every daily proof quest.
+2. Confirm Daily Radiant Chest changes from Locked to Ready.
+3. Tap Open Chest once.
+4. Confirm no wallet app opens.
+5. Confirm bonus XP and reward rarity appear in Today/Profile/Demo.
+6. Restart app and confirm chest remains Claimed Today.
+```

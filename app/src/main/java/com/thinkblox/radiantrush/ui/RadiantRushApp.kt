@@ -29,6 +29,7 @@ import com.thinkblox.radiantrush.data.AppDestination
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.PreviewContent
 import com.thinkblox.radiantrush.data.QuestIds
+import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
@@ -72,6 +73,39 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
     fun markQuestStatus(questId: String, status: QuestStatus) {
         appState = appState.copy(quests = questsWithStatus(questId, status))
+    }
+
+    fun markChestStatus(status: RadiantChestStatus, buttonLabel: String = appState.radiantChest.buttonLabel) {
+        appState = appState.copy(
+            radiantChest = appState.radiantChest.copy(
+                status = status,
+                buttonLabel = buttonLabel,
+            ),
+        )
+    }
+
+    fun beginChestAction(message: String): Boolean {
+        if (appState.walletActionInProgress) {
+            appState = appState.copy(
+                lastMessage = "Please wait — ${appState.activeQuestId ?: "another quest"} is still working.",
+            )
+            return false
+        }
+        if (appState.radiantChest.status != RadiantChestStatus.Ready) {
+            appState = appState.copy(lastMessage = "Complete every daily proof before opening the Daily Radiant Chest.")
+            return false
+        }
+
+        appState = appState.copy(
+            walletActionInProgress = true,
+            activeQuestId = QuestIds.DAILY_RADIANT_CHEST,
+            lastMessage = message,
+            radiantChest = appState.radiantChest.copy(
+                status = RadiantChestStatus.Opening,
+                buttonLabel = "Opening…",
+            ),
+        )
+        return true
     }
 
     fun beginQuestAction(questId: String, message: String): Boolean {
@@ -309,6 +343,14 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun claimDailyRadiantChest() {
+        if (!beginChestAction("Opening Daily Radiant Chest. No XP is spent and no wallet approval is needed.")) return
+
+        repository.claimDailyRadiantChest { nextState ->
+            applyRepositoryState(nextState, QuestIds.DAILY_RADIANT_CHEST)
+        }
+    }
+
     fun completeQuest(quest: QuestPreview) {
         if (appState.walletActionInProgress) {
             appState = appState.copy(
@@ -365,6 +407,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onCompleteQuest = ::completeQuest,
         onConnectWallet = ::connectWallet,
         onDisconnectWallet = ::disconnectWallet,
+        onClaimRadiantChest = ::claimDailyRadiantChest,
     )
 }
 
@@ -376,6 +419,7 @@ private fun RadiantRushShell(
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onClaimRadiantChest: () -> Unit,
 ) {
     var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
     val responsive = rememberResponsiveUiSpec()
@@ -472,6 +516,7 @@ private fun RadiantRushShell(
                 onCompleteQuest = onCompleteQuest,
                 onConnectWallet = onConnectWallet,
                 onDisconnectWallet = onDisconnectWallet,
+                onClaimRadiantChest = onClaimRadiantChest,
             )
         }
     }
@@ -486,9 +531,10 @@ private fun ScreenContent(
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onClaimRadiantChest: () -> Unit,
 ) {
     when (destination) {
-        AppDestination.Home -> HomeScreen(contentPadding, uiState, onCompleteQuest, onConnectWallet)
+        AppDestination.Home -> HomeScreen(contentPadding, uiState, onCompleteQuest, onConnectWallet, onClaimRadiantChest)
         AppDestination.Quests -> QuestsScreen(contentPadding, uiState, onCompleteQuest)
         AppDestination.Badges -> BadgesScreen(contentPadding, uiState.badges)
         AppDestination.Leaderboard -> LeaderboardScreen(contentPadding, uiState.leaderboard)

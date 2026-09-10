@@ -132,3 +132,7 @@ Before a UI change is accepted:
 - Bottom navigation labels must use short names on compact screens and may hide unselected labels on very small screens.
 - Proof/status chips must use compact names such as `Cloud`, `Wallet`, `Sign`, `Memo`, and `SKR` on tiny screens.
 - Large-font testing is required after every screen that adds or modifies buttons, chips, bottom navigation, or primary action cards.
+
+## Phase 9 reward-loop UX rule
+
+Reward screens must clearly say when no wallet popup is expected. The Daily Radiant Chest must use no-loss wording: no XP bet, no XP loss, no SOL/SKR transfer. Chest button text must be short enough for small phones: `Open Chest`, `Opening…`, `Claimed`.

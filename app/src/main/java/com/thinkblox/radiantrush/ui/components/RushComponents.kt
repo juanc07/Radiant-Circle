@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.sp
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
+import com.thinkblox.radiantrush.data.RadiantChestPreview
+import com.thinkblox.radiantrush.data.RadiantChestStatus
 
 
 /**
@@ -155,6 +157,10 @@ fun ResponsiveUiSpec.actionLabel(text: String): String = when (text) {
     "Scanning SKR…" -> chooseLabel("Scanning SKR…", "Scanning…", "Scan…")
     "Checking SKR…" -> chooseLabel("Checking SKR…", "Checking…", "Checking…")
     "Open Radiant Rush" -> chooseLabel("Open Radiant Rush", "Open Rush", "Open")
+    "Open Chest" -> chooseLabel("Open Daily Chest", "Open Chest", "Open")
+    "Opening…" -> chooseLabel("Opening Chest…", "Opening…", "Open…")
+    "Claimed Today" -> chooseLabel("Claimed Today", "Claimed", "Done")
+    "Locked" -> chooseLabel("Locked", "Locked", "Lock")
     else -> text
 }
 
@@ -449,6 +455,116 @@ fun QuestCard(
                     }
                     AdaptiveButtonText(text = visibleLabel)
                 }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun RadiantChestCard(
+    chest: RadiantChestPreview,
+    actionEnabled: Boolean,
+    onClaim: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    val isOpening = chest.status == RadiantChestStatus.Opening
+
+    ElevatedCard(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = when (chest.status) {
+                RadiantChestStatus.Ready -> MaterialTheme.colorScheme.primaryContainer
+                RadiantChestStatus.Claimed -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
+        ),
+    ) {
+        Column(
+            modifier = Modifier.padding(responsive.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                Surface(
+                    modifier = Modifier.size(if (responsive.isTiny) 42.dp else 48.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface,
+                ) {
+                    Icon(
+                        modifier = Modifier.padding(if (responsive.isTiny) 9.dp else 11.dp),
+                        imageVector = when (chest.status) {
+                            RadiantChestStatus.Claimed -> Icons.Filled.CheckCircle
+                            else -> Icons.Filled.Bolt
+                        },
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    Text(
+                        text = chest.title,
+                        style = if (responsive.isTiny) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip,
+                    )
+                    Text(
+                        text = chest.subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (responsive.isCompact || responsive.hasLargeText) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusPill(chest.status.label)
+                    StatusPill(chest.progressText)
+                    StatusPill(chest.rewardText)
+                }
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    StatusPill(chest.status.label)
+                    StatusPill(chest.progressText)
+                    StatusPill(chest.rewardText)
+                }
+            }
+
+            Text(
+                text = "No XP betting. No loss. No token transfer. The reveal only grants bonus XP after real daily proofs.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = responsive.buttonHeight),
+                enabled = actionEnabled,
+                shape = RoundedCornerShape(16.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    horizontal = responsive.buttonHorizontalPadding,
+                    vertical = 8.dp,
+                ),
+                onClick = onClaim,
+            ) {
+                if (isOpening) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Spacer(modifier = Modifier.size(8.dp))
+                }
+                AdaptiveButtonText(chest.buttonLabel)
             }
         }
     }

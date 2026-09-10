@@ -19,12 +19,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.QuestIds
+import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.MetricCard
 import com.thinkblox.radiantrush.ui.components.ProgressCard
+import com.thinkblox.radiantrush.ui.components.RadiantChestCard
 import com.thinkblox.radiantrush.ui.components.QuestCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
@@ -36,6 +38,7 @@ fun HomeScreen(
     uiState: RushUiState,
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
+    onClaimRadiantChest: () -> Unit,
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
@@ -53,7 +56,7 @@ fun HomeScreen(
         item {
             GradientHeroCard(
                 title = "Today’s Rush",
-                subtitle = "Complete the real daily loop, then open the Demo tab for the 3-minute judge walkthrough.",
+                subtitle = "Complete proof quests, open the Daily Radiant Chest, then show the reward loop in the demo.",
             )
         }
 
@@ -135,9 +138,19 @@ fun HomeScreen(
         }
 
         item {
+            RadiantChestCard(
+                chest = uiState.radiantChest,
+                actionEnabled = uiState.isFirebaseReady &&
+                    !uiState.walletActionInProgress &&
+                    uiState.radiantChest.status == RadiantChestStatus.Ready,
+                onClaim = onClaimRadiantChest,
+            )
+        }
+
+        item {
             SectionTitle(
                 title = "Priority quests",
-                body = "For the video: Connect Wallet, Sign Proof, Send Memo, Scan SKR, then show Profile and Demo tabs.",
+                body = "For the video: Connect Wallet, Sign Proof, Send Memo, Scan SKR, open Chest, then show Profile and Demo tabs.",
             )
         }
 
@@ -169,7 +182,7 @@ fun HomeScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Use Phantom Devnet for Sign Proof and Send Memo. SKR Passport is a read-only mainnet scan. Demo tab has the exact judge flow.",
+                text = "Use Phantom Devnet for Sign Proof and Send Memo. SKR Passport is read-only. The Daily Radiant Chest is no-loss: it never spends XP or opens a wallet.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

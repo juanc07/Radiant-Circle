@@ -14,10 +14,13 @@ import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.LeaderboardPreview
 import com.thinkblox.radiantrush.data.PreviewContent
 import com.thinkblox.radiantrush.data.QuestIds
+import com.thinkblox.radiantrush.data.RadiantChestPreview
+import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
+import com.thinkblox.radiantrush.logic.RewardLoopRules
 import com.thinkblox.radiantrush.solana.SkrBalanceSnapshot
 import java.time.LocalDate
 import java.time.ZoneId
@@ -28,7 +31,8 @@ import java.util.Locale
  * Firebase Auth + Firestore repository for Radiant Rush.
  *
  * Phase 5 persists read-only SKR mainnet balance snapshots after the app
- * queries Solana RPC by public wallet address. It stores public proof data only.
+ * queries Solana RPC by public wallet address. Phase 9 adds a no-loss daily
+ * Radiant Chest reward loop after all proof quests are completed.
  */
 class FirebaseRadiantRepository(
     context: Context,
@@ -144,7 +148,7 @@ class FirebaseRadiantRepository(
                     "level" to level,
                     "currentStreak" to currentStreak,
                     "longestStreak" to longestStreak,
-                    "phase" to 5,
+                    "phase" to 9,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -351,7 +355,7 @@ class FirebaseRadiantRepository(
                     "currentStreak" to newStreak,
                     "longestStreak" to newLongestStreak,
                     "lastQuestDate" to if (firstScanToday) today else lastQuestDate,
-                    "phase" to 5,
+                    "phase" to 9,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -385,6 +389,131 @@ class FirebaseRadiantRepository(
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not save SKR Passport scan: ${safeMessage(error)}")
+            }
+    }
+
+
+    fun claimDailyRadiantChest(onState: (RushUiState) -> Unit) {
+        val session = currentFirebaseSession(onState) ?: return
+        val db = FirebaseFirestore.getInstance(session.app)
+        val today = todayKey()
+        val userRef = db.collection(USERS).document(session.uid)
+        val chestRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.DAILY_RADIANT_CHEST}_$today")
+        val dailyCheckInRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.DAILY_CHECK_IN}_$today")
+        val signedProofRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.SIGN_DAILY_PROOF}_$today")
+        val memoProofRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.ON_CHAIN_PROOF}_$today")
+        val skrProofRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.SKR_HOLDER}_$today")
+        val leaderboardRef = db.collection(LEADERBOARD).document(session.uid)
+
+        db.runTransaction { transaction ->
+            val chestSnapshot = transaction.get(chestRef)
+            if (chestSnapshot.exists()) {
+                throw DuplicateQuestException()
+            }
+
+            val userSnapshot = transaction.get(userRef)
+            val walletAddress = userSnapshot.getString("walletAddress")
+            val walletConnected = !walletAddress.isNullOrBlank()
+            val requiredProofsDone = walletConnected &&
+                transaction.get(dailyCheckInRef).exists() &&
+                transaction.get(signedProofRef).exists() &&
+                transaction.get(memoProofRef).exists() &&
+                transaction.get(skrProofRef).exists()
+
+            if (!requiredProofsDone) {
+                throw IllegalStateException("Complete every daily proof before opening the Radiant Chest.")
+            }
+
+            val oldXp = userSnapshot.getLong("xp") ?: 0L
+            val oldChestXp = userSnapshot.getLong("totalChestXp") ?: 0L
+            val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
+            val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
+            val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+            val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
+            val hasSkr = userSnapshot.getBoolean("hasSkr") ?: false
+            val reward = RewardLoopRules.pickDailyChestReward(
+                todayKey = today,
+                userSeed = session.uid,
+                currentStreak = currentStreak.toInt(),
+                hasSkr = hasSkr,
+            )
+            val newXp = oldXp + reward.totalXp.toLong()
+            val newLevel = levelForXp(newXp)
+            val newChestXp = oldChestXp + reward.totalXp.toLong()
+
+            transaction.set(
+                chestRef,
+                mapOf(
+                    "questId" to QuestIds.DAILY_RADIANT_CHEST,
+                    "questTitle" to "Daily Radiant Chest",
+                    "date" to today,
+                    "proofType" to "daily_reward_loop_no_stake_no_loss",
+                    "walletAddress" to walletAddress,
+                    "walletAddressShort" to shortenAddress(walletAddress),
+                    "xpEarned" to reward.totalXp,
+                    "rewardRarity" to reward.rarity,
+                    "rewardTitle" to reward.title,
+                    "baseXp" to reward.baseXp,
+                    "streakBonusXp" to reward.streakBonusXp,
+                    "skrBonusXp" to reward.skrBonusXp,
+                    "revealLine" to reward.revealLine,
+                    "noStake" to true,
+                    "noLoss" to true,
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            transaction.set(
+                userRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "walletAddress" to walletAddress,
+                    "walletAddressShort" to shortenAddress(walletAddress),
+                    "walletStatus" to "Wallet connected",
+                    "skrTier" to skrTier,
+                    "xp" to newXp,
+                    "level" to newLevel,
+                    "currentStreak" to currentStreak,
+                    "longestStreak" to longestStreak,
+                    "lastChestClaimDate" to today,
+                    "lastChestRewardTitle" to reward.title,
+                    "lastChestRewardRarity" to reward.rarity,
+                    "lastChestRewardXp" to reward.totalXp,
+                    "totalChestXp" to newChestXp,
+                    "phase" to 9,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+
+            transaction.set(
+                leaderboardRef,
+                mapOf(
+                    "displayName" to displayName,
+                    "walletAddressShort" to shortenAddress(walletAddress),
+                    "xp" to newXp,
+                    "level" to newLevel,
+                    "currentStreak" to currentStreak,
+                    "longestStreak" to longestStreak,
+                    "skrTier" to skrTier,
+                    "lastChestRewardRarity" to reward.rarity,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+        }
+            .addOnSuccessListener {
+                loadOrCreateProfile(session.uid, onState, "Daily Radiant Chest opened. Bonus XP saved to Firebase.")
+            }
+            .addOnFailureListener { error ->
+                val message = if (error is DuplicateQuestException) {
+                    "Daily Radiant Chest already opened for today. Come back tomorrow."
+                } else {
+                    "Could not open Daily Radiant Chest: ${safeMessage(error)}"
+                }
+                loadOrCreateProfile(session.uid, onState, message)
             }
     }
 
@@ -491,7 +620,7 @@ class FirebaseRadiantRepository(
                 "currentStreak" to newStreak,
                 "longestStreak" to newLongestStreak,
                 "lastQuestDate" to today,
-                "phase" to 5,
+                "phase" to 9,
                 "updatedAt" to FieldValue.serverTimestamp(),
             )
             userUpdate.putAll(userExtraFields)
@@ -561,7 +690,8 @@ class FirebaseRadiantRepository(
                         "level" to 1L,
                         "currentStreak" to 0L,
                         "longestStreak" to 0L,
-                        "phase" to 5,
+                        "totalChestXp" to 0L,
+                        "phase" to 9,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp(),
                     )
@@ -620,6 +750,9 @@ class FirebaseRadiantRepository(
                 }
 
                 val walletConnected = !userSnapshot.getString("walletAddress").isNullOrBlank()
+                if (userSnapshot.getString("lastChestClaimDate") == today) {
+                    completedIds.add(QuestIds.DAILY_RADIANT_CHEST)
+                }
 
                 db.collection(LEADERBOARD)
                     .orderBy("xp", Query.Direction.DESCENDING)
@@ -654,6 +787,19 @@ class FirebaseRadiantRepository(
                                 else -> quest.copy(status = QuestStatus.Locked)
                             }
                         }
+                        val chestClaimedToday = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)
+                        val questStatuses = quests.associate { it.id to it.status }
+                        val chestReady = RewardLoopRules.canClaimDailyChest(
+                            questStatuses = questStatuses,
+                            alreadyClaimedToday = chestClaimedToday,
+                        )
+                        val radiantChest = radiantChestState(
+                            user = user,
+                            completedQuestCount = quests.count { it.status == QuestStatus.Completed },
+                            totalQuestCount = quests.size,
+                            chestReady = chestReady,
+                            chestClaimedToday = chestClaimedToday,
+                        )
                         val badges = badgeState(user, completedIds)
 
                         onState(
@@ -661,6 +807,7 @@ class FirebaseRadiantRepository(
                                 firebaseStatus = FirebaseStatus.Ready,
                                 user = user,
                                 quests = quests,
+                                radiantChest = radiantChest,
                                 badges = badges,
                                 leaderboard = leaderboard,
                                 todayKey = today,
@@ -737,6 +884,11 @@ class FirebaseRadiantRepository(
             skrMint = snapshot.getString("skrMint") ?: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
             lastSkrChecked = snapshot.getString("lastSkrCheckDate"),
             hasSkr = snapshot.getBoolean("hasSkr") ?: false,
+            lastChestClaimDate = snapshot.getString("lastChestClaimDate"),
+            lastChestRewardTitle = snapshot.getString("lastChestRewardTitle"),
+            lastChestRewardRarity = snapshot.getString("lastChestRewardRarity"),
+            lastChestRewardXp = (snapshot.getLong("lastChestRewardXp") ?: 0L).toInt(),
+            totalChestXp = (snapshot.getLong("totalChestXp") ?: 0L).toInt(),
         )
     }
 
@@ -756,8 +908,45 @@ class FirebaseRadiantRepository(
         BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = completedIds.contains(QuestIds.SIGN_DAILY_PROOF)),
         BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = completedIds.contains(QuestIds.ON_CHAIN_PROOF)),
         BadgePreview("SKR Radiant", "Hold real mainnet SKR and unlock boosted status.", unlocked = user.hasSkr),
+        BadgePreview("Radiant Chest", "Open the daily no-loss chest after completing all proof quests.", unlocked = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = user.currentStreak >= 7),
     )
+
+    private fun radiantChestState(
+        user: UserPreview,
+        completedQuestCount: Int,
+        totalQuestCount: Int,
+        chestReady: Boolean,
+        chestClaimedToday: Boolean,
+    ): RadiantChestPreview {
+        val progressText = "$completedQuestCount/$totalQuestCount daily proofs ready"
+        return when {
+            chestClaimedToday -> RadiantChestPreview(
+                status = RadiantChestStatus.Claimed,
+                subtitle = "Reward claimed today. Come back tomorrow for another proof run.",
+                progressText = progressText,
+                rewardText = "${user.lastChestRewardRarity ?: "Reward"}: ${user.lastChestRewardTitle ?: "Daily bonus"} • +${user.lastChestRewardXp} XP",
+                buttonLabel = "Claimed Today",
+                lastRewardRarity = user.lastChestRewardRarity,
+                lastRewardTitle = user.lastChestRewardTitle,
+                lastRewardXp = user.lastChestRewardXp,
+            )
+            chestReady -> RadiantChestPreview(
+                status = RadiantChestStatus.Ready,
+                subtitle = "All proofs are done. Open a no-loss chest reveal for bonus XP.",
+                progressText = progressText,
+                rewardText = if (user.hasSkr) "SKR holder boost included in chest reward." else "No stake. No XP loss. Just a daily reward reveal.",
+                buttonLabel = "Open Chest",
+            )
+            else -> RadiantChestPreview(
+                status = RadiantChestStatus.Locked,
+                subtitle = "Complete all daily proof quests to unlock today’s chest.",
+                progressText = progressText,
+                rewardText = "Needs every proof: cloud, wallet, signature, memo, and SKR scan.",
+                buttonLabel = "Locked",
+            )
+        }
+    }
 
     private fun nextStreak(lastDate: String?, today: String, currentStreak: Long): Long {
         if (lastDate == today) return currentStreak
