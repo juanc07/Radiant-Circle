@@ -401,3 +401,21 @@ Manual phone QA:
 5. Confirm bonus XP and reward rarity appear in Today/Profile/Demo.
 6. Restart app and confirm chest remains Claimed Today.
 ```
+
+
+## Phase 9.1 leaderboard regression checks
+
+- JVM test: duplicate anonymous UIDs with the same exact wallet collapse to one row.
+- JVM test: legacy short-only wallet rows collapse into the current exact-wallet row when unambiguous.
+- JVM test: no-wallet rows are excluded from public ranks.
+- JVM test: unique wallet rows remain XP-sorted and Top-N limited.
+- Device QA: reconnect the same wallet and verify Ranks shows one entry only.
+
+
+## Phase 9.1.1 leaderboard regression checks
+
+- A row with a valid-looking full wallet plus `walletAddressShort = "No wallet"` must not appear in public ranks.
+- Two anonymous UIDs with the same full wallet collapse to one public row.
+- A legacy short-only wallet row collapses into the matching unique full-wallet row.
+- Two genuinely different full Solana wallet addresses remain two rows.
+- Ranks displays a shortened wallet label so QA can verify whether remaining rows are the same or different wallet identities.

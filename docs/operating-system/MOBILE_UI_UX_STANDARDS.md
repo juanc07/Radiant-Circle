@@ -136,3 +136,10 @@ Before a UI change is accepted:
 ## Phase 9 reward-loop UX rule
 
 Reward screens must clearly say when no wallet popup is expected. The Daily Radiant Chest must use no-loss wording: no XP bet, no XP loss, no SOL/SKR transfer. Chest button text must be short enough for small phones: `Open Chest`, `Opening…`, `Claimed`.
+
+
+## Rank identity transparency
+
+- Public rank rows should show a compact shortened wallet label (`AAAA…BBBB`) beneath the display name.
+- Never expose private keys, auth tokens, or secret material. The public wallet label is for identity transparency and duplicate-rank diagnosis only.
+- Keep the wallet label single-line and non-truncating on small screens; the shortened form is already bounded.

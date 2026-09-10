@@ -20,6 +20,8 @@ import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
+import com.thinkblox.radiantrush.logic.LeaderboardCandidate
+import com.thinkblox.radiantrush.logic.LeaderboardRules
 import com.thinkblox.radiantrush.logic.RewardLoopRules
 import com.thinkblox.radiantrush.solana.SkrBalanceSnapshot
 import java.time.LocalDate
@@ -174,6 +176,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "walletAddress" to cleanPublicKey,
                     "walletAddressShort" to shortenAddress(cleanPublicKey),
                     "xp" to xp,
                     "level" to level,
@@ -365,6 +368,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "walletAddress" to cleanWallet,
                     "walletAddressShort" to shortenAddress(cleanWallet),
                     "xp" to newXp,
                     "level" to newLevel,
@@ -492,6 +496,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "walletAddress" to walletAddress,
                     "walletAddressShort" to shortenAddress(walletAddress),
                     "xp" to newXp,
                     "level" to newLevel,
@@ -538,6 +543,7 @@ class FirebaseRadiantRepository(
             batch.set(
                 leaderboardRef,
                 mapOf(
+                    "walletAddress" to null,
                     "walletAddressShort" to "No wallet",
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
@@ -631,6 +637,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "walletAddress" to savedWalletAddress,
                     "walletAddressShort" to shortenAddress(savedWalletAddress),
                     "xp" to newXp,
                     "level" to newLevel,
@@ -756,19 +763,37 @@ class FirebaseRadiantRepository(
 
                 db.collection(LEADERBOARD)
                     .orderBy("xp", Query.Direction.DESCENDING)
-                    .limit(20)
+                    // Read more than the visible Top 20 so legacy duplicate anonymous
+                    // UIDs cannot crowd unique wallets out of the ranking.
+                    .limit(100)
                     .get()
                     .addOnSuccessListener { leaderboardQuery ->
-                        val leaderboard = leaderboardQuery.documents.mapIndexed { index, document ->
+                        val uniqueWalletRows = LeaderboardRules.collapseByWallet(
+                            candidates = leaderboardQuery.documents.map { document ->
+                                LeaderboardCandidate(
+                                    sourceId = document.id,
+                                    displayName = document.getString("displayName") ?: "Radiant Rookie",
+                                    walletAddress = document.getString("walletAddress"),
+                                    walletAddressShort = document.getString("walletAddressShort"),
+                                    xp = (document.getLong("xp") ?: 0L).toInt(),
+                                    streak = (document.getLong("currentStreak") ?: 0L).toInt(),
+                                    tier = document.getString("skrTier") ?: "Explorer",
+                                    updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
+                                )
+                            },
+                            limit = 20,
+                        )
+                        val leaderboard = uniqueWalletRows.mapIndexed { index, row ->
                             LeaderboardPreview(
                                 rank = index + 1,
-                                name = document.getString("displayName") ?: "Radiant Rookie",
-                                xp = (document.getLong("xp") ?: 0L).toInt(),
-                                streak = (document.getLong("currentStreak") ?: 0L).toInt(),
-                                tier = document.getString("skrTier") ?: "Explorer",
+                                name = row.displayName,
+                                xp = row.xp,
+                                streak = row.streak,
+                                tier = row.tier,
+                                walletLabel = LeaderboardRules.walletLabel(row),
                             )
                         }.ifEmpty {
-                            listOf(profileToLeaderboardRow(userSnapshot))
+                            if (walletConnected) listOf(profileToLeaderboardRow(userSnapshot)) else emptyList()
                         }
 
                         val user = profileToUser(userSnapshot)
@@ -898,6 +923,7 @@ class FirebaseRadiantRepository(
         xp = (snapshot.getLong("xp") ?: 0L).toInt(),
         streak = (snapshot.getLong("currentStreak") ?: 0L).toInt(),
         tier = snapshot.getString("skrTier") ?: "Explorer",
+        walletLabel = shortenAddress(snapshot.getString("walletAddress")),
     )
 
     private fun badgeState(user: UserPreview, completedIds: Set<String>): List<BadgePreview> = listOf(

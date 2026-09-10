@@ -1,3 +1,29 @@
+# 2026-09-10 — Phase 9.1.1 Leaderboard duplicate compatibility fix
+
+## Fixed
+
+- Exclude legacy leaderboard rows explicitly marked `No wallet` even when an older build left a stale full `walletAddress` field behind.
+- Normalize legacy `AAAA…BBBB` / `AAAA...BBBB` wallet representations before deduplication.
+- Show the shortened wallet identity on each rank row so genuinely different wallets can be distinguished from duplicate Firebase anonymous UIDs.
+
+## Changed
+
+- Bumped Android app version to `versionCode = 11`, `versionName = "0.9.2-phase9.1.1"`.
+
+# 2026-09-10 — Phase 9.1 Leaderboard wallet identity fix
+
+## Fixed
+
+- Public ranks now collapse duplicate Firebase Anonymous Auth rows by connected Solana wallet identity.
+- Leaderboard writes now persist the full public wallet address in addition to the shortened display address.
+- Legacy anonymous rows can no longer crowd the visible Top 20 because reads fetch a wider candidate set before wallet deduplication.
+- Anonymous/no-wallet rows are excluded from public ranks.
+
+## Changed
+
+- Bumped Android app version to `versionCode = 10`, `versionName = "0.9.1-phase9.1"`.
+- Firebase UID remains the internal owner key; no Firestore ownership/security relaxation was introduced.
+
 # 2026-09-10 — Phase 9 Radiant reward loop
 ## 2026-09-10 — Phase 9 Welcome compile fix
 

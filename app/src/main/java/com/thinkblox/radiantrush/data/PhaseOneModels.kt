@@ -69,6 +69,7 @@ data class LeaderboardPreview(
     val xp: Int,
     val streak: Int,
     val tier: String,
+    val walletLabel: String? = null,
 )
 
 data class UserPreview(

@@ -92,7 +92,7 @@ fun ProfileScreen(
             ProfileInfoRow(
                 title = "Firebase Profile",
                 value = "${user.xp} XP • ${user.currentStreak}-day streak • ${uiState.todayKey}",
-                helper = "Saved in users/{uid}, completedQuests, and leaderboard/{uid}.",
+                helper = "Firebase UID stays internal; public ranks collapse duplicate rows by connected wallet identity.",
                 icon = Icons.Filled.Storage,
             )
         }
