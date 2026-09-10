@@ -1,7 +1,15 @@
 package com.thinkblox.radiantrush.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,10 +26,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.VolumeOff
+import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,11 +43,13 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,6 +57,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -52,13 +65,18 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.thinkblox.radiantrush.audio.ProceduralGameAudioEngine
+import com.thinkblox.radiantrush.audio.ProceduralGameAudioEngine.Cue
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.logic.RadiantGameRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.random.Random
 
@@ -77,6 +95,29 @@ private data class RunTarget(
     val serial: Int,
 )
 
+private enum class HitKind {
+    Radiant,
+    Perfect,
+    Corruption,
+    Miss,
+}
+
+private data class HitFeedback(
+    val x: Float,
+    val y: Float,
+    val kind: HitKind,
+    val serial: Int,
+)
+
+private fun rewardRarityRank(rarity: String?): Int = when (rarity?.lowercase()) {
+    "uncommon" -> 1
+    "rare" -> 2
+    "epic" -> 3
+    "legendary" -> 4
+    "mythic" -> 5
+    else -> 0
+}
+
 @Composable
 fun RadiantRunScreen(
     uiState: RushUiState,
@@ -85,6 +126,8 @@ fun RadiantRunScreen(
 ) {
     val responsive = rememberResponsiveUiSpec()
     val haptics = LocalHapticFeedback.current
+    val audio = remember { ProceduralGameAudioEngine() }
+    var audioEnabled by rememberSaveable { mutableStateOf(true) }
     var runCountBeforeSubmit by remember { mutableIntStateOf(uiState.radiantRun.totalRuns) }
 
     var phase by remember { mutableStateOf(RunPhase.Briefing) }
@@ -99,12 +142,19 @@ fun RadiantRunScreen(
     var target by remember { mutableStateOf<RunTarget?>(null) }
     var popText by remember { mutableStateOf("READY") }
     var finalResult by remember { mutableStateOf<RadiantRunResult?>(null) }
+    var feedbackSerial by remember { mutableIntStateOf(0) }
+    var hitFeedback by remember { mutableStateOf<HitFeedback?>(null) }
 
     val fever = combo >= 5
     val rewardScale by animateFloatAsState(
         targetValue = if (phase == RunPhase.Reward) 1f else 0.82f,
         label = "rewardScale",
     )
+
+    fun emitFeedback(x: Float, y: Float, kind: HitKind) {
+        feedbackSerial += 1
+        hitFeedback = HitFeedback(x.coerceIn(0f, 1f), y.coerceIn(0f, 1f), kind, feedbackSerial)
+    }
 
     fun spawnTarget(): RunTarget {
         targetSerial += 1
@@ -130,6 +180,7 @@ fun RadiantRunScreen(
         target = null
         popText = "GET READY"
         finalResult = null
+        hitFeedback = null
         runCountBeforeSubmit = uiState.radiantRun.totalRuns
         phase = RunPhase.Countdown
     }
@@ -143,6 +194,21 @@ fun RadiantRunScreen(
         ).also { finalResult = it }
         phase = RunPhase.Saving
         onSubmitResult(result)
+    }
+
+    DisposableEffect(audio) {
+        onDispose { audio.release() }
+    }
+
+    LaunchedEffect(audioEnabled, phase, fever, timeLeft) {
+        audio.setEnabled(audioEnabled)
+        audio.setMusicActive(
+            phase == RunPhase.Countdown || phase == RunPhase.Playing || phase == RunPhase.Reward,
+        )
+        audio.setIntensity(
+            fever = phase == RunPhase.Playing && fever,
+            finalRush = phase == RunPhase.Playing && timeLeft in 1..5,
+        )
     }
 
     BackHandler {
@@ -161,10 +227,12 @@ fun RadiantRunScreen(
             for (value in 3 downTo 1) {
                 countdown = value
                 popText = value.toString()
+                audio.play(Cue.Countdown, value)
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 delay(650)
             }
             popText = "RUSH!"
+            audio.play(Cue.Go)
             target = spawnTarget()
             phase = RunPhase.Playing
         }
@@ -176,8 +244,12 @@ fun RadiantRunScreen(
                 delay(1_000)
                 if (phase != RunPhase.Playing) break
                 timeLeft -= 1
+                if (timeLeft in 1..5) {
+                    audio.play(Cue.FinalTick, timeLeft)
+                }
                 if (timeLeft <= 0) {
                     target = null
+                    audio.play(Cue.RunComplete)
                     finalResult = RadiantRunResult(
                         score = score,
                         maxCombo = maxCombo,
@@ -197,9 +269,14 @@ fun RadiantRunScreen(
             delay(delayMs)
             if (phase == RunPhase.Playing && target?.serial == targetSerial) {
                 // Let corrupted targets pass safely, but missing a Radiant target breaks combo.
-                if (target?.corrupted == false && combo > 0) {
-                    combo = 0
-                    popText = "COMBO LOST"
+                val expired = target
+                if (expired?.corrupted == false) {
+                    if (combo > 0) {
+                        combo = 0
+                        popText = "COMBO LOST"
+                    }
+                    emitFeedback(expired.x, expired.y, HitKind.Miss)
+                    audio.play(Cue.Miss)
                 }
                 target = spawnTarget()
             }
@@ -214,7 +291,16 @@ fun RadiantRunScreen(
         ) {
             phase = RunPhase.Reward
             popText = "CAPSULE OPEN!"
+            audio.play(Cue.CapsuleOpen)
             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    LaunchedEffect(phase, uiState.radiantRun.lastRewardRarity) {
+        if (phase == RunPhase.Reward) {
+            delay(360)
+            val rarityRank = rewardRarityRank(uiState.radiantRun.lastRewardRarity)
+            audio.play(Cue.RewardReveal, rarityRank)
         }
     }
 
@@ -250,14 +336,20 @@ fun RadiantRunScreen(
                     onExit()
                 }
             }) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text("RADIANT RUN", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                 Text(
-                    "Native Compose arcade mode • no image assets required",
+                    "Procedural synth audio + Canvas VFX • no media assets required",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            IconButton(onClick = { audioEnabled = !audioEnabled }) {
+                Icon(
+                    imageVector = if (audioEnabled) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff,
+                    contentDescription = if (audioEnabled) "Mute game audio" else "Enable game audio",
                 )
             }
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
@@ -288,6 +380,7 @@ fun RadiantRunScreen(
                 fever = fever,
                 popText = popText,
                 target = target,
+                hitFeedback = hitFeedback,
                 onTap = { tap, width, height ->
                     val active = target
                     if (active != null) {
@@ -302,22 +395,47 @@ fun RadiantRunScreen(
                                 combo = 0
                                 corruptedHits += 1
                                 popText = "CORRUPTED -140"
+                                emitFeedback(active.x, active.y, HitKind.Corruption)
+                                audio.play(Cue.CorruptionHit)
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             } else {
+                                val perfect = distance <= radius * 0.50f
                                 combo += 1
                                 maxCombo = maxOf(maxCombo, combo)
                                 radiantHits += 1
                                 val comboGain = combo * 10
                                 val feverGain = if (combo >= 5) 65 else 0
-                                val gain = 100 + comboGain + feverGain
+                                val perfectGain = if (perfect) 50 else 0
+                                val gain = 100 + comboGain + feverGain + perfectGain
                                 score += gain
-                                popText = if (combo >= 5) "FEVER +$gain" else "+$gain"
+                                popText = when {
+                                    perfect -> "PERFECT +$gain"
+                                    combo >= 5 -> "FEVER +$gain"
+                                    else -> "+$gain"
+                                }
+                                emitFeedback(
+                                    active.x,
+                                    active.y,
+                                    if (perfect) HitKind.Perfect else HitKind.Radiant,
+                                )
+                                audio.play(if (perfect) Cue.PerfectHit else Cue.RadiantHit, combo)
+                                if (combo == 5) {
+                                    audio.play(Cue.Fever)
+                                } else if (combo >= 10 && combo % 5 == 0) {
+                                    audio.play(Cue.ComboBurst, combo)
+                                }
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
                             target = spawnTarget()
                         } else {
                             combo = 0
                             popText = "MISS"
+                            emitFeedback(
+                                x = (tap.x / width).coerceIn(0f, 1f),
+                                y = (tap.y / height).coerceIn(0f, 1f),
+                                kind = HitKind.Miss,
+                            )
+                            audio.play(Cue.Miss)
                         }
                     }
                 },
@@ -359,7 +477,7 @@ private fun BriefingPanel(
         ) {
             Text("A real 20-second skill run", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Tap glowing Radiant energy before it moves. Ignore red Corruption. Chain 5 hits to enter FEVER and score faster.",
+                "Tap glowing Radiant energy before it moves. Hit near the center for PERFECT. Ignore red Corruption. Chain 5 hits to enter FEVER.",
                 style = MaterialTheme.typography.bodyLarge,
             )
             RunStatRow("Best score", uiState.radiantRun.bestScore.toString())
@@ -421,12 +539,49 @@ private fun GamePanel(
     fever: Boolean,
     popText: String,
     target: RunTarget?,
+    hitFeedback: HitFeedback?,
     onTap: (Offset, Float, Float) -> Unit,
 ) {
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
     val error = MaterialTheme.colorScheme.error
     val onSurface = MaterialTheme.colorScheme.onSurface
+    val pastelRadiant = Color(0xFF9FFFE0)
+    val pastelPerfect = Color(0xFFFFE7A3)
+    val pastelCorruption = Color(0xFFFFA8B5)
+    val pastelMiss = Color(0xFFCDBBFF)
+    val motion = rememberInfiniteTransition(label = "radiantRunMotion")
+    val targetPulse by motion.animateFloat(
+        initialValue = 0.90f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(420, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "targetPulse",
+    )
+    val gridPhase by motion.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(if (fever) 800 else 1_450, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "gridPhase",
+    )
+    val burstProgress = remember { Animatable(1f) }
+    LaunchedEffect(hitFeedback?.serial) {
+        if (hitFeedback != null) {
+            burstProgress.snapTo(0f)
+            burstProgress.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = if (hitFeedback.kind == HitKind.Perfect) 620 else 460,
+                    easing = FastOutSlowInEasing,
+                ),
+            )
+        }
+    }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -438,7 +593,22 @@ private fun GamePanel(
     }
 
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                val successful = hitFeedback?.kind == HitKind.Radiant || hitFeedback?.kind == HitKind.Perfect
+                val strength = when {
+                    !successful || combo < 10 -> 0f
+                    combo >= 20 -> 11f
+                    combo >= 15 -> 8f
+                    else -> 5f
+                }
+                if (strength > 0f) {
+                    val decay = 1f - burstProgress.value
+                    translationX = sin(burstProgress.value.toDouble() * PI * 8.0).toFloat() * strength * decay
+                    translationY = cos(burstProgress.value.toDouble() * PI * 6.0).toFloat() * strength * 0.45f * decay
+                }
+            },
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
     ) {
@@ -459,53 +629,182 @@ private fun GamePanel(
                         detectTapGestures { tap -> onTap(tap, size.width.toFloat(), size.height.toFloat()) }
                     },
             ) {
-                // Cheap native "graphics": animated-looking grid + radial glow targets.
-                val gridColor = onSurface.copy(alpha = 0.06f)
+                // Native Canvas juice: moving grid, pulsing targets, hit particles and impact flashes.
+                val gridColor = onSurface.copy(alpha = if (fever) 0.09f else 0.055f)
                 val step = size.width / 6f
-                var x = step
-                while (x < size.width) {
+                val shift = step * gridPhase
+                var x = -step + shift
+                while (x < size.width + step) {
                     drawLine(gridColor, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1f)
                     x += step
                 }
-                var y = step
-                while (y < size.height) {
+                var y = -step + shift
+                while (y < size.height + step) {
                     drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1f)
                     y += step
                 }
 
+                if (fever) {
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    repeat(3) { ring ->
+                        val radius = min(size.width, size.height) * (0.22f + ring * 0.15f + 0.035f * targetPulse)
+                        drawCircle(
+                            color = tertiary.copy(alpha = 0.055f),
+                            radius = radius,
+                            center = center,
+                            style = Stroke(width = 3f),
+                        )
+                    }
+                }
+
                 target?.let { active ->
                     val center = Offset(size.width * active.x, size.height * active.y)
-                    val radius = min(size.width, size.height) * 0.085f
+                    val baseRadius = min(size.width, size.height) * 0.085f
+                    val radius = baseRadius * targetPulse
                     val mainColor = if (active.corrupted) error else if (fever) tertiary else primary
                     drawCircle(
                         brush = Brush.radialGradient(
                             colors = listOf(mainColor.copy(alpha = 0.75f), mainColor.copy(alpha = 0.18f), Color.Transparent),
                             center = center,
-                            radius = radius * 2.1f,
+                            radius = radius * 2.25f,
                         ),
-                        radius = radius * 2.1f,
+                        radius = radius * 2.25f,
                         center = center,
                     )
                     drawCircle(mainColor, radius = radius, center = center)
-                    drawCircle(Color.White.copy(alpha = 0.78f), radius = radius * 0.22f, center = center + Offset(-radius * 0.2f, -radius * 0.2f))
-                    drawCircle(mainColor.copy(alpha = 0.75f), radius = radius * 1.28f, center = center, style = Stroke(width = 4f))
-                    if (active.corrupted) {
-                        drawLine(Color.White.copy(alpha = 0.9f), center + Offset(-radius * 0.35f, -radius * 0.35f), center + Offset(radius * 0.35f, radius * 0.35f), strokeWidth = 6f)
-                        drawLine(Color.White.copy(alpha = 0.9f), center + Offset(radius * 0.35f, -radius * 0.35f), center + Offset(-radius * 0.35f, radius * 0.35f), strokeWidth = 6f)
+                    drawCircle(
+                        Color.White.copy(alpha = 0.78f),
+                        radius = radius * 0.22f,
+                        center = center + Offset(-radius * 0.2f, -radius * 0.2f),
+                    )
+                    drawCircle(
+                        mainColor.copy(alpha = 0.75f),
+                        radius = radius * 1.28f,
+                        center = center,
+                        style = Stroke(width = 4f),
+                    )
+                    if (!active.corrupted) {
+                        // Small inner ring communicates the PERFECT center-hit zone without text.
+                        drawCircle(
+                            Color.White.copy(alpha = 0.45f),
+                            radius = radius * 0.50f,
+                            center = center,
+                            style = Stroke(width = 2.5f),
+                        )
+                    } else {
+                        drawLine(
+                            Color.White.copy(alpha = 0.9f),
+                            center + Offset(-radius * 0.35f, -radius * 0.35f),
+                            center + Offset(radius * 0.35f, radius * 0.35f),
+                            strokeWidth = 6f,
+                        )
+                        drawLine(
+                            Color.White.copy(alpha = 0.9f),
+                            center + Offset(radius * 0.35f, -radius * 0.35f),
+                            center + Offset(-radius * 0.35f, radius * 0.35f),
+                            strokeWidth = 6f,
+                        )
+                    }
+                }
+
+                hitFeedback?.let { hit ->
+                    val progress = burstProgress.value.coerceIn(0f, 1f)
+                    if (progress < 1f) {
+                        val center = Offset(size.width * hit.x, size.height * hit.y)
+                        val alpha = (1f - progress).coerceIn(0f, 1f)
+                        val base = min(size.width, size.height) * 0.085f
+                        val particleColor = when (hit.kind) {
+                            HitKind.Corruption -> error
+                            HitKind.Perfect -> tertiary
+                            HitKind.Miss -> onSurface.copy(alpha = 0.55f)
+                            HitKind.Radiant -> primary
+                        }
+
+                        if (hit.kind != HitKind.Miss) {
+                            val epicCombo = combo >= 10 && (hit.kind == HitKind.Radiant || hit.kind == HitKind.Perfect)
+                            val count = when {
+                                epicCombo && hit.kind == HitKind.Perfect -> 38
+                                epicCombo -> 28
+                                hit.kind == HitKind.Perfect -> 22
+                                else -> 14
+                            }
+                            repeat(count) { index ->
+                                val angle = (PI * 2.0 * index.toDouble() / count.toDouble()) +
+                                    ((hit.serial % 7) * 0.08)
+                                val variance = 0.78f + ((index * 37 + hit.serial * 11) % 31) / 100f
+                                val travel = base * (0.65f + progress * 3.2f) * variance
+                                val point = center + Offset(
+                                    (cos(angle) * travel).toFloat(),
+                                    (sin(angle) * travel).toFloat(),
+                                )
+                                drawCircle(
+                                    color = particleColor.copy(alpha = alpha * 0.90f),
+                                    radius = base * (0.055f + (index % 3) * 0.018f) * (1f - progress * 0.45f),
+                                    center = point,
+                                )
+                            }
+
+                            if (epicCombo) {
+                                repeat(if (combo >= 15) 3 else 2) { ring ->
+                                    drawCircle(
+                                        color = particleColor.copy(alpha = alpha * (0.42f - ring * 0.10f)),
+                                        radius = base * (1.15f + progress * (2.9f + ring * 0.75f)),
+                                        center = center,
+                                        style = Stroke(width = (5f - ring).coerceAtLeast(2f)),
+                                    )
+                                }
+                            }
+                        }
+
+                        drawCircle(
+                            color = particleColor.copy(alpha = alpha * 0.85f),
+                            radius = base * (0.75f + progress * 2.35f),
+                            center = center,
+                            style = Stroke(width = if (hit.kind == HitKind.Perfect) 6f else 4f),
+                        )
+
+                        when (hit.kind) {
+                            HitKind.Corruption -> drawRect(error.copy(alpha = alpha * 0.16f))
+                            HitKind.Perfect -> drawRect(Color.White.copy(alpha = alpha * 0.08f))
+                            else -> Unit
+                        }
                     }
                 }
             }
 
+            val feedbackTextColor = when (hitFeedback?.kind) {
+                HitKind.Radiant -> pastelRadiant
+                HitKind.Perfect -> pastelPerfect
+                HitKind.Corruption -> pastelCorruption
+                HitKind.Miss -> pastelMiss
+                null -> if (fever) pastelPerfect else MaterialTheme.colorScheme.onSurface
+            }
+            val feedbackSurfaceColor = when (hitFeedback?.kind) {
+                HitKind.Radiant -> Color(0xFF153D36).copy(alpha = 0.92f)
+                HitKind.Perfect -> Color(0xFF493C1D).copy(alpha = 0.94f)
+                HitKind.Corruption -> Color(0xFF4B2028).copy(alpha = 0.94f)
+                HitKind.Miss -> Color(0xFF30264A).copy(alpha = 0.94f)
+                null -> MaterialTheme.colorScheme.surface.copy(alpha = 0.90f)
+            }
+
             Surface(
-                modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 12.dp)
+                    .graphicsLayer {
+                        val impact = 1f - burstProgress.value
+                        scaleX = 1f + impact * if (combo >= 10) 0.13f else 0.08f
+                        scaleY = 1f + impact * if (combo >= 10) 0.13f else 0.08f
+                    },
                 shape = RoundedCornerShape(100.dp),
-                color = if (fever) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface.copy(alpha = 0.86f),
+                color = feedbackSurfaceColor,
             ) {
                 Text(
                     text = if (fever) "⚡ FEVER x$combo • $popText" else popText,
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
+                    color = feedbackTextColor,
+                    fontWeight = FontWeight.ExtraBold,
                 )
             }
 
@@ -513,9 +812,9 @@ private fun GamePanel(
                 modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("● RADIANT = TAP", style = MaterialTheme.typography.labelSmall, color = primary)
-                Text("✕ CORRUPT = IGNORE", style = MaterialTheme.typography.labelSmall, color = error)
-                Text("BEST COMBO $maxCombo", style = MaterialTheme.typography.labelSmall)
+                Text("◎ CENTER = PERFECT", style = MaterialTheme.typography.labelSmall, color = tertiary)
+                Text("✕ RED = IGNORE", style = MaterialTheme.typography.labelSmall, color = error)
+                Text("BEST x$maxCombo", style = MaterialTheme.typography.labelSmall)
             }
         }
     }
@@ -569,6 +868,27 @@ private fun RewardPanel(
     val responsive = rememberResponsiveUiSpec()
     val reward = uiState.collection.firstOrNull { it.title == uiState.radiantRun.lastRewardTitle }
     val duplicate = uiState.radiantRun.lastRewardShards > 0
+    val rarityRank = rewardRarityRank(uiState.radiantRun.lastRewardRarity)
+    val rewardBurst = remember { Animatable(1f) }
+    LaunchedEffect(uiState.radiantRun.lastRewardTitle, rarityRank) {
+        rewardBurst.snapTo(0f)
+        rewardBurst.animateTo(
+            1f,
+            animationSpec = tween(
+                durationMillis = if (rarityRank >= 3) 1_150 else 760,
+                easing = FastOutSlowInEasing,
+            ),
+        )
+    }
+
+    val rewardPastel = when (rarityRank) {
+        1 -> Color(0xFFB7F0FF)
+        2 -> Color(0xFFB9C8FF)
+        3 -> Color(0xFFE5B8FF)
+        4 -> Color(0xFFFFD59E)
+        5 -> Color(0xFFFFB4E8)
+        else -> Color(0xFFB8FFE2)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -587,25 +907,63 @@ private fun RewardPanel(
             )
             Box(
                 modifier = Modifier
-                    .size((118 * rewardScale).dp)
-                    .background(
-                        Brush.radialGradient(
-                            listOf(MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), Color.Transparent),
-                        ),
-                        CircleShape,
-                    ),
+                    .size((170 * rewardScale).dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = reward?.symbol ?: "✦",
-                    style = MaterialTheme.typography.displayLarge,
-                    fontWeight = FontWeight.Black,
-                )
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val progress = rewardBurst.value.coerceIn(0f, 1f)
+                    val alpha = (1f - progress).coerceIn(0f, 1f)
+                    val center = Offset(size.width / 2f, size.height / 2f)
+                    val particleCount = 10 + rarityRank * 7
+                    val maxTravel = min(size.width, size.height) * (0.28f + rarityRank * 0.045f)
+                    repeat(particleCount) { index ->
+                        val angle = PI * 2.0 * index / particleCount + (rarityRank * 0.17)
+                        val variance = 0.72f + ((index * 29 + rarityRank * 13) % 35) / 100f
+                        val travel = maxTravel * progress * variance
+                        val point = center + Offset(
+                            (cos(angle) * travel).toFloat(),
+                            (sin(angle) * travel).toFloat(),
+                        )
+                        drawCircle(
+                            color = rewardPastel.copy(alpha = alpha * 0.95f),
+                            radius = (3.2f + (index % 4) * 1.4f) * (1f - progress * 0.45f),
+                            center = point,
+                        )
+                    }
+                    val shockwaves = if (rarityRank >= 3) 3 else 1
+                    repeat(shockwaves) { ring ->
+                        drawCircle(
+                            color = rewardPastel.copy(alpha = alpha * (0.70f - ring * 0.16f)),
+                            radius = min(size.width, size.height) * (0.16f + progress * (0.23f + ring * 0.09f)),
+                            center = center,
+                            style = Stroke(width = (5f - ring).coerceAtLeast(2f)),
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(118.dp)
+                        .background(
+                            Brush.radialGradient(
+                                listOf(rewardPastel.copy(alpha = 0.72f), Color.Transparent),
+                            ),
+                            CircleShape,
+                        ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = reward?.symbol ?: "✦",
+                        style = MaterialTheme.typography.displayLarge,
+                        color = rewardPastel,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
             }
             Text(
                 uiState.radiantRun.lastRewardRarity ?: "Reward",
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = rewardPastel,
                 fontWeight = FontWeight.Bold,
             )
             Text(
