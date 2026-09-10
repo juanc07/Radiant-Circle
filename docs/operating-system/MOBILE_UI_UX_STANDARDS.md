@@ -153,3 +153,18 @@ Reward screens must clearly say when no wallet popup is expected. The Daily Radi
 - Public rank rows should show a compact shortened wallet label (`AAAA…BBBB`) beneath the display name.
 - Never expose private keys, auth tokens, or secret material. The public wallet label is for identity transparency and duplicate-rank diagnosis only.
 - Keep the wallet label single-line and non-truncating on small screens; the shortened form is already bounded.
+
+
+## Phase 10.1 gameplay feedback and audio rules
+
+- Every high-frequency gameplay action should have immediate visual feedback; do not depend on audio alone.
+- Positive, PERFECT, corruption, and miss outcomes must remain distinguishable by shape/text/motion in addition to color.
+- Procedural SFX/BGM are enhancement-only and must have a visible mute control while the game screen is active.
+- Impact flashes must stay brief/subtle enough to avoid obscuring the next target; avoid full-screen strobe patterns.
+- Keep particle counts bounded and deterministic so weak phones are not punished by unbounded allocations/effects.
+- FEVER/final-seconds escalation may increase motion/audio intensity, but core tap targets and timer must remain readable.
+
+## Phase 10.1.1 gameplay feedback additions
+- Fast transient gameplay messages must use readable high-contrast semantic accents; hit, perfect, miss, and corruption feedback may use distinct restrained pastel colors rather than low-contrast default text.
+- Screen shake is reserved for high-value milestones (x10+ combo / major reward) and must decay quickly so it does not interfere with target acquisition.
+- Reward celebration intensity should scale with rarity instead of giving common and high-rarity drops identical visual weight.

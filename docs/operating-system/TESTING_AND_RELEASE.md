@@ -436,3 +436,32 @@ The Phase 10 instrumentation smoke test uses `androidx.compose.ui.test.junit4.v2
 
 If the test reports `No compose hierarchies found in the app` after the v2 migration, collect Activity crash logs with `adb logcat` before changing production code.
 
+
+
+## Phase 10.1 procedural audio + VFX QA
+
+Automated regression gate remains:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+```
+
+Audio/VFX require physical-device QA because JVM/instrumentation smoke tests do not prove perceived audio quality or frame feel:
+
+1. Start Radiant Run and confirm countdown + BGM start without delay/crash.
+2. Confirm normal hit, PERFECT, corruption, miss, FEVER, final-five-second, run-complete, capsule, and reward sounds are distinguishable.
+3. Toggle mute during gameplay; confirm silence occurs without affecting scoring/timer.
+4. Confirm positive/corruption/PERFECT impact particles and flashes are visible but do not hide the next target.
+5. Confirm no obvious crackle/audio runaway after 5 back-to-back runs.
+6. Background/foreground the app from the briefing/result screen and confirm no stuck audio after leaving Radiant Run.
+7. Reconfirm ticket deduction, best score, reward, collection, and wallet-based ranks after gameplay.
+
+## Phase 10.1.1 manual game-feel QA
+In addition to the normal unit/build/instrumented gates, verify on a physical phone with media volume audible:
+- normal Radiant hit, PERFECT, MISS, and corruption each have distinguishable color/audio feedback;
+- successful SFX audibly climb in pitch as combo increases;
+- x10+ combos trigger brief shake and larger burst/shockwave feedback without making targets hard to tap;
+- common rewards remain restrained while Epic+ rewards produce noticeably larger particles and stronger reveal audio;
+- repeated runs do not leave music playing after leaving the game and do not introduce crackle or frame drops.

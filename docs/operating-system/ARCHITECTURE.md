@@ -378,3 +378,10 @@ Daily Radiant Chest is not wallet logic. It must not open Mobile Wallet Adapter,
 - `LeaderboardRules` collapses duplicate UID-backed rows by wallet before presenting Top 20 ranks.
 - Full wallet address is now persisted on leaderboard writes; legacy short-only rows are supported as a migration fallback.
 - Changing leaderboard document IDs to wallet addresses is intentionally deferred until wallet ownership can be enforced by a stronger backend/rules model.
+
+
+## Phase 10.1 procedural game-audio boundary
+
+`ProceduralGameAudioEngine` is presentation infrastructure owned by the Radiant Run screen. It synthesizes/mixes PCM on an audio thread and outputs through one Android `AudioTrack`. It does not read/write Firebase, call Mobile Wallet Adapter, call Solana RPC, award XP/tickets, or decide collectible outcomes. Audio failures are non-authoritative and fail silent.
+
+`RadiantRunScreen` remains the owner of transient gameplay presentation (particles, hit flash, target pulse, FEVER visuals, audio cue requests). `RadiantGameRules` and Firebase remain the progression/reward authorities established by Phase 10.

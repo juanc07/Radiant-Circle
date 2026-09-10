@@ -1,3 +1,24 @@
+# 2026-09-10 — Phase 10.1 Radiant Run procedural audio + VFX juice
+
+## Added
+
+- Added `ProceduralGameAudioEngine`, a runtime PCM synth/mixer using Android `AudioTrack`; no MP3/WAV assets are required.
+- Added procedural BGM plus synthesized countdown, GO, hit, PERFECT, corruption, miss, FEVER, final-five-second, run-complete, capsule, and reward-reveal cues.
+- Added in-game mute/unmute.
+- Added moving Canvas grid, pulsing targets, impact particles/rings, FEVER rings, corruption flash, and PERFECT flash.
+- Added a visible center-hit PERFECT zone and +50 skill score bonus.
+
+## Changed
+
+- Radiant Run presentation now escalates during FEVER and the final five seconds.
+- Replaced the deprecated game-screen back icon with the AutoMirrored variant.
+- Bumped Android app version to `versionCode = 13`, `versionName = "1.0.1-phase10.1"`.
+
+## Safety
+
+- Audio/VFX are presentation-only and cannot block the run if device audio initialization fails.
+- No wallet/Solana/token/economic authority changed.
+
 # 2026-09-10 — Phase 10 Radiant native game layer
 
 ## Phase 10 Android UI test v2 launch stability fix
@@ -216,3 +237,10 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 - Added a one-time automatic retry for devnet memo proof when Phantom/MWA rejects a stale authorization token.
 - The retry clears the cached wallet authorization, rebuilds a fresh devnet memo transaction, and reopens Phantom once.
 - Memo proof still only completes after a real transaction signature is returned.
+
+## Phase 10.1.1 — Game juice polish
+- Added pastel, high-contrast hit/miss feedback colors for Radiant Run.
+- Changed successful-hit procedural SFX to a musical combo pitch climb.
+- Added x10+ combo shake, stronger particles/shockwaves, and procedural milestone burst cues.
+- Scaled reward particle explosions and procedural reveal audio by rarity; Epic+ rewards now receive a substantially stronger celebration.
+- Version: `1.0.2-phase10.1.1` (`versionCode 14`).

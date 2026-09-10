@@ -2,15 +2,17 @@
 
 **Implemented vertical slice:** proof quest → free Rush Ticket → 20-second Radiant Run → score/combo → capsule → collectible/duplicate shards → persisted progression.
 
-**After Phase 10 is stable:** tune target cadence and score curve on real phones; add richer capsule reveal motion/SFX; consider weekly run-score ranking only after anti-cheat/server validation exists; expand Vault presentation; add optional original art without making gameplay depend on asset downloads. Do not add paid/random token wagering.
+**Phase 10.1 implemented:** procedural BGM/SFX, hit particles, PERFECT center hits, FEVER/final-seconds escalation, mute control, and stronger native Canvas feedback without imported media assets.
+
+**After Phase 10.1 is stable:** tune target cadence and score curve on real phones; expand capsule reveal staging/collection presentation; consider weekly run-score ranking only after anti-cheat/server validation exists; add optional original art without making gameplay depend on asset downloads. Do not add paid/random token wagering.
 
 # RadiantSolanaHackatonAndroid — Backlog and Roadmap
 
 ## Current phase
 
-Radiant Rush is moving through **Phase 7: Final QA + release testing**. The app now has a native Compose shell, Firebase profile/progress persistence, Mobile Wallet Adapter wallet connection, MWA daily message signing, devnet Memo transaction proof, read-only mainnet SKR Passport scanning, Demo tab, and automated test coverage.
+Radiant Rush is now in **Phase 10.1: game juice / procedural audio + VFX**. The stable foundation includes native Compose, Firebase progression, MWA proofs, devnet Memo proof, read-only mainnet SKR Passport, wallet-deduplicated ranks, Daily Radiant Chest, and the Phase 10 Radiant Run/capsule/collection loop.
 
-Immediate owner task: run Phase 7 automated tests, do one manual wallet proof pass on the target phone, then prepare final APK/demo submission materials.
+Immediate owner task: run the automated gate, then physically QA synthesized audio, particles, PERFECT/FEVER feedback, mute behavior, and persistence on the target phone before merging Phase 10.1.
 
 ## Owner-ordered near-term work
 
