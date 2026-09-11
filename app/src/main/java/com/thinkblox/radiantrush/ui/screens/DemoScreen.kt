@@ -4,44 +4,31 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudSync
-import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Token
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.thinkblox.radiantrush.data.QuestIds
-import com.thinkblox.radiantrush.data.RadiantChestStatus
-import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
-import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
-import com.thinkblox.radiantrush.ui.components.StatusPill
-import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 
@@ -51,14 +38,6 @@ fun DemoScreen(
     uiState: RushUiState,
 ) {
     val responsive = rememberResponsiveUiSpec()
-    val walletDone = uiState.isWalletConnected
-    val signedDone = uiState.quests.any { it.id == QuestIds.SIGN_DAILY_PROOF && it.status == QuestStatus.Completed }
-    val memoDone = uiState.quests.any { it.id == QuestIds.ON_CHAIN_PROOF && it.status == QuestStatus.Completed }
-    val skrDone = uiState.quests.any { it.id == QuestIds.SKR_HOLDER && it.status == QuestStatus.Completed }
-    val completedCount = uiState.quests.count { it.status == QuestStatus.Completed }
-    val chestClaimed = uiState.radiantChest.status == RadiantChestStatus.Claimed
-    val chestReady = uiState.radiantChest.status == RadiantChestStatus.Ready
-    val progress = completedCount.toFloat() / uiState.quests.size.coerceAtLeast(1).toFloat()
 
     LazyColumn(
         modifier = Modifier
@@ -73,298 +52,53 @@ fun DemoScreen(
         verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 12.dp else 16.dp),
     ) {
         item {
-            GradientHeroCard(
-                title = "Judge Demo Mode",
-                subtitle = "A 3-minute walkthrough from real Solana proof to a native 20-second skill game, capsule reveal, and persistent collection.",
-            )
-        }
-
-        item {
-            SyncStatusCard(
-                status = uiState.firebaseStatus,
-                message = uiState.lastMessage,
-            )
-        }
-
-        item {
-            DemoReadinessCard(
-                progress = progress,
-                completedCount = completedCount,
-                totalCount = uiState.quests.size,
-                walletDone = walletDone,
-                signedDone = signedDone,
-                memoDone = memoDone,
-                skrDone = skrDone,
-                skrTier = uiState.user.skrTier,
-                skrBalance = uiState.user.skrBalance,
-                streak = uiState.user.currentStreak,
-                xp = uiState.user.xp,
-                chestClaimed = chestClaimed,
-                chestReady = chestReady,
-                chestReward = uiState.radiantChest.rewardText,
-            )
-        }
-
-        item {
             SectionTitle(
-                title = "3-minute demo path",
-                body = "Use this order in the recording. The hook is proof → ticket → playable run → collectible, while Solana/security boundaries stay explicit.",
+                title = "How to play",
+                body = "Build your daily streak, earn tickets, play Radiant Run, and grow your Passport.",
             )
         }
-
+        item { GuideStep(Icons.Filled.AccountBalanceWallet, "1. Connect", "Connect your Solana wallet to unlock wallet quests.") }
+        item { GuideStep(Icons.Filled.CheckCircle, "2. Finish quests", "Complete today’s quests to earn XP and Rush Tickets.") }
+        item { GuideStep(Icons.Filled.Bolt, "3. Play Radiant Run", "Use a ticket, hit Radiant targets, avoid red Corruption, and build your combo.") }
+        item { GuideStep(Icons.Filled.EmojiEvents, "4. Open your chest", "Finish all daily quests to unlock your Daily Radiant Chest.") }
+        item { GuideStep(Icons.Filled.Token, "5. Grow your SKR Passport", "Liquid and active staked SKR unlock casual-play perks, chest boosts, and cosmetics.") }
         item {
-            DemoStepCard(
-                number = "1",
-                icon = Icons.Filled.CloudSync,
-                title = "Open Radiant Rush",
-                body = "Show Firebase connected, Today tab, and mobile-first quest cards. Mention Anonymous Auth + Firestore store progress.",
-            )
-        }
-        item {
-            DemoStepCard(
-                number = "2",
-                icon = Icons.Filled.AccountBalanceWallet,
-                title = "Connect wallet",
-                body = "Tap Wallet Ready. Phantom or another MWA wallet opens. Approve once; the app stores only the public address.",
-            )
-        }
-        item {
-            DemoStepCard(
-                number = "3",
-                icon = Icons.Filled.Security,
-                title = "Sign Daily Proof",
-                body = "Open Phantom for a message signature. Explain this proves wallet control without spending SOL.",
-            )
-        }
-        item {
-            DemoStepCard(
-                number = "4",
-                icon = Icons.Filled.Route,
-                title = "Send Memo Proof",
-                body = "Approve one devnet Memo transaction. This creates the on-chain proof signature used in Profile and Firebase.",
-            )
-        }
-        item {
-            DemoStepCard(
-                number = "5",
-                icon = Icons.Filled.Token,
-                title = "Scan SKR Passport",
-                body = "No wallet popup should appear. The app reads the connected public address on mainnet for official SKR balance and tier.",
-            )
-        }
-        item {
-            DemoStepCard(
-                number = "6",
-                icon = Icons.Filled.Bolt,
-                title = "Open Daily Radiant Chest",
-                body = "After all proofs are complete, open the no-loss reward chest. It grants bonus XP without spending XP, SKR, or SOL.",
-            )
-        }
-        item {
-            DemoStepCard(
-                number = "7",
-                icon = Icons.Filled.Bolt,
-                title = "Play Radiant Run",
-                body = "Spend one free Rush Ticket on the native 20-second tap game. Build a combo, avoid Corruption, then reveal the saved collectible capsule.",
-            )
-        }
-        item {
-            DemoStepCard(
-                number = "8",
-                icon = Icons.Filled.CheckCircle,
-                title = "Show Profile + Vault",
-                body = "Show wallet proof metadata, best run score, Rush Tickets, Radiant Shards, latest capsule, collection progress, XP, and streak.",
-            )
-        }
-
-        item {
-            SectionTitle(
-                title = "Judge talking points",
-                body = "Keep this short and confident during the video.",
-            )
-        }
-
-        item {
-            TalkingPointsCard()
-        }
-    }
-}
-
-@Composable
-private fun DemoReadinessCard(
-    progress: Float,
-    completedCount: Int,
-    totalCount: Int,
-    walletDone: Boolean,
-    signedDone: Boolean,
-    memoDone: Boolean,
-    skrDone: Boolean,
-    skrTier: String,
-    skrBalance: String,
-    streak: Int,
-    xp: Int,
-    chestClaimed: Boolean,
-    chestReady: Boolean,
-    chestReward: String,
-) {
-    val responsive = rememberResponsiveUiSpec()
-
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
-    ) {
-        Column(
-            modifier = Modifier.padding(responsive.cardPadding),
-            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 12.dp),
-        ) {
-            Text(
-                text = "Demo readiness",
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Clip,
-            )
-            Text(
-                text = "$completedCount of $totalCount quests done • $xp XP • $streak-day streak",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            androidx.compose.material3.LinearProgressIndicator(
-                progress = { progress.coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 8.dp),
-            )
-            if (responsive.isCompact || responsive.hasLargeText) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusPill(if (walletDone) "Wallet ready" else "Wallet needed")
-                    StatusPill(if (signedDone) "Signed" else "Need sign")
-                    StatusPill(if (memoDone) "Memo done" else "Need memo")
-                    StatusPill(if (skrDone) "SKR scanned" else "Scan SKR")
-                    StatusPill(if (chestClaimed) "Chest claimed" else if (chestReady) "Chest ready" else "Need chest")
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusPill(if (walletDone) "Wallet ready" else "Wallet needed")
-                    StatusPill(if (signedDone) "Signed" else "Need sign")
-                    StatusPill(if (memoDone) "Memo done" else "Need memo")
-                    StatusPill(if (skrDone) "SKR scanned" else "Scan SKR")
-                    StatusPill(if (chestClaimed) "Chest claimed" else if (chestReady) "Chest ready" else "Need chest")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer),
+            ) {
+                Column(
+                    modifier = Modifier.padding(responsive.cardPadding),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("Your progress", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("${uiState.completedQuestCount}/${uiState.quests.size} quests • ${uiState.user.xp} XP • ${uiState.user.currentStreak}-day streak")
+                    Text("SKR Passport: ${uiState.user.skrTier} • ${uiState.user.skrEligibleBalance}", color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
             }
-            Text(
-                text = "SKR Passport: $skrTier • $skrBalance. Chest: $chestReward.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
 
 @Composable
-private fun DemoStepCard(
-    number: String,
-    icon: ImageVector,
-    title: String,
-    body: String,
-) {
+private fun GuideStep(icon: ImageVector, title: String, body: String) {
     val responsive = rememberResponsiveUiSpec()
-
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(responsive.cardPadding),
+            modifier = Modifier.fillMaxWidth().padding(responsive.cardPadding),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            Surface(
-                modifier = Modifier.size(if (responsive.isTiny) 38.dp else 44.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        modifier = Modifier.size(18.dp),
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                    Text(
-                        text = number,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                )
-                Text(
-                    text = body,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-    }
-}
-
-@Composable
-private fun TalkingPointsCard() {
-    val responsive = rememberResponsiveUiSpec()
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
-    ) {
-        Column(
-            modifier = Modifier.padding(responsive.cardPadding),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            TalkingPoint("Native Android Jetpack Compose app, not WebView.")
-            TalkingPoint("Mobile Wallet Adapter connects and signs through the user wallet.")
-            TalkingPoint("Devnet memo proof gives a real transaction signature for demo safety.")
-            TalkingPoint("SKR is read from mainnet by public address only; no spending or fake token.")
-            TalkingPoint("Firebase keeps daily XP, streaks, badges, chest rewards, and leaderboard sticky.")
-            TalkingPoint("No seed phrase, private key, or reward authority is stored in the APK.")
-        }
-    }
-}
-
-@Composable
-private fun TalkingPoint(text: String) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Icon(
-            modifier = Modifier.size(18.dp),
-            imageVector = Icons.Filled.Bolt,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            modifier = Modifier.weight(1f),
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

@@ -97,7 +97,7 @@ fun RadiantRunLauncherCard(
                             fontWeight = FontWeight.ExtraBold,
                         )
                         Text(
-                            text = "20 seconds. Hit energy. Avoid corruption. Build Fever combo.",
+                            text = "20 seconds. Hit green. Avoid red. Build FEVER.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -112,7 +112,7 @@ fun RadiantRunLauncherCard(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Filled.ConfirmationNumber,
                         label = "Tickets",
-                        value = run.rushTickets.toString(),
+                        value = run.totalPlayableTickets.toString(),
                     )
                     RunMiniMetric(
                         modifier = Modifier.weight(1f),
@@ -140,14 +140,18 @@ fun RadiantRunLauncherCard(
                     Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.size(8.dp))
                     AdaptiveButtonText(
-                        text = if (run.canPlay) "Play • 1 Rush Ticket" else "Earn a Rush Ticket",
+                        text = if (run.canPlay) "Play • 1 Ticket" else "Earn a Rush Ticket",
                         compactText = if (run.canPlay) "Play • 1 Ticket" else "Earn Ticket",
                         tinyText = if (run.canPlay) "Play • 1" else "No Ticket",
                     )
                 }
 
                 Text(
-                    text = "Rush Tickets are free in-app progression earned from quests/chests. No SOL or SKR is spent.",
+                    text = if (run.skrCasualRushTickets > 0) {
+                        "${run.rushTickets} Ranked-ready • ${run.skrCasualRushTickets} SKR Casual"
+                    } else {
+                        "Earn more Rush Tickets from quests and your Daily Chest."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

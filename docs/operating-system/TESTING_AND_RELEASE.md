@@ -1,3 +1,32 @@
+## Phase 11C.4.1 connected-device smoke-test rule
+
+Instrumentation tests must not assume an Activity restored by Android is already on Home. Wait for either the Welcome entry action or the persistent shell navigation, then explicitly navigate to the screen under test. Radiant Run itself is transient and is not restored across Activity recreation because its gameplay state is in-memory.
+
+## Phase 11C.3 chest timing hotfix gate
+
+On a physical phone, tap an eligible Daily Radiant Chest and confirm feedback begins immediately, the charge/open sequence lands in roughly the first second, and the reward reveal follows without a noticeable dead pause. Re-open/navigate repeatedly to confirm there is no duplicate claim, stuck audio, or animation skip. Run the normal four-command Android gate before committing.
+
+## Phase 11C.3 UI regression gate
+
+Before committing Phase 11C.3, run the normal unit/build/device gate and manually verify on both a compact phone and a ~400–430dp phone: `Explorer` and every other tier/status value stays intact with no clipping, orphaned characters, bleed, or required ellipsis; Home metrics stack when three columns would be unsafe; Radiant Run uses the established pastel target palette; FEVER/background effects cannot be mistaken for tappable targets; and Daily Radiant Chest opening uses a smooth damped anticipation shake with no high-frequency jitter. Also re-check large Android font scale.
+
+## Phase 11C verification gate — SKR Passport v2 + fair perks
+
+Before committing Phase 11C, run:
+
+```text
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+On a physical Android device verify: (1) an Explorer/zero-SKR wallet still scans honestly and receives no holder perk; (2) a real holder wallet, when available, shows only the liquid Mainnet balance/tier and receives the documented daily casual-ticket entitlement once; (3) the completed SKR quest offers Refresh SKR Passport and repeating the same-day scan does not duplicate the holder grant; (4) Profile/Home clearly show Passport v2, cosmetic status, liquid/staked distinction, and standard versus SKR-casual tickets; (5) if standard tickets are zero but an SKR casual ticket exists, the next run is explicitly Casual and does not consume/increment a ranked attempt; (6) ranked raw score and the 3-attempt wallet/day cap are unchanged by tier; (7) a chest opened after today's SKR scan keeps the same base rarity behavior and adds only the fixed tier XP/casual-ticket perk; (8) wallet Connect, Sign Daily Proof, Devnet Memo proof, Mainnet SKR scan, Weekly/All-Time ranks, and wallet deduplication still work.
+
+Unit coverage must include Passport tier mapping, idempotent daily grants, base chest roll independence from SKR tier, and ranked classification when no standard entry ticket is available.
+
+Evidence decision for this patch: pure Passport/reward rule compilation/static checks can be performed in the patch environment; the full Gradle/device gate must be run locally because the patch environment may not have the Gradle 9.3 distribution cached.
+
 ## Phase 11B.1 device QA gate
 
 Before committing Phase 11B.1:
@@ -506,3 +535,50 @@ For this foundation-only patch, no device claim should be made unless the Androi
 ## Phase 11B verification gate — competition persistence and visible ranks
 
 Run `./gradlew :app:testDebugUnitTest` and `./gradlew :app:assembleDebug`, deploy the updated `firebase/firestore.rules`, then run `./gradlew :app:connectedDebugAndroidTest` and physical-device QA. Verify the first three connected-wallet runs in a UTC day are eligible to update ranked PBs, the fourth ticket-backed run is Casual, Casual scores do not replace Weekly/All-Time PBs, gameplay XP stops at the 300 XP UTC-daily cap, PERFECT hits persist correctly, public Run ranks dedupe by wallet, and the existing MWA/signature/Devnet Memo/Mainnet read-only SKR paths still work.
+
+## Phase 11C.1 test gate — verified staking
+
+Run the normal gate:
+
+```text
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Manual QA:
+
+1. Refresh SKR Passport on a wallet with active SKR stake: active staked balance must appear and Stake Boost must activate.
+2. A wallet whose liquid balance is near zero but whose SKR is actively staked must still receive the correct combined Passport tier.
+3. Re-refresh on the same UTC day: daily bonus tickets must remain idempotent (only missing entitlement delta can be granted).
+4. If an unstaking amount exists, display it separately and exclude it from Stake Boost/eligible balance.
+5. Disconnect network / provoke staking-RPC failure: never invent stake; liquid Passport should remain honest when its own query succeeds.
+6. Play after bonus grant: staking tickets are casual-only and do not create additional ranked attempts.
+7. Claim Daily Radiant Chest after today's Passport scan: Stake Boost adds only the persisted +25 XP; base rarity remains unchanged.
+8. Check Profile/Home/Quest copy on compact and large screens for wrapping, no clipping, no required ellipsis, and full-width responsive controls.
+9. Regression-check Connect Wallet, Sign Daily Proof, Devnet Memo, liquid SKR scan, Run Weekly/All-Time/My Stats/XP.
+
+
+## Phase 11C.2 manual QA gate
+
+After applying Phase 11C.2, run the normal four-command Android gate and verify on physical hardware:
+
+- `Explorer` and other one-word tier labels remain intact on one line; no orphan final character.
+- Profile cards stack cleanly on compact/large-font screens; no clipped required text or `...`.
+- Home/Quests/Profile/Ranks/Guide copy reads like product UI and contains no phase/framework/judge/internal-storage commentary.
+- Daily Chest visibly stays in Opening long enough to see charge, shake, beam, lid/lock burst, particles and shockwaves; haptics and chest audio fire once; claimed reward then appears.
+- Repeated navigation does not leave an audio thread/music state stuck.
+- Radiant Run valid targets stay green during FEVER, red remains avoid-only, and no cyan circular decoration looks tappable.
+- Green target taps reliably produce score/combo feedback, including near the visible outer edge.
+
+Version decision: updated to `versionCode 19` / `1.1.4-phase11c2` because this is a visible APK milestone patch.
+
+## Phase 11C.4 My Stats regression checks
+
+- Use the same connected Solana wallet on two installations/devices with different Firebase anonymous UIDs.
+- Complete a Ranked run on one device; verify Weekly PB, All-Time PB, combo, PERFECT hits, weekly ranked runs, and ranked attempts remain visible on the other after refresh/relaunch.
+- Verify `Gameplay XP today` follows the wallet/day state and cannot exceed 300 by alternating runs across devices.
+- Verify `runWalletDaily/{utcDay}/wallets/{walletAddress}` contains `attemptsUsed`, `gameplayXpEarnedToday`, and `payoutEligible=false`.
+- Test My Stats at compact width and increased Android font scale; labels/values must wrap/stack without clipping, ellipsis, or bleed.
+

@@ -46,7 +46,7 @@ fun QuestsScreen(
         item {
             SectionTitle(
                 title = "Quest board",
-                body = "Proof quests open Phantom on Devnet. SKR Passport is read-only mainnet scanning. Demo tab explains the judge flow.",
+                body = "Complete today’s quests to earn XP, Rush Tickets, and unlock your Daily Radiant Chest.",
             )
         }
 
@@ -62,7 +62,9 @@ fun QuestsScreen(
             QuestCard(
                 quest = quest,
                 actionLabel = questActionLabel(quest, uiState),
-                actionEnabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && quest.status == QuestStatus.Ready,
+                actionEnabled = uiState.isFirebaseReady &&
+                    !uiState.walletActionInProgress &&
+                    (quest.status == QuestStatus.Ready || (quest.id == QuestIds.SKR_HOLDER && quest.status == QuestStatus.Completed)),
                 onClick = { selectedQuest = quest },
                 onActionClick = { onCompleteQuest(quest) },
             )
@@ -75,7 +77,7 @@ fun QuestsScreen(
             title = { Text(quest.title) },
             text = {
                 Text(
-                    text = "Proof: ${quest.proofType}\n\n${quest.description}\n\nPhase 9 keeps memo proof on Devnet, scans SKR on mainnet without moving tokens, and adds a no-loss Daily Radiant Chest after all proofs.",
+                    text = "${quest.description}\n\nReward: +${quest.xp} XP",
                 )
             },
             confirmButton = {
@@ -95,17 +97,17 @@ private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String?
             QuestIds.WALLET_CONNECT -> "Opening Wallet…"
             QuestIds.SIGN_DAILY_PROOF -> "Waiting for Signature…"
             QuestIds.ON_CHAIN_PROOF -> "Opening Memo…"
-            QuestIds.SKR_HOLDER -> "Scanning SKR…"
+            QuestIds.SKR_HOLDER -> "Scanning SKR + stake…"
             else -> "Working…"
         }
     }
 
     return when (quest.id) {
-        QuestIds.DAILY_CHECK_IN -> if (quest.status == QuestStatus.Completed) "Done Today" else "Save Firebase Check-In"
+        QuestIds.DAILY_CHECK_IN -> if (quest.status == QuestStatus.Completed) "Done Today" else "Check In"
         QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected || quest.status == QuestStatus.Completed) "Wallet Connected" else "Connect Wallet"
         QuestIds.SIGN_DAILY_PROOF -> if (quest.status == QuestStatus.Completed) "Signed Today" else "Sign Daily Proof"
         QuestIds.ON_CHAIN_PROOF -> if (quest.status == QuestStatus.Completed) "Memo Submitted" else "Submit Memo Proof"
-        QuestIds.SKR_HOLDER -> if (quest.status == QuestStatus.Completed) "SKR Checked" else "Check SKR Balance"
+        QuestIds.SKR_HOLDER -> if (quest.status == QuestStatus.Completed) "Refresh SKR Passport" else "Check SKR Passport"
         else -> null
     }
 }

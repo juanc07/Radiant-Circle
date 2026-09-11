@@ -79,16 +79,16 @@ fun LeaderboardScreen(
                     item {
                         SectionTitle(
                             title = "Radiant Run • ${uiState.runCompetition.weekKey}",
-                            body = "Weekly ranked Personal Bests. Raw score decides rank; combo and PERFECT hits break ties. One public row per connected Solana wallet.",
+                            body = "Your best ranked score this week. Combo and PERFECT hits break ties.",
                         )
                     }
                     if (uiState.runCompetition.weeklyLeaderboard.isEmpty()) {
                         item {
                             EmptyRunRanks(
                                 if (uiState.isWalletConnected) {
-                                    "No ranked scores yet this UTC week. Start Radiant Run while the briefing says RANKED to publish your score."
+                                    "No ranked scores yet this week. Play a Ranked Radiant Run to get on the board."
                                 } else {
-                                    "Connect a Solana wallet first. Disconnected Radiant Runs are Casual and intentionally do not publish to ranked boards."
+                                    "Connect your wallet to join ranked competition."
                                 },
                             )
                         }
@@ -103,16 +103,16 @@ fun LeaderboardScreen(
                     item {
                         SectionTitle(
                             title = "Radiant Run • All-Time",
-                            body = "Best ranked run per connected wallet. Casual runs never replace ranked Personal Bests.",
+                            body = "Your best ranked run ever. Casual runs do not change this board.",
                         )
                     }
                     if (uiState.runCompetition.allTimeLeaderboard.isEmpty()) {
                         item {
                             EmptyRunRanks(
                                 if (uiState.isWalletConnected) {
-                                    "No all-time ranked score yet. Complete a run while the briefing says RANKED."
+                                    "No all-time score yet. Finish a Ranked Radiant Run."
                                 } else {
-                                    "Connect a Solana wallet to publish an All-Time ranked Personal Best."
+                                    "Connect your wallet to join ranked competition."
                                 },
                             )
                         }
@@ -129,11 +129,11 @@ fun LeaderboardScreen(
                     item {
                         SectionTitle(
                             title = "Progression XP leaderboard",
-                            body = "Long-term progression remains separate from Radiant Run competition. One public rank per connected Solana wallet.",
+                            body = "Long-term XP rankings from quests, runs, and rewards.",
                         )
                     }
                     if (uiState.leaderboard.isEmpty()) {
-                        item { EmptyRunRanks("No connected-wallet XP ranks yet.") }
+                        item { EmptyRunRanks("No XP ranks yet.") }
                     } else {
                         items(uiState.leaderboard.size) { index ->
                             XpLeaderboardRow(row = uiState.leaderboard[index])
@@ -162,9 +162,9 @@ private fun PersonalCompetitionCard(
             Text("My Radiant Run stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(
                 if (walletConnected) {
-                    "${competition.rankedAttemptsRemaining}/3 ranked wallet attempts left today • shared across devices using this wallet"
+                    "${competition.rankedAttemptsRemaining}/3 Ranked runs left today"
                 } else {
-                    "Connect a Solana wallet to publish ranked scores. Ticket-backed runs stay Casual while disconnected."
+                    "Connect your wallet to unlock Ranked runs."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -177,7 +177,7 @@ private fun PersonalCompetitionCard(
             StatLine("Gameplay XP today", "${competition.dailyGameplayXpEarned}/${competition.dailyGameplayXpCap}")
             competition.lastRunMode?.let { StatLine("Last run", "$it • +${competition.lastRunPerformanceXp} XP") }
             Text(
-                "SKR wealth never multiplies ranked score or ranked attempts. Current Android scores are prototype competition data and are not payout authority.",
+                "SKR perks never change Ranked score or Ranked attempts.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -267,9 +267,47 @@ private fun RankBubble(rank: Int) {
 
 @Composable
 private fun StatLine(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+    val responsive = rememberResponsiveUiSpec()
+    if (responsive.isTiny || responsive.hasLargeText) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Clip,
+            )
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Clip,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Clip,
+            )
+        }
     }
 }
 

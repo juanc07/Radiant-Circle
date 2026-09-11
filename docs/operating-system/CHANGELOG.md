@@ -1,3 +1,63 @@
+## Phase 11C.4.1 — connected-device smoke-test restoration fix
+
+- Fixed physical-device Compose smoke tests that could time out when Android restored the shell on a non-Home tab.
+- The test now detects the stable bottom navigation shell, explicitly selects Home, and only then asserts Home content.
+- Radiant Run route visibility is now transient rather than saveable, matching the in-memory run state and preventing restoration into a half-reset run after Activity recreation.
+
+# 2026-09-11 — Phase 11C.4 My Stats wallet-sync fix
+
+- Fixed `My Stats` resetting to empty/zero values when the same Solana wallet is used under a different Firebase Anonymous Auth UID on another device or reinstall.
+- Weekly PB, All-Time PB, best combo, PERFECT hits at PB, and weekly ranked-run count now resolve by connected wallet across matching run rows.
+- Moved the 300 gameplay-XP daily cap mirror into the existing wallet/day competition document so daily XP cannot reset per device/UID.
+- Kept `users/{uid}` competition fields as migration/fallback mirrors.
+- Made My Stats metric rows stack on tiny/large-text layouts to avoid clipping and bleed.
+- Firestore rules updated for monotonic wallet/day gameplay-XP updates capped at 300; `payoutEligible` remains false.
+- Documentation decision: CHANGELOG, ARCHITECTURE, TESTING_AND_RELEASE, SOLANA_SECURITY_AND_DATA_RULES, and MOBILE_UI_UX_STANDARDS updated. AGENTS unchanged. VERSION unchanged at `versionCode = 20`, `versionName = "1.1.5-phase11c3"` because this is a focused regression hotfix inside the current Phase 11C milestone.
+
+# 2026-09-11 — Phase 11C.3 chest response timing hotfix
+
+- Reduced the artificial Daily Radiant Chest `Opening` hold from 1.8 seconds to 850 ms so feedback remains immediate while the ~760 ms charge/open animation still has time to land before the claim result replaces it.
+- Reward authority, Firestore behavior, Solana/SKR/staking logic, ranked competition rules, chest reward amounts, and chest visual geometry are unchanged.
+- Documentation decision: CHANGELOG and TESTING_AND_RELEASE updated. ARCHITECTURE, AGENTS, SOLANA_SECURITY_AND_DATA_RULES, and MOBILE_UI_UX_STANDARDS unchanged because this is presentation timing only. VERSION unchanged at `versionCode = 20`, `versionName = "1.1.5-phase11c3"`; this is a hotfix inside the same Phase 11C.3 milestone.
+
+# 2026-09-11 — Phase 11C.3 responsive text + pastel game + chest smoothness
+
+- Fixed phone-width classification so common ~400–430dp Android devices use compact layouts before text is forced into narrow multi-column cards.
+- Added measured single-line shrinking for single-token metric values such as `Explorer`; required values must fit rather than split, clip, or bleed.
+- Restored the original pastel Radiant Run palette: normal Radiant targets use the theme primary pastel, FEVER targets use the theme tertiary pastel, and Corruption keeps the error/pastel-red treatment.
+- Kept FEVER decoration non-circular so it cannot be mistaken for a tappable target; removed the ambiguous in-canvas BEST/combo affordance from the target area.
+- Reworked chest anticipation motion from charge-driven high-frequency oscillation to a short damped keyframed shake, and removed whole-chest breathing scale to prevent visible jitter.
+- Continued player-copy cleanup by removing remaining implementation-facing wallet/phase wording from normal UI messages.
+- Firestore rules: unchanged. Solana proof, SKR/staking reads, competition rules, payout authority, and reward authority: unchanged.
+- Android version bumped to `versionCode = 20`, `versionName = "1.1.5-phase11c3"`.
+- ARCHITECTURE: unchanged; this is presentation/responsiveness polish only. AGENTS: unchanged. SOLANA_SECURITY_AND_DATA_RULES: unchanged.
+
+# 2026-09-11 — Phase 11C.2 product-copy + chest/game clarity polish
+
+- Removed developer/judge/architecture commentary from normal user-facing screens and replaced the Demo tab copy with a concise user Guide.
+- Fixed compact text behavior so single-token values such as `Explorer` cannot orphan the final character onto a new line; compact/large-font Profile cards now stack for more usable width.
+- Rebuilt the Daily Radiant Chest presentation with a Compose-drawn chest, ready glow, shake/charge sequence, lid/lock burst, light beam, particles, shockwaves, haptics, procedural chest SFX, temporary music, and rarity reveal.
+- Held the chest in `Opening` for 1.8 seconds before the repository claim so the animation is actually visible; reward authority remains in Firebase.
+- Removed ambiguous cyan FEVER circles from Radiant Run. Valid targets stay green, Corruption stays red, and FEVER is now a gold rectangular screen-state glow.
+- Increased the target hit tolerance slightly and replaced implementation-facing game copy with player-facing instructions.
+- Firestore rules: unchanged. Solana/MWA/SKR/staking/ranked/payout authority: unchanged.
+- Android version bumped to `versionCode = 19`, `versionName = "1.1.4-phase11c2"`.
+- AGENTS: unchanged; contributor workflow did not change.
+
+# 2026-09-10 — Phase 11C SKR Passport v2 + fair holder perks
+
+- Upgraded the existing Mainnet read-only SKR scan into Passport v2 without changing the stable MWA/Phantom signing path.
+- Added deterministic SKR tier perks: daily casual-only Rush Tickets, fixed Daily Radiant Chest enhancements, and profile frame/aura/badge status.
+- Split holder bonus tickets into `skrCasualRushTickets`; they can never fund ranked play or increase the three ranked attempts per UTC day. Ranked runs always require a standard ticket; Casual runs prefer an SKR casual ticket.
+- Made the completed SKR Passport quest safely refreshable and same-day ticket grants idempotent/tier-up aware: repeat scans do not duplicate grants, while a higher tier receives only the missing difference.
+- Kept the Daily Radiant Chest base rarity roll independent from SKR tier; holder benefits are fixed post-roll XP/casual-ticket enhancements only.
+- Staked SKR remains explicitly not verified/not counted because Phase 11C has no trustworthy staking source. No staking state is inferred or faked.
+- Passport cosmetics are off-chain app status, not NFTs/on-chain assets.
+- Added JVM tests for Passport tiers, daily grant idempotence and ranked eligibility when only an SKR casual ticket remains.
+- Firestore rules decision: unchanged; Passport fields use existing owner-writable user/completed-quest documents and Phase 11C adds no public collection.
+- Android version bumped to `versionCode = 17`, `versionName = "1.1.2-phase11c"`.
+- AGENTS decision: unchanged; contributor/source-control workflow did not change.
+
 # 2026-09-10 — Phase 11B.1 ranked-wallet sync + empty-board diagnostics
 
 - Fixed the confusing case where a completed Radiant Run could award gameplay XP while Weekly/All-Time stayed empty: the UI now states clearly when the run is Casual because no wallet is connected or the daily ranked wallet allowance is exhausted.
@@ -291,3 +351,13 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 - Added x10+ combo shake, stronger particles/shockwaves, and procedural milestone burst cues.
 - Scaled reward particle explosions and procedural reveal audio by rarity; Epic+ rewards now receive a substantially stronger celebration.
 - Version: `1.0.2-phase10.1.1` (`versionCode 14`).
+
+## 1.1.3-phase11c1 — Phase 11C.1 verified staked SKR
+
+- SKR Passport v2 now reads official Solana Mobile active SKR staking state from Mainnet by public wallet address.
+- Passport tier eligibility uses verified liquid + verified active staked SKR; unstaking/cooldown SKR is shown but excluded from Stake Boost.
+- Added Guardian Stake Boost: +1 casual-only ticket/day, +25 Daily Radiant Chest XP, and cosmetic Guardian Glow status.
+- Staking read failures fail honest: no inferred/fake stake balance, while the liquid scan can remain usable.
+- Daily chest uses the exact perk values persisted by today's Passport scan, preserving staking bonus without changing the deterministic base rarity roll.
+- Ranked raw score and three daily ranked attempts remain unchanged by liquid/staked SKR wealth.
+- Version bumped to `1.1.3-phase11c1` (`versionCode 18`).

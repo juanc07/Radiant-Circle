@@ -1,3 +1,27 @@
+
+## Phase 11C.3 no-cut/no-bleed text rule
+
+- Treat normal Android phone widths up to 480dp as compact unless a component has stronger local evidence that a multi-column layout is safe.
+- Tier names and other single-token values must never break across lines (for example `Explore` + `r`) and must never be clipped. Prefer stacking first; if a single-line value still overflows, reduce only that value's display size until it fits.
+- Multi-word required values may wrap to additional lines; do not use ellipsis to hide required state.
+- Test compact phone width, Seeker/Samsung-class widths, large font scale, and a larger tablet/foldable width before accepting new cards or buttons.
+- Animated cards must not change layout geometry frame-to-frame in ways that look like jitter. Prefer drawing glow/particles inside a stable box and use short damped transforms for intentional shake.
+
+## Phase 11C.3 Radiant Run visual language
+
+- Preserve the established pastel game palette. Do not hard-code saturated green/gold replacements for the main Radiant target merely to explain hit rules.
+- Only the actual target may use target-like circular affordances. FEVER/background decoration must use a clearly non-target shape or placement.
+- Keep target instructions concise: Radiant = hit, center = PERFECT, red Corruption = avoid.
+
+## Phase 11C Passport and ticket clarity
+
+- Label the SKR source as **Mainnet Liquid SKR**; do not combine it with an unverified staked amount.
+- If staking data is unavailable, display `Not counted` / `Not verified` rather than zero-as-fact or a fabricated estimate.
+- Show standard and `SKR casual` ticket balances separately anywhere entry type matters. Copy must state that SKR bonus tickets cannot fund ranked attempts.
+- Before a run, the Competition row remains the authority for `RANKED` versus `CASUAL`; having SKR must never visually imply ranked advantage.
+- Holder frame/aura/badge treatments are cosmetic status only and must not imply an NFT, token transfer, guaranteed prize, or on-chain ownership.
+- Passport refresh remains available after today’s quest is completed, is a read-only in-app action, and must not unexpectedly open a wallet.
+
 ## Phase 11B.1 competition-state clarity
 
 Radiant Run must never leave the user guessing why a score did or did not enter the ranked boards. Before play, the Competition row must explicitly show one of: `RANKED`, `CASUAL • connect wallet`, or `CASUAL • ranked attempts used`. Empty Weekly/All-Time states must likewise explain when wallet connection is required. Ranked-attempt copy should state that the allowance is shared by the connected wallet across devices.
@@ -176,4 +200,30 @@ Reward screens must clearly say when no wallet popup is expected. The Daily Radi
 ## Phase 11B competition UI decision
 
 The Ranks destination now uses horizontally scrollable tabs (`Run Weekly`, `Run All-Time`, `My Stats`, `XP`) so small Android screens do not compress four competing labels into clipped fixed-width tabs. Run rows keep score visually dominant while combo/PERFECT/run-count metadata may wrap to two lines. The Radiant Run briefing explicitly shows Ranked vs Casual status and daily gameplay-XP progress before the player spends a ticket. Required security/fairness copy uses wrapping text rather than ellipsis.
+
+
+## Phase 11C.1 — staking/Passport responsiveness
+
+- SKR liquid, active-stake, unstaking, and Stake Boost status must use the existing responsive screen/card primitives (`LazyColumn`, `fillMaxWidth`, responsive padding/minimum button height).
+- Do not introduce fixed screen widths/heights for staking cards or Passport actions.
+- Long wallet/staking status copy must wrap and expand vertically; required information must not be replaced with `...` on compact phones.
+- Staking state is secondary information: keep primary values concise and move explanation into wrapping helper text.
+- Verify new/changed Passport UI on at least a compact Android viewport and Seeker-sized hardware when available; also sanity-check a larger phone/tablet/emulator width.
+
+
+## Phase 11C.2 — product copy and orphan-text rule
+
+- Normal user screens must speak to the player, not to the developer or judge. Do not expose phase numbers, framework/rendering implementation, storage internals, "no media assets required" commentary, prototype/payout-authority explanations, or demo-script directions in routine UI. Put those details in docs/submission material instead.
+- Single-token values such as `Explorer` must not split into an orphan final character on a new line. Give the value more width (stack compact layouts) and use one-line/no-soft-wrap treatment for single-token pills/metrics.
+- On compact screens or large font scale, prefer vertical stacking over squeezing icon + title + long value + action into one row.
+- Required product copy may wrap, but must not be truncated with ellipsis.
+- Reward moments may temporarily prioritize visual space, but controls must remain full-width and at least the responsive minimum touch height.
+- Manual QA for every visible UI patch must include one compact Android viewport, Seeker-sized hardware, and a larger phone with increased font scale.
+
+- Single-token tier/status values (for example `Explorer`) must stay intact; on narrow/large-font layouts reduce base typography or stack the containing layout rather than orphaning one character on a second line.
+- Multi-item game legends must stack on compact/large-font layouts instead of relying on one horizontal row.
+
+## My Stats responsive metrics
+
+Competition metric rows must not force a label and value onto one horizontal line on compact displays or large font scales. Stack them vertically in those conditions, allow normal wrapping, and never clip required values such as PB score, PERFECT hits, ranked-run counts, or gameplay-XP progress.
 

@@ -345,7 +345,7 @@ fun RadiantRunScreen(
             Column(modifier = Modifier.weight(1f)) {
                 Text("RADIANT RUN", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                 Text(
-                    "Procedural synth audio + Canvas VFX • no media assets required",
+                    "20-second skill run",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -363,7 +363,7 @@ fun RadiantRunScreen(
                 ) {
                     Icon(Icons.Filled.ConfirmationNumber, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(5.dp))
-                    Text(uiState.radiantRun.rushTickets.toString(), fontWeight = FontWeight.Bold)
+                    Text(uiState.radiantRun.totalPlayableTickets.toString(), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -393,7 +393,7 @@ fun RadiantRunScreen(
                         val dx = tap.x - center.x
                         val dy = tap.y - center.y
                         val distance = sqrt(dx * dx + dy * dy)
-                        if (distance <= radius * 1.3f) {
+                        if (distance <= radius * 1.45f) {
                             if (active.corrupted) {
                                 score = (score - 140).coerceAtLeast(0)
                                 combo = 0
@@ -471,6 +471,10 @@ private fun BriefingPanel(
     onExit: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val rankedWithStandardTicket = uiState.isWalletConnected &&
+        uiState.runCompetition.rankedAttemptsRemaining > 0 &&
+        uiState.radiantRun.rushTickets > 0
+    val usesSkrCasualTicket = !rankedWithStandardTicket && uiState.radiantRun.skrCasualRushTickets > 0
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -480,22 +484,35 @@ private fun BriefingPanel(
             modifier = Modifier.padding(responsive.cardPadding),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("A real 20-second skill run", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Text("20-second skill run", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Tap glowing Radiant energy before it moves. Hit near the center for PERFECT. Ignore red Corruption. Chain 5 hits to enter FEVER.",
+                "Tap glowing Radiant targets. Aim for the center for PERFECT. Avoid red Corruption. Chain 5 hits for FEVER.",
                 style = MaterialTheme.typography.bodyLarge,
             )
             RunStatRow("Best score", uiState.radiantRun.bestScore.toString())
             RunStatRow("Runs finished", uiState.radiantRun.totalRuns.toString())
             RunStatRow("Collection", "${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal}")
-            RunStatRow("Entry", "1 Rush Ticket")
+            RunStatRow(
+                "Tickets",
+                "${uiState.radiantRun.rushTickets} standard • ${uiState.radiantRun.skrCasualRushTickets} SKR casual",
+            )
+            RunStatRow(
+                "Entry",
+                when {
+                    rankedWithStandardTicket -> "1 standard Rush Ticket"
+                    usesSkrCasualTicket -> "1 SKR casual ticket"
+                    else -> "1 standard Rush Ticket"
+                },
+            )
             RunStatRow(
                 "Competition",
                 when {
                     !uiState.isWalletConnected ->
                         "CASUAL • connect wallet to publish ranked score"
-                    uiState.runCompetition.rankedAttemptsRemaining > 0 ->
+                    rankedWithStandardTicket ->
                         "RANKED • ${uiState.runCompetition.rankedAttemptsRemaining}/3 wallet attempts left"
+                    uiState.runCompetition.rankedAttemptsRemaining > 0 && usesSkrCasualTicket ->
+                        "CASUAL • SKR bonus tickets cannot fund ranked attempts"
                     else ->
                         "CASUAL • 3/3 ranked wallet attempts used today"
                 },
@@ -505,7 +522,7 @@ private fun BriefingPanel(
                 "${uiState.runCompetition.dailyGameplayXpEarned}/${uiState.runCompetition.dailyGameplayXpCap} today",
             )
             Text(
-                "Ranked uses raw skill score only. The same connected wallet shares 3 ranked attempts per UTC day across devices; extra ticket runs stay Casual. Performance XP is separately capped; SKR wealth never multiplies ranked score.",
+                "SKR bonus tickets are Casual-only. Ranked runs stay skill-based.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -561,7 +578,8 @@ private fun GamePanel(
     target: RunTarget?,
     hitFeedback: HitFeedback?,
     onTap: (Offset, Float, Float) -> Unit,
-) {
+ ) {
+    val responsive = rememberResponsiveUiSpec()
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
     val error = MaterialTheme.colorScheme.error
@@ -665,16 +683,12 @@ private fun GamePanel(
                 }
 
                 if (fever) {
-                    val center = Offset(size.width / 2f, size.height / 2f)
-                    repeat(3) { ring ->
-                        val radius = min(size.width, size.height) * (0.22f + ring * 0.15f + 0.035f * targetPulse)
-                        drawCircle(
-                            color = tertiary.copy(alpha = 0.055f),
-                            radius = radius,
-                            center = center,
-                            style = Stroke(width = 3f),
-                        )
-                    }
+                    // FEVER is a screen-state glow, not a target. Keep it rectangular so
+                    // players never mistake decorative cyan circles for something tappable.
+                    drawRect(
+                        color = tertiary.copy(alpha = 0.16f),
+                        style = Stroke(width = 5f),
+                    )
                 }
 
                 target?.let { active ->
@@ -828,13 +842,26 @@ private fun GamePanel(
                 )
             }
 
-            Row(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("◎ CENTER = PERFECT", style = MaterialTheme.typography.labelSmall, color = tertiary)
-                Text("✕ RED = IGNORE", style = MaterialTheme.typography.labelSmall, color = error)
-                Text("BEST x$maxCombo", style = MaterialTheme.typography.labelSmall)
+            if (responsive.isCompact || responsive.hasLargeText) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text("● RADIANT = HIT", style = MaterialTheme.typography.labelSmall, color = primary)
+                    Text("◎ CENTER = PERFECT", style = MaterialTheme.typography.labelSmall, color = tertiary)
+                    Text("✕ RED = AVOID", style = MaterialTheme.typography.labelSmall, color = error)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("● RADIANT = HIT", style = MaterialTheme.typography.labelSmall, color = primary)
+                    Text("◎ CENTER = PERFECT", style = MaterialTheme.typography.labelSmall, color = tertiary)
+                    Text("✕ RED = AVOID", style = MaterialTheme.typography.labelSmall, color = error)
+                }
             }
         }
     }
@@ -1022,7 +1049,17 @@ private fun RewardPanel(
                 onClick = onPlayAgain,
             ) {
                 AdaptiveButtonText(
-                    if (uiState.radiantRun.canPlay) "Run Again • 1 Ticket" else "No Tickets Left",
+                    if (uiState.radiantRun.canPlay) {
+                        if (uiState.radiantRun.skrCasualRushTickets > 0 &&
+                            (!uiState.isWalletConnected || uiState.runCompetition.rankedAttemptsRemaining == 0 || uiState.radiantRun.rushTickets == 0)
+                        ) {
+                            "Run Again • Casual"
+                        } else {
+                            "Run Again • 1 Ticket"
+                        }
+                    } else {
+                        "No Tickets Left"
+                    },
                     compactText = if (uiState.radiantRun.canPlay) "Run Again" else "No Tickets",
                     tinyText = if (uiState.radiantRun.canPlay) "Again" else "Done",
                 )

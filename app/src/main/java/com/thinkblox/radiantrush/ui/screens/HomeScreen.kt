@@ -47,6 +47,14 @@ fun HomeScreen(
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
+    val skrPassportSupportingText = if (user.hasSkr) {
+        buildString {
+            append("${user.skrEligibleBalance} • +${user.skrDailyBonusTickets} Casual/day")
+            if (user.skrStakeBoostActive) append(" • Stake Boost")
+        }
+    } else {
+        "${user.skrBalance} • Refresh to check perks"
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -63,7 +71,7 @@ fun HomeScreen(
         item {
             GradientHeroCard(
                 title = "Today’s Rush",
-                subtitle = "Complete real Solana proof quests, earn Rush Tickets, then turn them into a 20-second skill run and collectible reveal.",
+                subtitle = "Finish today’s quests, earn Rush Tickets, play Radiant Run, and grow your collection.",
             )
         }
 
@@ -84,21 +92,21 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         label = "Streak",
                         value = "${user.currentStreak} days",
-                        supportingText = "Saved once per day.",
+                        supportingText = "Keep it going.",
                         icon = Icons.Filled.LocalFireDepartment,
                     )
                     MetricCard(
                         modifier = Modifier.fillMaxWidth(),
                         label = "Level",
                         value = "Lv. ${user.level}",
-                        supportingText = "${user.xp} XP synced.",
+                        supportingText = "${user.xp} XP total.",
                         icon = Icons.Filled.Bolt,
                     )
                     MetricCard(
                         modifier = Modifier.fillMaxWidth(),
-                        label = "SKR Boost",
-                        value = user.skrMultiplier,
-                        supportingText = "${user.skrTier} • ${user.skrBalance}",
+                        label = "SKR Passport",
+                        value = user.skrTier,
+                        supportingText = skrPassportSupportingText,
                         icon = Icons.Filled.Token,
                     )
                 }
@@ -111,21 +119,21 @@ fun HomeScreen(
                         modifier = Modifier.weight(1f),
                         label = "Streak",
                         value = "${user.currentStreak} days",
-                        supportingText = "Saved by Firebase once per day.",
+                        supportingText = "Keep it going.",
                         icon = Icons.Filled.LocalFireDepartment,
                     )
                     MetricCard(
                         modifier = Modifier.weight(1f),
                         label = "Level",
                         value = "Lv. ${user.level}",
-                        supportingText = "${user.xp} XP synced.",
+                        supportingText = "${user.xp} XP total.",
                         icon = Icons.Filled.Bolt,
                     )
                     MetricCard(
                         modifier = Modifier.weight(1f),
-                        label = "SKR Boost",
-                        value = user.skrMultiplier,
-                        supportingText = "${user.skrTier} • ${user.skrBalance}",
+                        label = "SKR Passport",
+                        value = user.skrTier,
+                        supportingText = skrPassportSupportingText,
                         icon = Icons.Filled.Token,
                     )
                 }
@@ -137,9 +145,9 @@ fun HomeScreen(
                 title = if (uiState.isWalletConnected) "Wallet linked" else "Wallet Ready",
                 progress = if (uiState.isWalletConnected) 1f else (user.xp.coerceAtMost(500) / 500f).coerceIn(0f, 1f),
                 caption = if (uiState.isWalletConnected) {
-                    "Public wallet saved. Wallet opens only for signing/memo. SKR scan is read-only."
+                    "Wallet ready for today’s quests."
                 } else {
-                    "Connect with MWA to unlock proof, memo, and SKR Passport quests."
+                    "Connect your wallet to unlock today’s Solana quests."
                 },
             )
         }
@@ -174,7 +182,7 @@ fun HomeScreen(
         item {
             SectionTitle(
                 title = "Priority quests",
-                body = "For the video: Connect Wallet, Sign Proof, Send Memo, Scan SKR, open Chest, then show Profile and Demo tabs.",
+                body = "Finish today’s quests to unlock your chest and earn more Rush Tickets.",
             )
         }
 
@@ -183,9 +191,14 @@ fun HomeScreen(
             QuestCard(
                 quest = quest,
                 actionLabel = questActionLabel(quest, uiState),
-                actionEnabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && quest.status == QuestStatus.Ready,
+                actionEnabled = uiState.isFirebaseReady &&
+                    !uiState.walletActionInProgress &&
+                    (quest.status == QuestStatus.Ready || (quest.id == QuestIds.SKR_HOLDER && quest.status == QuestStatus.Completed)),
                 onClick = {
-                    if (uiState.isFirebaseReady && !uiState.walletActionInProgress && quest.status == QuestStatus.Ready) {
+                    if (uiState.isFirebaseReady &&
+                        !uiState.walletActionInProgress &&
+                        (quest.status == QuestStatus.Ready || (quest.id == QuestIds.SKR_HOLDER && quest.status == QuestStatus.Completed))
+                    ) {
                         if (quest.id == QuestIds.WALLET_CONNECT) {
                             onConnectWallet()
                         } else {
@@ -206,7 +219,7 @@ fun HomeScreen(
         item {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Use Phantom Devnet for Sign Proof and Send Memo. SKR Passport is read-only. Radiant Run uses free in-app Rush Tickets only; it never spends SOL, SKR, or earned XP.",
+                text = "SKR perks boost casual play and chest rewards. Ranked competition stays skill-based.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -222,17 +235,17 @@ private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String?
             QuestIds.WALLET_CONNECT -> "Opening Wallet…"
             QuestIds.SIGN_DAILY_PROOF -> "Waiting for Signature…"
             QuestIds.ON_CHAIN_PROOF -> "Opening Memo…"
-            QuestIds.SKR_HOLDER -> "Scanning SKR…"
+            QuestIds.SKR_HOLDER -> "Scanning SKR + stake…"
             else -> "Working…"
         }
     }
 
     return when (quest.id) {
-        QuestIds.DAILY_CHECK_IN -> if (quest.status == QuestStatus.Completed) "Done Today" else "Save Firebase Check-In"
+        QuestIds.DAILY_CHECK_IN -> if (quest.status == QuestStatus.Completed) "Done Today" else "Check In"
         QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected || quest.status == QuestStatus.Completed) "Wallet Connected" else "Connect Wallet"
         QuestIds.SIGN_DAILY_PROOF -> if (quest.status == QuestStatus.Completed) "Signed Today" else "Sign Daily Proof"
         QuestIds.ON_CHAIN_PROOF -> if (quest.status == QuestStatus.Completed) "Memo Submitted" else "Submit Memo Proof"
-        QuestIds.SKR_HOLDER -> if (quest.status == QuestStatus.Completed) "SKR Checked" else "Check SKR Balance"
+        QuestIds.SKR_HOLDER -> if (quest.status == QuestStatus.Completed) "Refresh SKR Passport" else "Check SKR Passport"
         else -> null
     }
 }

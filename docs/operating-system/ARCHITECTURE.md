@@ -1,3 +1,17 @@
+## Phase 11C.4.1 — transient Radiant Run route
+
+`showRadiantRun` is intentionally ordinary Compose state, not saveable navigation state. The run's timer, target, combo, score, and audio state are transient in-memory presentation state; restoring only the route after Activity recreation could reopen an inconsistent run. The stable shell may restore, while a run always starts from a fresh launcher state.
+
+## Phase 11C — SKR Passport v2 perk boundary
+
+`SkrBalanceRepository` remains a read-only Mainnet RPC boundary. It observes liquid SKR for the official mint and maps that observation through the Android/Firebase-free `SkrPassportRules` domain rules. It does not sign, transfer, stake, unstake, or spend tokens.
+
+Passport holder playtime is represented by a separate `skrCasualRushTickets` ledger. Standard `rushTickets` are ranked-eligible; SKR bonus tickets are casual-only. `Phase11CompetitionRules.rankedAttemptDecision` therefore requires both a connected wallet and a standard entry ticket before classifying a run as Ranked. `FirebaseRadiantRepository.completeRadiantRun` always consumes a standard ticket for Ranked and prefers an SKR casual ticket for Casual. This prevents a holder perk from becoming an indirect fourth ranked attempt.
+
+Daily Passport grant state is stored in the existing owner profile (`skrPerkTicketGrantDate`, `skrPerkTicketsGrantedToday`) so repeat scans are idempotent. The same-day completed SKR quest snapshot is used to derive the chest perk; the base chest reward seed does not include SKR tier, so wealth does not improve base rarity.
+
+Frame/aura/badge fields are presentation-only off-chain status. `skrStakedVerified=false` and an explicit unavailable message are persisted because no staking authority is integrated. Phase 11C adds no new Firestore collection and does not change payout authority.
+
 ## Phase 11B.1 — wallet-scoped ranked-attempt authority
 
 Phase 11B originally mirrored ranked-attempt usage only on `users/{uid}`. Because Firebase Anonymous Auth creates different UIDs on different installations, that accidentally made the 3-attempt allowance device/UID scoped rather than wallet scoped.
@@ -412,3 +426,27 @@ The authority split is intentionally strict:
 ## Phase 11B implemented architecture — competition persistence and UI
 
 Phase 11B now maps the Phase 11A rules into Firebase persistence and Compose UI. Private daily counters and personal mirrors stay under `users/{uid}`. Public prototype competition PB rows live under `runWeekly/{utcWeekKey}/entries/{uid}` and `runAllTime/{uid}`. Firebase UID remains the owner/write key; connected Solana wallet identity is used to collapse duplicate public rows caused by anonymous-auth reinstalls. Weekly and All-Time ordering is raw score first, then best combo, then PERFECT hits. Casual runs do not update ranked PB documents. Every competition row is explicitly marked client-reported prototype data and `payoutEligible=false`; no real SKR payout authority is implemented in Android.
+
+## Phase 11C.1 — verified SKR staking read path
+
+`SkrBalanceRepository` remains a read-only Mainnet boundary, but now composes two public-data sources into one Passport snapshot: liquid SPL token accounts and the official Solana Mobile SKR staking program (`SKRskrmtL83pcL4YqLWt6iPefDqwXQWHSw9S9vz94BZ`). The staking read uses the connected public address only and never invokes Mobile Wallet Adapter.
+
+Staking account decoding follows the official Anchor IDL. `StakeConfig.share_price` is used with summed `UserStake.shares` to derive active stake using the official `shares * sharePrice / 1e9` formula. `UserStake.unstaking_amount` is tracked separately. Staking data is used only when its on-chain account read/decoding is verified; an unavailable staking query cannot silently become zero/eligible stake.
+
+`SkrPassportRules` owns the economic-neutral perk decision: eligible Passport balance = liquid + verified active stake. Verified active stake adds the Guardian Stake Boost (+1 casual ticket/day and +25 chest XP). `RewardLoopRules` still owns deterministic chest base rarity; the Firebase repository passes the exact Passport bonus persisted by today's SKR proof so staking never changes the base roll.
+
+This remains prototype app-progression authority only. It is not payout authority and does not prove server-trusted competition score.
+
+
+## Phase 11C.2 — presentation authority boundary
+
+Daily Radiant Chest animation is presentation-only. `RadiantChestCard` owns transient charge, shake, lid-open, burst, particle, haptic, and audio state. `RadiantRushApp.claimDailyRadiantChest` holds the UI in `Opening` for 1.8 seconds, then calls `FirebaseRadiantRepository.claimDailyRadiantChest`; Firebase remains the reward/progression authority. Closing the animation or audio path must never create a reward by itself.
+
+Radiant Run keeps one visual contract for tappable objects: green circles are valid targets and red circles are Corruption. FEVER is a non-circular gold screen-state treatment so decoration cannot look like another target.
+
+## Phase 11C.4 — wallet-scoped My Stats
+
+`My Stats` is now a wallet-scoped read model rather than a Firebase-UID-only mirror. The repository queries the current week's `runWeekly` entries and `runAllTime` entries for the connected full wallet address, then aggregates the wallet's personal PB/run data across anonymous-auth UIDs. `users/{uid}` competition fields remain fallback/migration state.
+
+The existing `runWalletDaily/{utcDay}/wallets/{walletAddress}` document also mirrors capped `gameplayXpEarnedToday`, keeping both ranked-attempt usage and the 300 XP/day gameplay cap consistent across phones/reinstalls. This shared record remains prototype fairness state only and has no economic or payout authority.
+

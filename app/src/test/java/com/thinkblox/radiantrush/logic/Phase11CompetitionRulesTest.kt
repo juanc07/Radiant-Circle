@@ -255,4 +255,82 @@ class Phase11CompetitionRulesTest {
         runsPlayed = 2,
         bestCompletedAtEpochMillis = Instant.parse("2026-09-10T12:00:00Z").toEpochMilli(),
     )
+
+    @Test
+    fun walletPersonalStatsSurviveAnonymousUidChangesAcrossDevices() {
+        val weeklyRows = listOf(
+            candidate("samsung-old", walletA, "9xQe…PABC", score = 2_100).copy(
+                bestCombo = 11,
+                perfectHits = 4,
+                runsPlayed = 2,
+            ),
+            candidate("seeker-new", walletA, "9xQe…PABC", score = 2_450).copy(
+                bestCombo = 13,
+                perfectHits = 5,
+                runsPlayed = 1,
+            ),
+            candidate("other", walletB, "7YWH…BCD9", score = 9_999),
+        )
+        val allTimeRows = listOf(
+            candidate("samsung-old", walletA, "9xQe…PABC", score = 3_000).copy(
+                bestCombo = 15,
+                perfectHits = 6,
+                runsPlayed = 5,
+            ),
+            candidate("seeker-new", walletA, "9xQe…PABC", score = 2_900).copy(
+                bestCombo = 20,
+                perfectHits = 9,
+                runsPlayed = 1,
+            ),
+        )
+
+        val stats = Phase11CompetitionRules.walletPersonalStats(
+            walletAddress = walletA,
+            weeklyCandidates = weeklyRows,
+            allTimeCandidates = allTimeRows,
+        )
+
+        assertEquals(2_450, stats.weeklyBestScore)
+        assertEquals(3_000, stats.allTimeBestScore)
+        assertEquals(15, stats.bestCombo)
+        assertEquals(6, stats.perfectHitsAtBest)
+        assertEquals(3, stats.weeklyRankedRuns)
+    }
+
+    @Test
+    fun walletPersonalStatsCanRecoverLegacyShortRowWhenFullRowIsMissing() {
+        val legacy = candidate("legacy", null, "9xQe...PABC", score = 1_850).copy(
+            bestCombo = 9,
+            perfectHits = 2,
+            runsPlayed = 2,
+        )
+
+        val stats = Phase11CompetitionRules.walletPersonalStats(
+            walletAddress = walletA,
+            weeklyCandidates = listOf(legacy),
+            allTimeCandidates = listOf(legacy),
+        )
+
+        assertEquals(1_850, stats.weeklyBestScore)
+        assertEquals(1_850, stats.allTimeBestScore)
+        assertEquals(9, stats.bestCombo)
+        assertEquals(2, stats.perfectHitsAtBest)
+        assertEquals(2, stats.weeklyRankedRuns)
+    }
+
+    @Test
+    fun casualOnlyTicketCannotConsumeRankedAttempt() {
+        val decision = Phase11CompetitionRules.rankedAttemptDecision(
+            walletConnected = true,
+            savedDayKey = "2026-09-10",
+            savedAttemptsUsed = 1,
+            completedAtEpochMillis = java.time.Instant.parse("2026-09-10T12:00:00Z").toEpochMilli(),
+            rankedEntryTicketAvailable = false,
+        )
+
+        assertEquals(RunCompetitionMode.Casual, decision.mode)
+        assertEquals(1, decision.rankedAttemptsUsedBefore)
+        assertEquals(1, decision.rankedAttemptsUsedAfter)
+    }
+
 }

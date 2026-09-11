@@ -113,6 +113,7 @@ object Phase11CompetitionRules {
         savedDayKey: String?,
         savedAttemptsUsed: Int,
         completedAtEpochMillis: Long,
+        rankedEntryTicketAvailable: Boolean = true,
     ): RankedAttemptDecision {
         val currentDayKey = utcDayKey(completedAtEpochMillis)
         val usedBefore = rankedAttemptsUsedToday(
@@ -120,7 +121,7 @@ object Phase11CompetitionRules {
             savedAttemptsUsed = savedAttemptsUsed,
             currentUtcDayKey = currentDayKey,
         )
-        val ranked = walletConnected && usedBefore < DAILY_RANKED_ATTEMPTS
+        val ranked = walletConnected && rankedEntryTicketAvailable && usedBefore < DAILY_RANKED_ATTEMPTS
         val usedAfter = if (ranked) usedBefore + 1 else usedBefore
 
         return RankedAttemptDecision(
@@ -287,6 +288,58 @@ object Phase11CompetitionRules {
         return null
     }
 
+    /**
+     * Resolves wallet-scoped personal competition stats across Firebase anonymous
+     * UID rows. This keeps My Stats stable when the same Solana wallet is used on
+     * another device or after an anonymous-auth reinstall.
+     *
+     * Exact full-wallet matches are preferred. Legacy shortened rows are used
+     * only when there is no exact full-wallet row for that board.
+     */
+    fun walletPersonalStats(
+        walletAddress: String?,
+        weeklyCandidates: List<RunLeaderboardCandidate>,
+        allTimeCandidates: List<RunLeaderboardCandidate>,
+    ): WalletRunPersonalStats {
+        val canonicalWallet = canonicalFullWallet(walletAddress)
+            ?: return WalletRunPersonalStats()
+        val targetFingerprint = walletFingerprint(canonicalWallet)
+
+        fun matches(
+            candidates: List<RunLeaderboardCandidate>,
+        ): List<RunLeaderboardCandidate> {
+            val eligible = candidates.filterNot(::isExplicitlyDisconnected)
+            val exact = eligible.filter { candidate ->
+                canonicalFullWallet(candidate.walletAddress) == canonicalWallet
+            }
+            if (exact.isNotEmpty()) return exact
+
+            return eligible.filter { candidate ->
+                canonicalFullWallet(candidate.walletAddress) == null &&
+                    targetFingerprint != null &&
+                    (walletFingerprint(candidate.walletAddressShort)
+                        ?: walletFingerprint(candidate.walletAddress)) == targetFingerprint
+            }
+        }
+
+        val weeklyMatches = matches(weeklyCandidates)
+        val allTimeMatches = matches(allTimeCandidates)
+        val weeklyBest = weeklyMatches.minWithOrNull(runCandidateComparator)
+        val allTimeBest = allTimeMatches.minWithOrNull(runCandidateComparator)
+        val weeklyRuns = weeklyMatches
+            .sumOf { it.runsPlayed.coerceAtLeast(0).toLong() }
+            .coerceAtMost(Int.MAX_VALUE.toLong())
+            .toInt()
+
+        return WalletRunPersonalStats(
+            weeklyBestScore = weeklyBest?.score?.coerceAtLeast(0) ?: 0,
+            allTimeBestScore = allTimeBest?.score?.coerceAtLeast(0) ?: 0,
+            bestCombo = allTimeBest?.bestCombo?.coerceAtLeast(0) ?: 0,
+            perfectHitsAtBest = allTimeBest?.perfectHits?.coerceAtLeast(0) ?: 0,
+            weeklyRankedRuns = weeklyRuns,
+        )
+    }
+
     private fun isBetterPerformance(
         score: Int,
         combo: Int,
@@ -433,6 +486,14 @@ data class RunPersonalBest(
     val perfectHits: Int,
     val completedAtEpochMillis: Long,
     val utcWeekKey: String,
+)
+
+data class WalletRunPersonalStats(
+    val weeklyBestScore: Int = 0,
+    val allTimeBestScore: Int = 0,
+    val bestCombo: Int = 0,
+    val perfectHitsAtBest: Int = 0,
+    val weeklyRankedRuns: Int = 0,
 )
 
 data class GameplayXpAward(

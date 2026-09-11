@@ -55,20 +55,21 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Shared ranked-attempt budget by connected wallet + UTC day. This closes
-    // the Phase 11B multi-device/reinstall loophole where Firebase Anonymous
-    // Auth produced a separate UID and therefore a second set of attempts.
+    // Shared competition budget by connected wallet + UTC day. Ranked attempts
+    // and capped gameplay XP follow the wallet across anonymous-auth UIDs/devices.
+    // This is prototype fairness state only, never SKR payout authority.
     match /runWalletDaily/{dayKey}/wallets/{walletAddress} {
       allow read: if true;
 
-      // Create allows 1..3 instead of exactly 1 so an existing Phase 11B
-      // per-UID counter can be safely migrated into the shared wallet record.
       allow create: if profileWalletAfterIs(walletAddress)
         && request.resource.data.walletAddress == walletAddress
         && request.resource.data.utcDayKey == dayKey
         && request.resource.data.attemptsUsed is int
-        && request.resource.data.attemptsUsed >= 1
+        && request.resource.data.attemptsUsed >= 0
         && request.resource.data.attemptsUsed <= 3
+        && request.resource.data.gameplayXpEarnedToday is int
+        && request.resource.data.gameplayXpEarnedToday >= 0
+        && request.resource.data.gameplayXpEarnedToday <= 300
         && request.resource.data.lastWriterUid == request.auth.uid
         && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
         && request.resource.data.payoutEligible == false;
@@ -77,8 +78,16 @@ service cloud.firestore {
         && request.resource.data.walletAddress == walletAddress
         && request.resource.data.utcDayKey == dayKey
         && request.resource.data.attemptsUsed is int
-        && request.resource.data.attemptsUsed == resource.data.attemptsUsed + 1
+        && request.resource.data.attemptsUsed >= resource.data.attemptsUsed
+        && request.resource.data.attemptsUsed <= resource.data.attemptsUsed + 1
         && request.resource.data.attemptsUsed <= 3
+        && request.resource.data.gameplayXpEarnedToday is int
+        && request.resource.data.gameplayXpEarnedToday >= resource.data.get("gameplayXpEarnedToday", 0)
+        && request.resource.data.gameplayXpEarnedToday <= 300
+        && (
+          request.resource.data.attemptsUsed == resource.data.attemptsUsed + 1
+          || request.resource.data.gameplayXpEarnedToday > resource.data.get("gameplayXpEarnedToday", 0)
+        )
         && request.resource.data.lastWriterUid == request.auth.uid
         && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
         && request.resource.data.payoutEligible == false;

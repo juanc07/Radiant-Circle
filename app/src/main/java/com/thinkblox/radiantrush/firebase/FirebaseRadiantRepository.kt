@@ -30,9 +30,11 @@ import com.thinkblox.radiantrush.logic.RunCompetitionMode
 import com.thinkblox.radiantrush.logic.RunLeaderboardCandidate
 import com.thinkblox.radiantrush.logic.RunPersonalBest
 import com.thinkblox.radiantrush.logic.WeeklyRunStats
+import com.thinkblox.radiantrush.logic.WalletRunPersonalStats
 import com.thinkblox.radiantrush.logic.RadiantGameRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.logic.RewardLoopRules
+import com.thinkblox.radiantrush.logic.SkrPassportRules
 import com.thinkblox.radiantrush.solana.SkrBalanceSnapshot
 import java.time.LocalDate
 import java.time.ZoneId
@@ -58,7 +60,7 @@ class FirebaseRadiantRepository(
         onState(
             PreviewContent.defaultState().copy(
                 firebaseStatus = FirebaseStatus.Loading,
-                lastMessage = "Starting Firebase anonymous sign-in…",
+                lastMessage = "Loading your progress…",
             ),
         )
 
@@ -68,7 +70,7 @@ class FirebaseRadiantRepository(
                 PreviewContent.defaultState().copy(
                     firebaseStatus = FirebaseStatus.NotConfigured,
                     todayKey = todayKey(),
-                    lastMessage = "Firebase is not configured yet. Add app/google-services.json to enable cloud sync.",
+                    lastMessage = "Cloud progress is unavailable.",
                 ),
             )
             return
@@ -113,8 +115,8 @@ class FirebaseRadiantRepository(
             proofFields = mapOf(
                 "cloudOnly" to true,
             ),
-            loadingMessage = "Saving daily Firebase check-in…",
-            successMessage = "Daily Firebase check-in saved.",
+            loadingMessage = "Saving today’s check-in…",
+            successMessage = "Checked in for today.",
             onState = onState,
         )
     }
@@ -131,7 +133,7 @@ class FirebaseRadiantRepository(
         }
 
         val session = currentFirebaseSession(onState) ?: return
-        onState(loadingState("Saving wallet identity to Firebase…"))
+        onState(loadingState("Saving wallet…"))
 
         val db = FirebaseFirestore.getInstance(session.app)
         val userRef = db.collection(USERS).document(session.uid)
@@ -207,7 +209,7 @@ class FirebaseRadiantRepository(
             )
         }
             .addOnSuccessListener {
-                loadOrCreateProfile(session.uid, onState, "Wallet connected and public address saved to Firebase.")
+                loadOrCreateProfile(session.uid, onState, "Wallet connected." )
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not save wallet connection: ${safeMessage(error)}")
@@ -312,7 +314,23 @@ class FirebaseRadiantRepository(
 
             val oldXp = userSnapshot.getLong("xp") ?: 0L
             val oldRushTickets = userSnapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()
-            val newRushTickets = oldRushTickets + if (firstScanToday) RadiantGameRules.QUEST_TICKET_REWARD else 0
+            val oldSkrCasualTickets = userSnapshot.getLong("skrCasualRushTickets") ?: 0L
+            val oldPerkGrantDate = userSnapshot.getString("skrPerkTicketGrantDate")
+            val oldPerkTicketsGranted = (userSnapshot.getLong("skrPerkTicketsGrantedToday") ?: 0L).toInt()
+            val perkTicketDelta = SkrPassportRules.dailyTicketGrantDelta(
+                targetDailyBonus = snapshot.dailyCasualTicketBonus,
+                grantDate = oldPerkGrantDate,
+                grantedToday = oldPerkTicketsGranted,
+                todayKey = today,
+            )
+            val totalPerkTicketsGrantedToday = if (oldPerkGrantDate == today) {
+                oldPerkTicketsGranted + perkTicketDelta
+            } else {
+                perkTicketDelta
+            }
+            val questTickets = if (firstScanToday) RadiantGameRules.QUEST_TICKET_REWARD else 0
+            val newRushTickets = oldRushTickets + questTickets
+            val newSkrCasualTickets = oldSkrCasualTickets + perkTicketDelta
             val oldStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: oldStreak
             val lastQuestDate = userSnapshot.getString("lastQuestDate")
@@ -321,19 +339,22 @@ class FirebaseRadiantRepository(
             val newLongestStreak = maxOf(longestStreak, newStreak)
             val newLevel = levelForXp(newXp)
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
-            val walletStatus = if (cleanWallet.isNotBlank()) "Wallet connected" else "Wallet not connected yet"
+            val walletStatus = "Wallet connected"
 
             transaction.set(
                 completedRef,
                 mapOf(
                     "questId" to QuestIds.SKR_HOLDER,
-                    "questTitle" to "Scan SKR Passport",
+                    "questTitle" to "Scan SKR Passport v2",
                     "date" to today,
                     "proofType" to "solana_mainnet_skr_balance_snapshot",
                     "walletAddress" to cleanWallet,
                     "walletAddressShort" to shortenAddress(cleanWallet),
                     "xpEarned" to savedQuestXp,
-                    "rushTicketsEarned" to if (firstScanToday) RadiantGameRules.QUEST_TICKET_REWARD else 0,
+                    "rushTicketsEarned" to questTickets,
+                    "skrPerkTicketsGrantedThisScan" to perkTicketDelta,
+                    "skrPerkTicketsGrantedToday" to totalPerkTicketsGrantedToday,
+                    "skrCasualTicketsOnly" to true,
                     "network" to snapshot.network,
                     "skrMint" to snapshot.mint,
                     "skrBalanceRaw" to snapshot.balanceRawAmount,
@@ -342,9 +363,36 @@ class FirebaseRadiantRepository(
                     "skrDecimals" to snapshot.decimals,
                     "skrTokenAccountCount" to snapshot.tokenAccountCount,
                     "skrTier" to snapshot.tierLabel,
+                    // Kept for backward compatibility with Phase 5 profile data.
+                    // Phase 11C UI no longer presents this as the primary perk.
                     "skrXpMultiplier" to snapshot.xpMultiplierLabel,
                     "skrXpMultiplierValue" to snapshot.xpMultiplierValue,
                     "hasSkr" to snapshot.hasSkr,
+                    "skrPassportVersion" to snapshot.passportVersion,
+                    "skrDailyBonusTickets" to snapshot.dailyCasualTicketBonus,
+                    "skrChestBonusXp" to snapshot.chestBonusXp,
+                    "skrChestBonusTickets" to snapshot.chestBonusTickets,
+                    "skrFrameLabel" to snapshot.frameLabel,
+                    "skrAuraLabel" to snapshot.auraLabel,
+                    "skrHolderCollectibleLabel" to snapshot.holderCollectibleLabel,
+                    "skrEligibleBalanceUi" to snapshot.eligibleSkrUiAmount,
+                    "skrEligibleBalanceDisplay" to snapshot.eligibleSkrDisplay,
+                    "skrStakedBalanceUi" to snapshot.stakedSkrUiAmount,
+                    "skrStakedBalanceDisplay" to snapshot.stakedSkrDisplay,
+                    "skrUnstakingBalanceUi" to snapshot.unstakingSkrUiAmount,
+                    "skrUnstakingBalanceDisplay" to snapshot.unstakingSkrDisplay,
+                    "skrStakedStatus" to snapshot.stakedSkrStatus,
+                    "skrStakedVerified" to snapshot.stakedSkrVerified,
+                    "skrStakeBoostActive" to snapshot.stakeBoostActive,
+                    "skrStakeBoostLabel" to snapshot.stakeBoostLabel,
+                    "skrUnstakingReady" to snapshot.unstakingReady,
+                    "skrUnstakeReadyAtClientMs" to snapshot.unstakeReadyAtClientMs,
+                    "skrStakingProgramId" to snapshot.stakingProgramId,
+                    "skrStakingAccountCount" to snapshot.stakingAccountCount,
+                    "skrStakingRpcSlot" to snapshot.stakingRpcSlot,
+                    "perkSource" to "client-observed-mainnet-liquid-plus-official-staking-read-only",
+                    "rankedScoreMultiplier" to 1.0,
+                    "rankedAttemptBonus" to 0,
                     "rpcSlot" to snapshot.rpcSlot,
                     "checkedAtClientMs" to snapshot.checkedAtClientMs,
                     "createdAt" to FieldValue.serverTimestamp(),
@@ -371,6 +419,31 @@ class FirebaseRadiantRepository(
                     "skrXpMultiplier" to snapshot.xpMultiplierLabel,
                     "skrXpMultiplierValue" to snapshot.xpMultiplierValue,
                     "hasSkr" to snapshot.hasSkr,
+                    "skrPassportVersion" to snapshot.passportVersion,
+                    "skrDailyBonusTickets" to snapshot.dailyCasualTicketBonus,
+                    "skrPerkTicketGrantDate" to today,
+                    "skrPerkTicketsGrantedToday" to totalPerkTicketsGrantedToday,
+                    "skrChestBonusXp" to snapshot.chestBonusXp,
+                    "skrChestBonusTickets" to snapshot.chestBonusTickets,
+                    "skrFrameLabel" to snapshot.frameLabel,
+                    "skrAuraLabel" to snapshot.auraLabel,
+                    "skrHolderCollectibleLabel" to snapshot.holderCollectibleLabel,
+                    "skrEligibleBalanceUi" to snapshot.eligibleSkrUiAmount,
+                    "skrEligibleBalanceDisplay" to snapshot.eligibleSkrDisplay,
+                    "skrStakedBalanceUi" to snapshot.stakedSkrUiAmount,
+                    "skrStakedBalanceDisplay" to snapshot.stakedSkrDisplay,
+                    "skrUnstakingBalanceUi" to snapshot.unstakingSkrUiAmount,
+                    "skrUnstakingBalanceDisplay" to snapshot.unstakingSkrDisplay,
+                    "skrStakedStatus" to snapshot.stakedSkrStatus,
+                    "skrStakedVerified" to snapshot.stakedSkrVerified,
+                    "skrStakeBoostActive" to snapshot.stakeBoostActive,
+                    "skrStakeBoostLabel" to snapshot.stakeBoostLabel,
+                    "skrUnstakingReady" to snapshot.unstakingReady,
+                    "skrUnstakeReadyAtClientMs" to snapshot.unstakeReadyAtClientMs,
+                    "skrStakingProgramId" to snapshot.stakingProgramId,
+                    "skrStakingAccountCount" to snapshot.stakingAccountCount,
+                    "skrStakingRpcSlot" to snapshot.stakingRpcSlot,
+                    "skrPerkSource" to "client-observed-mainnet-liquid-plus-official-staking-read-only",
                     "lastSkrCheckDate" to today,
                     "lastSkrCheckedAtClientMs" to snapshot.checkedAtClientMs,
                     "lastSkrRpcSlot" to snapshot.rpcSlot,
@@ -380,7 +453,8 @@ class FirebaseRadiantRepository(
                     "longestStreak" to newLongestStreak,
                     "lastQuestDate" to if (firstScanToday) today else lastQuestDate,
                     "rushTickets" to newRushTickets,
-                    "phase" to 10,
+                    "skrCasualRushTickets" to newSkrCasualTickets,
+                    "phase" to 11,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -400,21 +474,37 @@ class FirebaseRadiantRepository(
                     "skrBalanceUi" to snapshot.balanceUiAmount,
                     "skrXpMultiplier" to snapshot.xpMultiplierLabel,
                     "hasSkr" to snapshot.hasSkr,
+                    "skrPassportVersion" to snapshot.passportVersion,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
             )
+
+            perkTicketDelta
         }
-            .addOnSuccessListener {
-                val message = if (snapshot.hasSkr) {
-                    "SKR Passport scanned: ${snapshot.balanceDisplay} • ${snapshot.tierLabel} • ${snapshot.xpMultiplierLabel} boost."
+            .addOnSuccessListener { grantedPerkTickets ->
+                val perkLine = if (snapshot.hasSkr) {
+                    val grantText = if (grantedPerkTickets > 0) {
+                        "+$grantedPerkTickets holder casual ticket${if (grantedPerkTickets == 1) "" else "s"} granted today"
+                    } else {
+                        "today's holder tickets already granted"
+                    }
+                    buildString {
+                        append("${snapshot.tierLabel} • $grantText • chest +${snapshot.chestBonusXp} XP")
+                        if (snapshot.chestBonusTickets > 0) append(" +${snapshot.chestBonusTickets} ticket${if (snapshot.chestBonusTickets == 1) "" else "s"}")
+                        if (snapshot.stakeBoostActive) append(" • ${snapshot.stakeBoostLabel}")
+                    }
                 } else {
-                    "SKR Passport scanned: 0 SKR on mainnet. Explorer tier saved without faking a balance."
+                    "No SKR perks yet"
                 }
-                loadOrCreateProfile(session.uid, onState, message)
+                loadOrCreateProfile(
+                    session.uid,
+                    onState,
+                    "SKR Passport refreshed • ${snapshot.balanceDisplay} liquid • ${snapshot.stakedSkrDisplay} staked • $perkLine.",
+                )
             }
             .addOnFailureListener { error ->
-                loadOrCreateProfile(session.uid, onState, "Could not save SKR Passport scan: ${safeMessage(error)}")
+                loadOrCreateProfile(session.uid, onState, "Couldn't update SKR Passport. ${safeMessage(error)}")
             }
     }
 
@@ -440,11 +530,15 @@ class FirebaseRadiantRepository(
             val userSnapshot = transaction.get(userRef)
             val walletAddress = userSnapshot.getString("walletAddress")
             val walletConnected = !walletAddress.isNullOrBlank()
+            val dailyCheckInSnapshot = transaction.get(dailyCheckInRef)
+            val signedProofSnapshot = transaction.get(signedProofRef)
+            val memoProofSnapshot = transaction.get(memoProofRef)
+            val skrProofSnapshot = transaction.get(skrProofRef)
             val requiredProofsDone = walletConnected &&
-                transaction.get(dailyCheckInRef).exists() &&
-                transaction.get(signedProofRef).exists() &&
-                transaction.get(memoProofRef).exists() &&
-                transaction.get(skrProofRef).exists()
+                dailyCheckInSnapshot.exists() &&
+                signedProofSnapshot.exists() &&
+                memoProofSnapshot.exists() &&
+                skrProofSnapshot.exists()
 
             if (!requiredProofsDone) {
                 throw IllegalStateException("Complete every daily proof before opening the Radiant Chest.")
@@ -453,18 +547,25 @@ class FirebaseRadiantRepository(
             val oldXp = userSnapshot.getLong("xp") ?: 0L
             val oldChestXp = userSnapshot.getLong("totalChestXp") ?: 0L
             val oldRushTickets = userSnapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()
-            val newRushTickets = oldRushTickets + RadiantGameRules.CHEST_TICKET_REWARD
+            val oldSkrCasualTickets = userSnapshot.getLong("skrCasualRushTickets") ?: 0L
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
-            val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
-            val hasSkr = userSnapshot.getBoolean("hasSkr") ?: false
+            // Chest perks are sourced from TODAY'S completed SKR scan rather than a
+            // potentially stale profile mirror from an earlier day.
+            val skrTier = skrProofSnapshot.getString("skrTier")
+                ?: userSnapshot.getString("skrTier")
+                ?: "Explorer"
             val reward = RewardLoopRules.pickDailyChestReward(
                 todayKey = today,
                 userSeed = session.uid,
                 currentStreak = currentStreak.toInt(),
-                hasSkr = hasSkr,
+                skrTierLabel = skrTier,
+                skrBonusXp = (skrProofSnapshot.getLong("skrChestBonusXp") ?: 0L).toInt(),
+                skrBonusTickets = (skrProofSnapshot.getLong("skrChestBonusTickets") ?: 0L).toInt(),
             )
+            val newRushTickets = oldRushTickets + RadiantGameRules.CHEST_TICKET_REWARD
+            val newSkrCasualTickets = oldSkrCasualTickets + reward.skrBonusTickets
             val newXp = oldXp + reward.totalXp.toLong()
             val newLevel = levelForXp(newXp)
             val newChestXp = oldChestXp + reward.totalXp.toLong()
@@ -484,8 +585,13 @@ class FirebaseRadiantRepository(
                     "baseXp" to reward.baseXp,
                     "streakBonusXp" to reward.streakBonusXp,
                     "skrBonusXp" to reward.skrBonusXp,
+                    "skrBonusTickets" to reward.skrBonusTickets,
+                    "skrBonusTicketsCasualOnly" to true,
+                    "skrPerkTier" to reward.skrPerkTier,
+                    "skrPerkSource" to "today-mainnet-read-only-skr-passport-liquid-plus-staking",
                     "revealLine" to reward.revealLine,
                     "rushTicketsEarned" to RadiantGameRules.CHEST_TICKET_REWARD,
+                    "skrCasualRushTicketsEarned" to reward.skrBonusTickets,
                     "noStake" to true,
                     "noLoss" to true,
                     "createdAt" to FieldValue.serverTimestamp(),
@@ -510,9 +616,13 @@ class FirebaseRadiantRepository(
                     "lastChestRewardTitle" to reward.title,
                     "lastChestRewardRarity" to reward.rarity,
                     "lastChestRewardXp" to reward.totalXp,
+                    "lastChestSkrBonusXp" to reward.skrBonusXp,
+                    "lastChestSkrBonusTickets" to reward.skrBonusTickets,
+                    "lastChestRewardTickets" to RadiantGameRules.CHEST_TICKET_REWARD,
                     "totalChestXp" to newChestXp,
                     "rushTickets" to newRushTickets,
-                    "phase" to 10,
+                    "skrCasualRushTickets" to newSkrCasualTickets,
+                    "phase" to 11,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
                 SetOptions.merge(),
@@ -536,7 +646,7 @@ class FirebaseRadiantRepository(
             )
         }
             .addOnSuccessListener {
-                loadOrCreateProfile(session.uid, onState, "Daily Radiant Chest opened. Bonus XP saved to Firebase.")
+                loadOrCreateProfile(session.uid, onState, "Daily Radiant Chest opened!")
             }
             .addOnFailureListener { error ->
                 val message = if (error is DuplicateQuestException) {
@@ -600,8 +710,9 @@ class FirebaseRadiantRepository(
 
             val oldTickets = userSnapshot.getLong("rushTickets")
                 ?: RadiantGameRules.STARTER_TICKETS.toLong()
-            if (oldTickets < RadiantGameRules.RUN_TICKET_COST) {
-                throw IllegalStateException("No Rush Tickets left. Complete daily quests or tomorrow's chest to earn more.")
+            val oldSkrCasualTickets = userSnapshot.getLong("skrCasualRushTickets") ?: 0L
+            if (oldTickets + oldSkrCasualTickets < RadiantGameRules.RUN_TICKET_COST) {
+                throw IllegalStateException("No Rush Tickets left. Complete daily quests, scan SKR Passport, or open tomorrow's chest to earn more.")
             }
 
             val legacyAttemptsUsed = (userSnapshot.getLong("rankedAttemptsUsedToday") ?: 0L).toInt()
@@ -615,13 +726,37 @@ class FirebaseRadiantRepository(
                     legacyAttemptsUsed
                 },
                 completedAtEpochMillis = completedAtMs,
+                rankedEntryTicketAvailable = oldTickets >= RadiantGameRules.RUN_TICKET_COST,
             )
+            // Phase 11C.4: gameplay XP uses the same wallet/day scope as ranked
+            // attempts. Otherwise reinstalling or using a second phone would reset
+            // the 300 XP cap and My Stats would show device-local values. Existing
+            // per-UID fields remain a migration/fallback mirror.
+            val legacyGameplayXp = Phase11CompetitionRules.gameplayXpEarnedToday(
+                savedDayKey = userSnapshot.getString("gameplayXpDayKey"),
+                savedEarned = (userSnapshot.getLong("gameplayXpEarnedToday") ?: 0L).toInt(),
+                currentUtcDayKey = utcDayKey,
+            )
+            val sharedGameplayXp = if (walletDailySnapshot?.exists() == true &&
+                walletDailySnapshot.getString("utcDayKey") == utcDayKey
+            ) {
+                (walletDailySnapshot.getLong("gameplayXpEarnedToday") ?: 0L)
+                    .toInt()
+                    .coerceIn(0, Phase11CompetitionRules.DAILY_GAMEPLAY_XP_CAP)
+            } else {
+                0
+            }
+            val gameplayXpBefore = if (walletConnected) {
+                maxOf(sharedGameplayXp, legacyGameplayXp)
+            } else {
+                legacyGameplayXp
+            }
             val xpAward = Phase11CompetitionRules.cappedGameplayXp(
                 score = safeResult.score,
                 maxCombo = safeResult.maxCombo,
                 perfectHits = safeResult.perfectHits,
-                savedDayKey = userSnapshot.getString("gameplayXpDayKey"),
-                savedEarnedToday = (userSnapshot.getLong("gameplayXpEarnedToday") ?: 0L).toInt(),
+                savedDayKey = utcDayKey,
+                savedEarnedToday = gameplayXpBefore,
                 completedAtEpochMillis = completedAtMs,
             )
 
@@ -646,7 +781,14 @@ class FirebaseRadiantRepository(
             val oldBestScore = (userSnapshot.getLong("bestRunScore") ?: 0L).toInt()
             val newBestScore = maxOf(oldBestScore, safeResult.score)
             val newTotalRuns = oldRuns + 1
-            val newTickets = oldTickets - RadiantGameRules.RUN_TICKET_COST
+            // SKR holder tickets are casual-only by construction. A ranked run
+            // always consumes a standard Rush Ticket. Casual runs prefer an SKR
+            // casual ticket so holder perks can never buy extra ranked attempts.
+            val usedSkrCasualTicket = rankedDecision.mode == RunCompetitionMode.Casual &&
+                oldSkrCasualTickets >= RadiantGameRules.RUN_TICKET_COST
+            val newTickets = oldTickets - if (usedSkrCasualTicket) 0 else RadiantGameRules.RUN_TICKET_COST
+            val newSkrCasualTickets = oldSkrCasualTickets -
+                if (usedSkrCasualTicket) RadiantGameRules.RUN_TICKET_COST else 0
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
@@ -704,6 +846,8 @@ class FirebaseRadiantRepository(
                         userSnapshot.getString("walletStatus") ?: "Wallet not connected yet"
                     },
                     "rushTickets" to newTickets,
+                    "skrCasualRushTickets" to newSkrCasualTickets,
+                    "lastRunTicketType" to if (usedSkrCasualTicket) "SKR_CASUAL" else "STANDARD",
                     "xp" to newXp,
                     "level" to newLevel,
                     "bestRunScore" to newBestScore,
@@ -765,8 +909,12 @@ class FirebaseRadiantRepository(
             // so using the same wallet on another phone/reinstall cannot create a
             // second set of ranked attempts. Existing Phase 11B per-UID counters
             // are migrated into this shared document the next time a run is saved.
-            if (walletDailyRef != null &&
-                (rankedDecision.mode == RunCompetitionMode.Ranked || walletDailySnapshot?.exists() != true)
+            val walletXpNeedsSync = xpAward.earnedAfter > sharedGameplayXp
+            if (walletDailyRef != null && (
+                    rankedDecision.mode == RunCompetitionMode.Ranked ||
+                        walletDailySnapshot?.exists() != true ||
+                        walletXpNeedsSync
+                    )
             ) {
                 transaction.set(
                     walletDailyRef,
@@ -775,6 +923,7 @@ class FirebaseRadiantRepository(
                         "walletAddressShort" to shortenAddress(walletAddress),
                         "utcDayKey" to utcDayKey,
                         "attemptsUsed" to rankedDecision.rankedAttemptsUsedAfter,
+                        "gameplayXpEarnedToday" to xpAward.earnedAfter,
                         "lastWriterUid" to session.uid,
                         "scoreAuthority" to "client-reported-prototype-not-payout-authority",
                         "payoutEligible" to false,
@@ -879,7 +1028,7 @@ class FirebaseRadiantRepository(
             )
         }
             .addOnSuccessListener {
-                loadOrCreateProfile(session.uid, onState, "Wallet disconnected locally and Firebase profile updated.")
+                loadOrCreateProfile(session.uid, onState, "Wallet disconnected.")
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not clear wallet connection: ${safeMessage(error)}")
@@ -997,7 +1146,7 @@ class FirebaseRadiantRepository(
     private fun loadOrCreateProfile(
         uid: String,
         onState: (RushUiState) -> Unit,
-        message: String? = "Firebase profile loaded.",
+        message: String? = "Profile ready.",
     ) {
         val app = ensureFirebaseApp()
         if (app == null) {
@@ -1005,7 +1154,7 @@ class FirebaseRadiantRepository(
                 PreviewContent.defaultState().copy(
                     firebaseStatus = FirebaseStatus.NotConfigured,
                     todayKey = todayKey(),
-                    lastMessage = "Firebase is not configured yet.",
+                    lastMessage = "Cloud progress is unavailable.",
                 ),
             )
             return
@@ -1025,18 +1174,35 @@ class FirebaseRadiantRepository(
                         "walletAddressShort" to null,
                         "walletStatus" to "Wallet not connected yet",
                         "skrTier" to "Explorer",
+                        "skrPassportVersion" to 2L,
+                        "skrDailyBonusTickets" to 0L,
+                        "skrPerkTicketsGrantedToday" to 0L,
+                        "skrChestBonusXp" to 0L,
+                        "skrChestBonusTickets" to 0L,
+                        "skrFrameLabel" to "Explorer Frame",
+                        "skrAuraLabel" to "No holder aura",
+                        "skrHolderCollectibleLabel" to "No holder collectible",
+                        "skrEligibleBalanceDisplay" to "Not checked",
+                        "skrStakedBalanceDisplay" to "Not checked",
+                        "skrUnstakingBalanceDisplay" to "0 SKR",
+                        "skrStakedStatus" to SkrPassportRules.STAKED_STATUS_NOT_VERIFIED,
+                        "skrStakedVerified" to false,
+                        "skrStakeBoostActive" to false,
+                        "skrStakeBoostLabel" to "Stake Boost inactive",
+                        "skrUnstakingReady" to false,
                         "xp" to 0L,
                         "level" to 1L,
                         "currentStreak" to 0L,
                         "longestStreak" to 0L,
                         "totalChestXp" to 0L,
                         "rushTickets" to RadiantGameRules.STARTER_TICKETS.toLong(),
+                        "skrCasualRushTickets" to 0L,
                         "bestRunScore" to 0L,
                         "totalRuns" to 0L,
                         "radiantShards" to 0L,
                         "radiantCollection" to emptyMap<String, Long>(),
                         "collectionOwned" to 0L,
-                        "phase" to 10,
+                        "phase" to 11,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp(),
                     )
@@ -1045,19 +1211,19 @@ class FirebaseRadiantRepository(
                         .addOnSuccessListener {
                             userRef.get()
                                 .addOnSuccessListener { createdSnapshot ->
-                                    loadCompletedAndLeaderboard(db, uid, createdSnapshot, onState, "Firebase profile created.")
+                                    loadCompletedAndLeaderboard(db, uid, createdSnapshot, onState, "Profile ready.")
                                 }
                                 .addOnFailureListener { error ->
-                                    onState(errorState("Could not read created Firebase profile: ${safeMessage(error)}"))
+                                    onState(errorState("Could not load your profile."))
                                 }
                         }
                         .addOnFailureListener { error ->
-                            onState(errorState("Could not create Firebase profile: ${safeMessage(error)}"))
+                            onState(errorState("Could not create your profile."))
                         }
                 }
             }
             .addOnFailureListener { error ->
-                onState(errorState("Could not read Firebase profile: ${safeMessage(error)}"))
+                onState(errorState("Could not load your profile."))
             }
     }
 
@@ -1138,6 +1304,7 @@ class FirebaseRadiantRepository(
                         val collection = RadiantGameRules.collectionPreview(collectionCounts(userSnapshot))
                         val radiantRun = RadiantRunPreview(
                             rushTickets = user.rushTickets,
+                            skrCasualRushTickets = user.skrCasualRushTickets,
                             bestScore = user.bestRunScore,
                             totalRuns = user.totalRuns,
                             lastScore = user.lastRunScore,
@@ -1232,21 +1399,30 @@ class FirebaseRadiantRepository(
             savedAttemptsUsed = (userSnapshot.getLong("rankedAttemptsUsedToday") ?: 0L).toInt(),
             currentUtcDayKey = currentDay,
         )
-        val gameplayXp = Phase11CompetitionRules.gameplayXpEarnedToday(
+        val legacyGameplayXp = Phase11CompetitionRules.gameplayXpEarnedToday(
             savedDayKey = userSnapshot.getString("gameplayXpDayKey"),
             savedEarned = (userSnapshot.getLong("gameplayXpEarnedToday") ?: 0L).toInt(),
             currentUtcDayKey = currentDay,
         )
         val profileWeek = userSnapshot.getString("runWeeklyKey")
-        val personalWeeklyScore = if (profileWeek == currentWeek) {
+        val fallbackWeeklyScore = if (profileWeek == currentWeek) {
             (userSnapshot.getLong("runWeeklyBestScore") ?: 0L).toInt()
         } else 0
-        val personalWeeklyRuns = if (profileWeek == currentWeek) {
+        val fallbackWeeklyRuns = if (profileWeek == currentWeek) {
             (userSnapshot.getLong("runWeeklyRunsPlayed") ?: 0L).toInt()
         } else 0
+        val fallbackPersonal = WalletRunPersonalStats(
+            weeklyBestScore = fallbackWeeklyScore,
+            allTimeBestScore = (userSnapshot.getLong("runAllTimeBestScore") ?: 0L).toInt(),
+            bestCombo = (userSnapshot.getLong("runAllTimeBestCombo") ?: 0L).toInt(),
+            perfectHitsAtBest = (userSnapshot.getLong("runAllTimePerfectHits") ?: 0L).toInt(),
+            weeklyRankedRuns = fallbackWeeklyRuns,
+        )
 
         fun build(
             attemptsUsed: Int,
+            gameplayXpEarned: Int,
+            personal: WalletRunPersonalStats = fallbackPersonal,
             weeklyRows: List<RunLeaderboardPreview> = emptyList(),
             allTimeRows: List<RunLeaderboardPreview> = emptyList(),
         ) = RunCompetitionPreview(
@@ -1257,13 +1433,13 @@ class FirebaseRadiantRepository(
             rankedAttemptsRemaining = if (walletConnected) {
                 (Phase11CompetitionRules.DAILY_RANKED_ATTEMPTS - attemptsUsed).coerceAtLeast(0)
             } else 0,
-            dailyGameplayXpEarned = gameplayXp,
+            dailyGameplayXpEarned = gameplayXpEarned,
             dailyGameplayXpCap = Phase11CompetitionRules.DAILY_GAMEPLAY_XP_CAP,
-            personalWeeklyBestScore = personalWeeklyScore,
-            personalAllTimeBestScore = (userSnapshot.getLong("runAllTimeBestScore") ?: 0L).toInt(),
-            personalBestCombo = (userSnapshot.getLong("runAllTimeBestCombo") ?: 0L).toInt(),
-            personalPerfectHits = (userSnapshot.getLong("runAllTimePerfectHits") ?: 0L).toInt(),
-            personalWeeklyRuns = personalWeeklyRuns,
+            personalWeeklyBestScore = personal.weeklyBestScore,
+            personalAllTimeBestScore = personal.allTimeBestScore,
+            personalBestCombo = personal.bestCombo,
+            personalPerfectHits = personal.perfectHitsAtBest,
+            personalWeeklyRuns = personal.weeklyRankedRuns,
             lastRunMode = userSnapshot.getString("lastRunCompetitionMode"),
             lastRunPerformanceXp = (userSnapshot.getLong("lastRunPerformanceXp") ?: 0L).toInt(),
         )
@@ -1274,7 +1450,64 @@ class FirebaseRadiantRepository(
                 .joinToString(" ")
                 .takeIf { it.isNotBlank() }
 
-        fun loadBoards(attemptsUsed: Int, attemptWarning: String? = null) {
+        fun loadPersonalWalletStats(
+            onDone: (WalletRunPersonalStats, String?) -> Unit,
+        ) {
+            if (!walletConnected || walletAddress == null) {
+                onDone(fallbackPersonal, null)
+                return
+            }
+
+            db.collection(RUN_WEEKLY)
+                .document(currentWeek)
+                .collection(RUN_ENTRIES)
+                .whereEqualTo("walletAddress", walletAddress)
+                .get()
+                .addOnSuccessListener { weeklyPersonalQuery ->
+                    val weeklyCandidates = weeklyPersonalQuery.documents.map(::runCandidateFromDocument)
+                    db.collection(RUN_ALL_TIME)
+                        .whereEqualTo("walletAddress", walletAddress)
+                        .get()
+                        .addOnSuccessListener { allTimePersonalQuery ->
+                            val walletStats = Phase11CompetitionRules.walletPersonalStats(
+                                walletAddress = walletAddress,
+                                weeklyCandidates = weeklyCandidates,
+                                allTimeCandidates = allTimePersonalQuery.documents.map(::runCandidateFromDocument),
+                            )
+                            // Prefer wallet-scoped rows when present, but retain the
+                            // per-UID mirror as migration fallback for older installs.
+                            val allTimeSource = if (
+                                walletStats.allTimeBestScore >= fallbackPersonal.allTimeBestScore
+                            ) {
+                                walletStats
+                            } else {
+                                fallbackPersonal
+                            }
+                            onDone(
+                                WalletRunPersonalStats(
+                                    weeklyBestScore = maxOf(walletStats.weeklyBestScore, fallbackPersonal.weeklyBestScore),
+                                    allTimeBestScore = allTimeSource.allTimeBestScore,
+                                    bestCombo = allTimeSource.bestCombo,
+                                    perfectHitsAtBest = allTimeSource.perfectHitsAtBest,
+                                    weeklyRankedRuns = maxOf(walletStats.weeklyRankedRuns, fallbackPersonal.weeklyRankedRuns),
+                                ),
+                                null,
+                            )
+                        }
+                        .addOnFailureListener {
+                            onDone(fallbackPersonal, "Personal Run stats are temporarily unavailable.")
+                        }
+                }
+                .addOnFailureListener {
+                    onDone(fallbackPersonal, "Personal Run stats are temporarily unavailable.")
+                }
+        }
+
+        fun loadBoards(
+            attemptsUsed: Int,
+            gameplayXpEarned: Int,
+            attemptWarning: String? = null,
+        ) {
             db.collection(RUN_WEEKLY)
                 .document(currentWeek)
                 .collection(RUN_ENTRIES)
@@ -1282,49 +1515,65 @@ class FirebaseRadiantRepository(
                 .limit(100)
                 .get()
                 .addOnSuccessListener { weeklyQuery ->
-                    val weeklyCandidates = weeklyQuery.documents.map(::runCandidateFromDocument)
-                    val weeklyRows = runRows(weeklyCandidates)
+                    val weeklyRows = runRows(weeklyQuery.documents.map(::runCandidateFromDocument))
 
                     db.collection(RUN_ALL_TIME)
                         .orderBy("score", Query.Direction.DESCENDING)
                         .limit(100)
                         .get()
                         .addOnSuccessListener { allTimeQuery ->
-                            val allTimeCandidates = allTimeQuery.documents.map(::runCandidateFromDocument)
-                            onLoaded(
-                                build(
-                                    attemptsUsed = attemptsUsed,
-                                    weeklyRows = weeklyRows,
-                                    allTimeRows = runRows(allTimeCandidates),
-                                ),
-                                attemptWarning,
-                            )
+                            val allTimeRows = runRows(allTimeQuery.documents.map(::runCandidateFromDocument))
+                            loadPersonalWalletStats { personal, personalWarning ->
+                                onLoaded(
+                                    build(
+                                        attemptsUsed = attemptsUsed,
+                                        gameplayXpEarned = gameplayXpEarned,
+                                        personal = personal,
+                                        weeklyRows = weeklyRows,
+                                        allTimeRows = allTimeRows,
+                                    ),
+                                    mergeWarnings(attemptWarning, personalWarning),
+                                )
+                            }
                         }
-                        .addOnFailureListener { error ->
-                            onLoaded(
-                                build(attemptsUsed = attemptsUsed, weeklyRows = weeklyRows),
-                                mergeWarnings(
-                                    attemptWarning,
-                                    "All-Time Run ranks are unavailable until the Phase 11 Firestore rules are deployed: ${safeMessage(error)}",
-                                ),
-                            )
+                        .addOnFailureListener {
+                            loadPersonalWalletStats { personal, personalWarning ->
+                                onLoaded(
+                                    build(
+                                        attemptsUsed = attemptsUsed,
+                                        gameplayXpEarned = gameplayXpEarned,
+                                        personal = personal,
+                                        weeklyRows = weeklyRows,
+                                    ),
+                                    mergeWarnings(
+                                        attemptWarning,
+                                        personalWarning,
+                                        "All-Time Run ranks are temporarily unavailable.",
+                                    ),
+                                )
+                            }
                         }
                 }
-                .addOnFailureListener { error ->
-                    onLoaded(
-                        build(attemptsUsed = attemptsUsed),
-                        mergeWarnings(
-                            attemptWarning,
-                            "Radiant Run ranks are unavailable until the Phase 11 Firestore rules are deployed: ${safeMessage(error)}",
-                        ),
-                    )
+                .addOnFailureListener {
+                    loadPersonalWalletStats { personal, personalWarning ->
+                        onLoaded(
+                            build(
+                                attemptsUsed = attemptsUsed,
+                                gameplayXpEarned = gameplayXpEarned,
+                                personal = personal,
+                            ),
+                            mergeWarnings(
+                                attemptWarning,
+                                personalWarning,
+                                "Radiant Run ranks are temporarily unavailable.",
+                            ),
+                        )
+                    }
                 }
         }
 
-        // Phase 11B.1: the ranked-attempt counter is wallet/day scoped so the
-        // same Solana wallet receives one shared allowance across multiple
-        // Firebase anonymous UIDs/devices. Fall back to the Phase 11B per-UID
-        // counter only while the shared document has not been created yet.
+        // Wallet/day state is shared across installs so My Stats does not reset
+        // when the same Solana wallet is used on another phone or after a reinstall.
         if (walletConnected && walletAddress != null) {
             db.collection(RUN_WALLET_DAILY)
                 .document(currentDay)
@@ -1339,16 +1588,30 @@ class FirebaseRadiantRepository(
                     } else {
                         legacyAttemptsUsed
                     }
-                    loadBoards(attemptsUsed)
+                    val sharedGameplayXp = if (walletDaily.exists()) {
+                        (walletDaily.getLong("gameplayXpEarnedToday") ?: 0L)
+                            .toInt()
+                            .coerceIn(0, Phase11CompetitionRules.DAILY_GAMEPLAY_XP_CAP)
+                    } else {
+                        0
+                    }
+                    loadBoards(
+                        attemptsUsed = attemptsUsed,
+                        gameplayXpEarned = maxOf(sharedGameplayXp, legacyGameplayXp),
+                    )
                 }
                 .addOnFailureListener { error ->
                     loadBoards(
                         attemptsUsed = legacyAttemptsUsed,
-                        attemptWarning = "Shared wallet ranked-attempt status could not be refreshed: ${safeMessage(error)}",
+                        gameplayXpEarned = legacyGameplayXp,
+                        attemptWarning = "Ranked-run status could not be refreshed: ${safeMessage(error)}",
                     )
                 }
         } else {
-            loadBoards(attemptsUsed = 0)
+            loadBoards(
+                attemptsUsed = 0,
+                gameplayXpEarned = legacyGameplayXp,
+            )
         }
     }
 
@@ -1387,7 +1650,7 @@ class FirebaseRadiantRepository(
                 PreviewContent.defaultState().copy(
                     firebaseStatus = FirebaseStatus.NotConfigured,
                     todayKey = todayKey(),
-                    lastMessage = "Firebase is not configured yet. Add app/google-services.json before saving progress.",
+                    lastMessage = "Cloud progress is unavailable.",
                 ),
             )
             return null
@@ -1438,7 +1701,7 @@ class FirebaseRadiantRepository(
         return UserPreview(
             displayName = snapshot.getString("displayName") ?: "Radiant Rookie",
             walletStatus = walletStatus,
-            walletAddress = walletAddress ?: "Firebase uid: $uidShort • tap Connect Wallet to authorize with MWA",
+            walletAddress = walletAddress ?: "Connect your Solana wallet",
             skrTier = snapshot.getString("skrTier") ?: "Explorer",
             xp = (snapshot.getLong("xp") ?: 0L).toInt(),
             level = (snapshot.getLong("level") ?: 1L).toInt(),
@@ -1452,12 +1715,37 @@ class FirebaseRadiantRepository(
             skrMint = snapshot.getString("skrMint") ?: "SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3",
             lastSkrChecked = snapshot.getString("lastSkrCheckDate"),
             hasSkr = snapshot.getBoolean("hasSkr") ?: false,
+            skrPassportVersion = (snapshot.getLong("skrPassportVersion") ?: 2L).toInt(),
+            skrDailyBonusTickets = (snapshot.getLong("skrDailyBonusTickets") ?: 0L).toInt(),
+            skrDailyBonusTicketsGrantedToday = if (snapshot.getString("skrPerkTicketGrantDate") == todayKey()) {
+                (snapshot.getLong("skrPerkTicketsGrantedToday") ?: 0L).toInt()
+            } else {
+                0
+            },
+            skrChestBonusXp = (snapshot.getLong("skrChestBonusXp") ?: 0L).toInt(),
+            skrChestBonusTickets = (snapshot.getLong("skrChestBonusTickets") ?: 0L).toInt(),
+            skrFrameLabel = snapshot.getString("skrFrameLabel") ?: "Explorer Frame",
+            skrAuraLabel = snapshot.getString("skrAuraLabel") ?: "No holder aura",
+            skrHolderCollectibleLabel = snapshot.getString("skrHolderCollectibleLabel") ?: "No holder collectible",
+            skrEligibleBalance = snapshot.getString("skrEligibleBalanceDisplay") ?: snapshot.getString("skrBalanceDisplay") ?: "Not checked",
+            skrStakedBalance = snapshot.getString("skrStakedBalanceDisplay") ?: "Not checked",
+            skrUnstakingBalance = snapshot.getString("skrUnstakingBalanceDisplay") ?: "0 SKR",
+            skrStakedStatus = snapshot.getString("skrStakedStatus") ?: SkrPassportRules.STAKED_STATUS_NOT_VERIFIED,
+            skrStakedVerified = snapshot.getBoolean("skrStakedVerified") ?: false,
+            skrStakeBoostActive = snapshot.getBoolean("skrStakeBoostActive") ?: false,
+            skrStakeBoostLabel = snapshot.getString("skrStakeBoostLabel") ?: "Stake Boost inactive",
+            skrUnstakingReady = snapshot.getBoolean("skrUnstakingReady") ?: false,
+            skrStakingProgramId = snapshot.getString("skrStakingProgramId") ?: "SKRskrmtL83pcL4YqLWt6iPefDqwXQWHSw9S9vz94BZ",
             lastChestClaimDate = snapshot.getString("lastChestClaimDate"),
             lastChestRewardTitle = snapshot.getString("lastChestRewardTitle"),
             lastChestRewardRarity = snapshot.getString("lastChestRewardRarity"),
             lastChestRewardXp = (snapshot.getLong("lastChestRewardXp") ?: 0L).toInt(),
+            lastChestRewardTickets = (snapshot.getLong("lastChestRewardTickets") ?: 0L).toInt(),
+            lastChestSkrBonusXp = (snapshot.getLong("lastChestSkrBonusXp") ?: 0L).toInt(),
+            lastChestSkrBonusTickets = (snapshot.getLong("lastChestSkrBonusTickets") ?: 0L).toInt(),
             totalChestXp = (snapshot.getLong("totalChestXp") ?: 0L).toInt(),
             rushTickets = (snapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()).toInt(),
+            skrCasualRushTickets = (snapshot.getLong("skrCasualRushTickets") ?: 0L).toInt(),
             bestRunScore = (snapshot.getLong("bestRunScore") ?: 0L).toInt(),
             totalRuns = (snapshot.getLong("totalRuns") ?: 0L).toInt(),
             lastRunScore = (snapshot.getLong("lastRunScore") ?: 0L).toInt(),
@@ -1481,14 +1769,14 @@ class FirebaseRadiantRepository(
     )
 
     private fun badgeState(user: UserPreview, completedIds: Set<String>): List<BadgePreview> = listOf(
-        BadgePreview("First Launch", "Open the native Android app shell.", unlocked = true),
-        BadgePreview("Cloud Synced", "Create a Firebase profile and save progress.", unlocked = true),
-        BadgePreview("Daily Saver", "Save the daily Firebase check-in.", unlocked = completedIds.contains(QuestIds.DAILY_CHECK_IN)),
-        BadgePreview("Wallet Ready", "Connect with Mobile Wallet Adapter.", unlocked = user.walletStatus == "Wallet connected"),
+        BadgePreview("First Launch", "Start Radiant Rush.", unlocked = true),
+        BadgePreview("Daily Ready", "Your progress is ready.", unlocked = true),
+        BadgePreview("Daily Saver", "Finish today’s check-in.", unlocked = completedIds.contains(QuestIds.DAILY_CHECK_IN)),
+        BadgePreview("Wallet Ready", "Connect your Solana wallet.", unlocked = user.walletStatus == "Wallet connected"),
         BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = completedIds.contains(QuestIds.SIGN_DAILY_PROOF)),
         BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = completedIds.contains(QuestIds.ON_CHAIN_PROOF)),
-        BadgePreview("SKR Radiant", "Hold real mainnet SKR and unlock boosted status.", unlocked = user.hasSkr),
-        BadgePreview("Radiant Chest", "Open the daily no-loss chest after completing all proof quests.", unlocked = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)),
+        BadgePreview("SKR Radiant", "Unlock SKR Passport perks.", unlocked = user.hasSkr),
+        BadgePreview("Radiant Chest", "Open your Daily Radiant Chest.", unlocked = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)),
         BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = user.totalRuns > 0),
         BadgePreview("Combo Pilot", "Reach a 10-hit combo in Radiant Run.", unlocked = user.lastRunMaxCombo >= 10),
         BadgePreview("Collector", "Discover three Radiant collectibles.", unlocked = user.collectionOwned >= 3),
@@ -1506,9 +1794,13 @@ class FirebaseRadiantRepository(
         return when {
             chestClaimedToday -> RadiantChestPreview(
                 status = RadiantChestStatus.Claimed,
-                subtitle = "Reward claimed today. Come back tomorrow for another proof run.",
+                subtitle = "Claimed for today. Come back tomorrow for another chest.",
                 progressText = progressText,
-                rewardText = "${user.lastChestRewardRarity ?: "Reward"}: ${user.lastChestRewardTitle ?: "Daily bonus"} • +${user.lastChestRewardXp} XP",
+                rewardText = buildString {
+                    append("${user.lastChestRewardRarity ?: "Reward"}: ${user.lastChestRewardTitle ?: "Daily bonus"} • +${user.lastChestRewardXp} XP")
+                    if (user.lastChestRewardTickets > 0) append(" • +${user.lastChestRewardTickets} standard")
+                    if (user.lastChestSkrBonusTickets > 0) append(" • +${user.lastChestSkrBonusTickets} SKR casual")
+                },
                 buttonLabel = "Claimed Today",
                 lastRewardRarity = user.lastChestRewardRarity,
                 lastRewardTitle = user.lastChestRewardTitle,
@@ -1516,16 +1808,21 @@ class FirebaseRadiantRepository(
             )
             chestReady -> RadiantChestPreview(
                 status = RadiantChestStatus.Ready,
-                subtitle = "All proofs are done. Open a no-loss chest reveal for bonus XP.",
+                subtitle = "Ready! Open your chest for today’s reward.",
                 progressText = progressText,
-                rewardText = if (user.hasSkr) "SKR holder boost included in chest reward." else "No stake. No XP loss. Just a daily reward reveal.",
+                rewardText = if (user.hasSkr) {
+                    "${user.skrTier} chest: +${user.skrChestBonusXp} XP" +
+                        if (user.skrChestBonusTickets > 0) " • +${user.skrChestBonusTickets} SKR casual ticket${if (user.skrChestBonusTickets == 1) "" else "s"}" else ""
+                } else {
+                    "Standard chest ready"
+                },
                 buttonLabel = "Open Chest",
             )
             else -> RadiantChestPreview(
                 status = RadiantChestStatus.Locked,
-                subtitle = "Complete all daily proof quests to unlock today’s chest.",
+                subtitle = "Complete today’s quests to unlock your chest.",
                 progressText = progressText,
-                rewardText = "Needs every proof: cloud, wallet, signature, memo, and SKR scan.",
+                rewardText = "Finish all daily quests to unlock",
                 buttonLabel = "Locked",
             )
         }

@@ -53,6 +53,7 @@ import com.thinkblox.radiantrush.ui.screens.QuestsScreen
 import com.thinkblox.radiantrush.ui.screens.RadiantRunScreen
 import com.thinkblox.radiantrush.ui.screens.WelcomeScreen
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -67,7 +68,10 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
     var appState by remember { mutableStateOf(PreviewContent.defaultState()) }
     var enteredShell by rememberSaveable { mutableStateOf(false) }
-    var showRadiantRun by rememberSaveable { mutableStateOf(false) }
+    // Radiant Run owns transient in-memory gameplay state. Do not restore the run route
+    // across Activity recreation/process restoration; restoring only the route can reopen a
+    // half-reset run and also makes device tests depend on whatever screen was previously open.
+    var showRadiantRun by remember { mutableStateOf(false) }
 
     fun questsWithStatus(questId: String, status: QuestStatus): List<QuestPreview> =
         appState.quests.map { quest ->
@@ -158,7 +162,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
     fun refreshFirebase() {
         if (appState.walletActionInProgress) {
-            appState = appState.copy(lastMessage = "Wait for the current quest action to finish before refreshing Firebase.")
+            appState = appState.copy(lastMessage = "Please wait for the current action to finish.")
             return
         }
         repository.bootstrap { nextState ->
@@ -171,12 +175,12 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             appState = appState.copy(lastMessage = "Wallet is already connected.")
             return
         }
-        if (!beginQuestAction(QuestIds.WALLET_CONNECT, "Opening Phantom or another MWA wallet. Approve the connection once.")) return
+        if (!beginQuestAction(QuestIds.WALLET_CONNECT, "Opening your wallet…")) return
 
         scope.launch {
             when (val result = walletRepository.connectWallet()) {
                 is WalletConnectResult.Connected -> {
-                    appState = appState.copy(lastMessage = "Wallet approved. Saving public address to Firebase…")
+                    appState = appState.copy(lastMessage = "Wallet connected.")
                     repository.saveWalletConnection(
                         publicKey = result.publicKey,
                         accountLabel = result.accountLabel,
@@ -187,7 +191,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                 WalletConnectResult.NoWalletFound -> {
                     failQuestAction(
                         questId = QuestIds.WALLET_CONNECT,
-                        message = "No MWA-compatible wallet found. Install Phantom or another Solana Mobile compatible wallet on this Android device.",
+                        message = "No compatible Solana wallet was found on this device.",
                     )
                 }
                 is WalletConnectResult.Failure -> {
@@ -202,7 +206,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
     fun disconnectWallet() {
         if (appState.walletActionInProgress) {
-            appState = appState.copy(lastMessage = "Wait for the current quest action to finish before disconnecting.")
+            appState = appState.copy(lastMessage = "Please wait for the current action to finish.")
             return
         }
         appState = appState.copy(
@@ -223,7 +227,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                         appState = nextState.copy(
                             walletActionInProgress = false,
                             activeQuestId = null,
-                            lastMessage = "Wallet app was not found, but local Firebase wallet state was cleared.",
+                            lastMessage = "Wallet disconnected from Radiant Rush.",
                         )
                     }
                 }
@@ -239,7 +243,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
 
     fun saveDailyCheckIn(quest: QuestPreview) {
-        if (!beginQuestAction(QuestIds.DAILY_CHECK_IN, "Saving today’s Firebase check-in. Please wait for Done.")) return
+        if (!beginQuestAction(QuestIds.DAILY_CHECK_IN, "Checking in…")) return
         repository.completeDailyFirebaseCheckIn(quest) { nextState ->
             applyRepositoryState(nextState, QuestIds.DAILY_CHECK_IN)
         }
@@ -250,12 +254,12 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             appState = appState.copy(lastMessage = "Connect a Solana wallet before signing the daily proof.")
             return
         }
-        if (!beginQuestAction(QuestIds.SIGN_DAILY_PROOF, "Opening Phantom for message signature. Wait for the approval screen.")) return
+        if (!beginQuestAction(QuestIds.SIGN_DAILY_PROOF, "Opening your wallet to sign today’s challenge…")) return
 
         scope.launch {
             when (val result = walletRepository.signDailyProof(appState.todayKey)) {
                 is WalletSignedProofResult.Signed -> {
-                    appState = appState.copy(lastMessage = "Wallet signed today’s proof. Saving signature to Firebase…")
+                    appState = appState.copy(lastMessage = "Daily proof signed.")
                     markQuestStatus(QuestIds.SIGN_DAILY_PROOF, QuestStatus.Syncing)
                     repository.saveDailySignedProof(
                         walletAddress = result.walletAddress,
@@ -268,7 +272,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                 WalletSignedProofResult.NoWalletFound -> {
                     failQuestAction(
                         questId = QuestIds.SIGN_DAILY_PROOF,
-                        message = "No MWA-compatible wallet found for message signing.",
+                        message = "No compatible Solana wallet was found for signing.",
                     )
                 }
                 is WalletSignedProofResult.Failure -> {
@@ -286,12 +290,12 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             appState = appState.copy(lastMessage = "Connect a Solana wallet before submitting an on-chain memo proof.")
             return
         }
-        if (!beginQuestAction(QuestIds.ON_CHAIN_PROOF, "Preparing devnet memo, then opening Phantom for transaction approval.")) return
+        if (!beginQuestAction(QuestIds.ON_CHAIN_PROOF, "Opening your wallet for today’s memo quest…")) return
 
         scope.launch {
             when (val result = walletRepository.sendDailyMemoProof(appState.todayKey)) {
                 is WalletMemoProofResult.Submitted -> {
-                    appState = appState.copy(lastMessage = "Wallet submitted the memo. Saving transaction proof to Firebase…")
+                    appState = appState.copy(lastMessage = "Memo quest submitted.")
                     markQuestStatus(QuestIds.ON_CHAIN_PROOF, QuestStatus.Syncing)
                     repository.saveDailyMemoProof(
                         walletAddress = result.walletAddress,
@@ -305,13 +309,13 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                 WalletMemoProofResult.NoWalletFound -> {
                     failQuestAction(
                         questId = QuestIds.ON_CHAIN_PROOF,
-                        message = "No MWA-compatible wallet found for memo transaction.",
+                        message = "No compatible Solana wallet was found for the memo quest.",
                     )
                 }
                 is WalletMemoProofResult.Failure -> {
                     failQuestAction(
                         questId = QuestIds.ON_CHAIN_PROOF,
-                        message = "Memo transaction failed: ${result.message}. Keep Phantom on Devnet and make sure the wallet has devnet SOL for fees.",
+                        message = "Memo couldn’t be submitted. Check your wallet, make sure it has test SOL for the network fee, and try again.",
                     )
                 }
             }
@@ -323,14 +327,14 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             appState = appState.copy(lastMessage = "Connect a Solana wallet before scanning your SKR Passport.")
             return
         }
-        if (!beginQuestAction(QuestIds.SKR_HOLDER, "Scanning mainnet SKR by public wallet address. No Phantom popup is expected.")) return
+        if (!beginQuestAction(QuestIds.SKR_HOLDER, "Refreshing your SKR Passport…")) return
 
         scope.launch {
             when (val result = skrRepository.fetchSkrBalance(appState.user.walletAddress)) {
                 is SkrBalanceResult.Success -> {
                     val snapshot = result.snapshot
                     appState = appState.copy(
-                        lastMessage = "SKR scan complete. Saving ${snapshot.tierLabel} tier to Firebase…",
+                        lastMessage = "SKR Passport updated: ${snapshot.tierLabel}.",
                     )
                     repository.saveSkrBalanceSnapshot(snapshot) { nextState ->
                         applyRepositoryState(nextState, QuestIds.SKR_HOLDER)
@@ -347,10 +351,16 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
 
     fun claimDailyRadiantChest() {
-        if (!beginChestAction("Opening Daily Radiant Chest. No XP is spent and no wallet approval is needed.")) return
+        if (!beginChestAction("Charging your Daily Radiant Chest…")) return
 
-        repository.claimDailyRadiantChest { nextState ->
-            applyRepositoryState(nextState, QuestIds.DAILY_RADIANT_CHEST)
+        // Let the visible charge/open animation land without making the chest feel
+        // unresponsive. The current charge sequence is ~760 ms, so a short guard
+        // keeps presentation and repository state aligned without a long dead wait.
+        scope.launch {
+            delay(850)
+            repository.claimDailyRadiantChest { nextState ->
+                applyRepositoryState(nextState, QuestIds.DAILY_RADIANT_CHEST)
+            }
         }
     }
 
@@ -384,8 +394,12 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
         when (quest.status) {
             QuestStatus.Completed -> {
-                appState = appState.copy(lastMessage = "${quest.title} is already completed for today.")
-                return
+                // SKR Passport is a read-only balance refresh, not a one-shot signing
+                // action. Re-scan is allowed; Firebase grant rules are idempotent.
+                if (quest.id != QuestIds.SKR_HOLDER) {
+                    appState = appState.copy(lastMessage = "${quest.title} is already completed for today.")
+                    return
+                }
             }
             QuestStatus.Syncing -> {
                 appState = appState.copy(lastMessage = "${quest.title} is still saving. Please wait for Done.")
@@ -405,7 +419,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             QuestIds.ON_CHAIN_PROOF -> sendDailyMemoProof()
             QuestIds.SKR_HOLDER -> checkSkrBalance()
             else -> appState = appState.copy(
-                lastMessage = "${quest.title} unlocks in a later phase when the real implementation exists.",
+                lastMessage = "${quest.title} isn’t available yet.",
             )
         }
     }
@@ -448,7 +462,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             if (appState.isFirebaseReady && appState.radiantRun.canPlay && !appState.walletActionInProgress) {
                 showRadiantRun = true
             } else {
-                appState = appState.copy(lastMessage = "Radiant Run needs Firebase ready and at least 1 Rush Ticket.")
+                appState = appState.copy(lastMessage = "Radiant Run needs cloud sync and at least 1 Rush Ticket.")
             }
         },
     )
@@ -479,7 +493,7 @@ private fun RadiantRushShell(
                             AppDestination.Badges -> "Badges"
                             AppDestination.Leaderboard -> "Ranks"
                             AppDestination.Profile -> "Profile"
-                            AppDestination.Demo -> "Demo"
+                            AppDestination.Demo -> "Guide"
                         },
                         maxLines = 1,
                     )
@@ -524,7 +538,7 @@ private fun RadiantRushShell(
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Ranks"
                                     AppDestination.Profile -> "Me"
-                                    AppDestination.Demo -> "Demo"
+                                    AppDestination.Demo -> "Guide"
                                 },
                                 tinyText = when (item) {
                                     AppDestination.Home -> "Home"
@@ -532,7 +546,7 @@ private fun RadiantRushShell(
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Rank"
                                     AppDestination.Profile -> "Me"
-                                    AppDestination.Demo -> "Demo"
+                                    AppDestination.Demo -> "Guide"
                                 },
                             )
                         },

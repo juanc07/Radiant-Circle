@@ -33,8 +33,11 @@ class RadiantRushSmokeTest {
      * always the first composed destination.
      */
     private fun enterShell() {
+        // The Activity may restore an already-entered shell on a physical device.
+        // Do not assume that restored shell is still on Home; the bottom-nav Home tag
+        // is the stable signal that the shell itself exists.
         composeRule.waitUntil(timeoutMillis = 15_000L) {
-            hasTag(UiTestTags.WELCOME_OPEN_RUSH) || hasTag(UiTestTags.HOME_SCREEN)
+            hasTag(UiTestTags.WELCOME_OPEN_RUSH) || hasTag(UiTestTags.NAV_HOME)
         }
 
         if (hasTag(UiTestTags.WELCOME_OPEN_RUSH)) {
@@ -45,6 +48,13 @@ class RadiantRushSmokeTest {
                 .performClick()
         }
 
+        composeRule.waitUntil(timeoutMillis = 10_000L) {
+            hasTag(UiTestTags.NAV_HOME)
+        }
+
+        // Force a deterministic destination before asserting screen content. This makes
+        // the smoke test independent of the user's previously selected tab.
+        composeRule.onNodeWithTag(UiTestTags.NAV_HOME).performClick()
         composeRule.waitUntil(timeoutMillis = 10_000L) {
             hasTag(UiTestTags.HOME_SCREEN)
         }
@@ -62,6 +72,6 @@ class RadiantRushSmokeTest {
 
         composeRule.onNodeWithTag(UiTestTags.NAV_DEMO).performClick()
         composeRule.onNodeWithTag(UiTestTags.DEMO_SCREEN).assertIsDisplayed()
-        composeRule.onNodeWithText("Judge Demo Mode", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("How to play", substring = true).assertIsDisplayed()
     }
 }
