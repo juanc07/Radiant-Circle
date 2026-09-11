@@ -26,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -1058,7 +1057,7 @@ fun BadgeMedallion(
     val responsive = rememberResponsiveUiSpec()
 
     Card(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (unlocked) {
@@ -1069,32 +1068,20 @@ fun BadgeMedallion(
         ),
     ) {
         Column(
-            modifier = Modifier.padding(if (responsive.isTiny) 12.dp else 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(if (responsive.isTiny) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 8.dp else 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Surface(
-                modifier = Modifier.size(54.dp),
-                shape = CircleShape,
-                color = if (unlocked) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-            ) {
-                Icon(
-                    modifier = Modifier.padding(14.dp),
-                    imageVector = if (unlocked) Icons.Filled.CheckCircle else Icons.Filled.Bolt,
-                    contentDescription = null,
-                    tint = if (unlocked) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
+            RadiantBadgeCrest(
+                glyph = RadiantBadgeGlyph.forTitle(title),
+                unlocked = unlocked,
+                modifier = Modifier.size(if (responsive.isTiny) 68.dp else 76.dp),
+            )
             Text(
                 text = title,
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
                 maxLines = 3,
@@ -1102,6 +1089,7 @@ fun BadgeMedallion(
             )
             Text(
                 text = description,
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

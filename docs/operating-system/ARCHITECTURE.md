@@ -1,3 +1,7 @@
+## Phase 11C.5 — presentation-only identity layer
+
+`RadiantIdentityComponents.kt` owns scalable Compose-drawn badge and SKR Passport identity marks. It receives already-derived UI state only and has no Firebase, Mobile Wallet Adapter, Solana RPC, reward, ranking, or payout authority. `BadgeMedallion` delegates its visual mark to this component, while Profile uses `PassportCrestCard` as a responsive summary above the existing detailed Passport rows.
+
 ## Phase 11C.4.1 — transient Radiant Run route
 
 `showRadiantRun` is intentionally ordinary Compose state, not saveable navigation state. The run's timer, target, combo, score, and audio state are transient in-memory presentation state; restoring only the route after Activity recreation could reopen an inconsistent run. The stable shell may restore, while a run always starts from a fresh launcher state.

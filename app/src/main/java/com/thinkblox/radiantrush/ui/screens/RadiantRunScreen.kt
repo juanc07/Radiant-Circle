@@ -878,15 +878,29 @@ private fun SavingPanel(
     val responsive = rememberResponsiveUiSpec()
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp)) {
         Column(
-            modifier = Modifier.padding(responsive.cardPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (saving) CircularProgressIndicator()
-            Text("RUN COMPLETE", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-            Text("${result.score} points • x${result.maxCombo} best combo", style = MaterialTheme.typography.titleLarge)
             Text(
-                if (saving) "Saving score and opening your capsule…" else (message ?: "Save did not finish."),
+                text = "RUN COMPLETE",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "${result.score} points • x${result.maxCombo} best combo",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = if (saving) "Saving score and opening your capsule…" else (message ?: "Save did not finish."),
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -943,14 +957,18 @@ private fun RewardPanel(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Column(
-            modifier = Modifier.padding(responsive.cardPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                RadiantGameRules.capsuleTierForScore(uiState.radiantRun.lastScore).uppercase(),
+                text = RadiantGameRules.capsuleTierForScore(uiState.radiantRun.lastScore).uppercase(),
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
             )
             Box(
                 modifier = Modifier
@@ -1008,37 +1026,48 @@ private fun RewardPanel(
                 }
             }
             Text(
-                uiState.radiantRun.lastRewardRarity ?: "Reward",
+                text = uiState.radiantRun.lastRewardRarity ?: "Reward",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 color = rewardPastel,
                 fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
             )
             Text(
-                uiState.radiantRun.lastRewardTitle ?: "Radiant Collectible",
+                text = uiState.radiantRun.lastRewardTitle ?: "Radiant Collectible",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
             )
             Text(
-                if (duplicate) {
+                text = if (duplicate) {
                     "Duplicate converted to +${uiState.radiantRun.lastRewardShards} Radiant Shards • +${uiState.radiantRun.lastRewardXp} XP"
                 } else {
                     "NEW DISCOVERY • +${uiState.radiantRun.lastRewardXp} XP"
                 },
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
             reward?.let {
-                Text(it.description, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                Text(
+                    text = it.description,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
             }
             Text(
-                "${uiState.runCompetition.lastRunMode ?: "Casual"} • +${uiState.runCompetition.lastRunPerformanceXp} performance XP • ${uiState.runCompetition.rankedAttemptsRemaining}/3 ranked attempts left",
+                text = "${uiState.runCompetition.lastRunMode ?: "Casual"} • +${uiState.runCompetition.lastRunPerformanceXp} performance XP • ${uiState.runCompetition.rankedAttemptsRemaining}/3 ranked attempts left",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
             Text(
-                "Score ${uiState.radiantRun.lastScore} • Best ${uiState.radiantRun.bestScore} • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collected",
+                text = "Score ${uiState.radiantRun.lastScore} • Best ${uiState.radiantRun.bestScore} • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collected",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

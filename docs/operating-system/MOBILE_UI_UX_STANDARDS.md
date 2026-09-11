@@ -50,6 +50,7 @@ The app must work clearly on real Android phones, not only on desktop previews o
 - Avoid placing critical actions only at the very top of the screen.
 - Keep loading and error states inside the same layout ownership area as the content they replace.
 - Avoid separate phone/tablet implementations unless the content truly needs different information architecture.
+- For cards or popups that are visually designed as centered content, the inner content container must occupy the available card width before applying `Alignment.CenterHorizontally`; centered text should also use the available width so wrapping remains optically centered.
 
 ## Text rules
 
@@ -227,3 +228,10 @@ The Ranks destination now uses horizontally scrollable tabs (`Run Weekly`, `Run 
 
 Competition metric rows must not force a label and value onto one horizontal line on compact displays or large font scales. Stack them vertically in those conditions, allow normal wrapping, and never clip required values such as PB score, PERFECT hits, ranked-run counts, or gameplay-XP progress.
 
+## Phase 11C.5 badge and crest identity rules
+
+- Achievement badges must use scalable vector/Compose-drawn marks rather than generic success/check icons for every achievement.
+- Badge glyphs must remain recognizable at compact phone sizes and must not force the title or description outside the card.
+- Tier and Passport identity blocks must stack on compact screens or large font scale; do not squeeze icon + tier + balance + perk status into one fixed-height row.
+- Required badge/Passport text must wrap and expand vertically. Do not use ellipsis for titles, tier labels, eligible SKR values, or perk status.
+- Visual identity may be richer than surrounding cards, but it must preserve the established pastel Radiant Rush palette and Material theme contrast.

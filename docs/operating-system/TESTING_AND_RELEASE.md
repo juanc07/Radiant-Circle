@@ -1,3 +1,24 @@
+## Phase 11C.5.2 centered-content QA
+
+After applying the alignment polish, run the normal four-command Android gate. On Seeker and Samsung-class phone widths, inspect the Badge screen, Radiant Run completion/save card, Radiant Run reward card, and Quest detail dialog. Crests, titles, descriptions, score/reward summaries, popup copy, and popup actions must be centered against the visible card/dialog width rather than a wrap-content child. Recheck large Android font scale and confirm required text wraps without clipping, bleeding, or ellipsis.
+
+## Phase 11C.5.1 compile hotfix gate
+
+Run the normal four-command gate after applying this hotfix. The first command must compile `RadiantIdentityComponents.kt` successfully without the `RowColumnParentData?.weight` invisible-reference error. Then continue with assemble, connected Android tests, and installDebug before committing Phase 11C.5.
+
+## Phase 11C.5 visual identity QA
+
+Before accepting the Phase 11C.5 visual patch:
+
+1. Run `./gradlew :app:testDebugUnitTest`.
+2. Run `./gradlew :app:assembleDebug`.
+3. Run `./gradlew :app:connectedDebugAndroidTest`.
+4. Run `./gradlew :app:installDebug` on a physical device when available.
+5. On Seeker/Samsung-class phone widths, inspect every badge: crest, title, and description must remain fully inside the card with no clipping, bleed, orphan final character, or ellipsis.
+6. Increase Android font scale and verify Badge and Profile screens stack vertically where needed.
+7. Verify the SKR Passport crest displays the same tier/eligible balance as the detailed Passport rows and does not alter the underlying values.
+8. Verify locked/unlocked badges are visually distinguishable without relying on text alone.
+
 ## Phase 11C.4.1 connected-device smoke-test rule
 
 Instrumentation tests must not assume an Activity restored by Android is already on Home. Wait for either the Welcome entry action or the persistent shell navigation, then explicitly navigate to the screen under test. Radiant Run itself is transient and is not restored across Activity recreation because its gameplay state is in-memory.

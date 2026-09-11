@@ -1,3 +1,29 @@
+# 2026-09-12 — Phase 11C.5.2 centered-content polish
+
+- Fixed badge cards whose centered children could still appear off-center because the inner `Column` and text measured at wrap-content width instead of the full card width.
+- Fixed Radiant Run completion/reward cards so headline, score, save/reward copy, and summary text center against the full card width.
+- Centered Quest detail dialog title, body, and acknowledgement action for consistent popup presentation.
+- No gameplay, wallet, SKR, staking, Firestore rules, competition logic, reward authority, or payout eligibility changed.
+- Documentation decision: CHANGELOG, TESTING_AND_RELEASE, MOBILE_UI_UX_STANDARDS, and Phase 11C.5 notes updated. ARCHITECTURE, AGENTS, SOLANA_SECURITY_AND_DATA_RULES, and VERSION unchanged.
+- Version remains `versionCode = 21`, `versionName = "1.1.6-phase11c5"`.
+
+# 2026-09-12 — Phase 11C.5.1 Compose compile hotfix
+
+- Removed the explicit `androidx.compose.foundation.layout.weight` import from `RadiantIdentityComponents.kt`.
+- `Modifier.weight(...)` is invoked inside `Row` scope and resolves through the public `RowScope` API; the explicit import was resolving to an internal Compose implementation symbol under the project's current Compose/Kotlin toolchain.
+- No UI behavior, SKR logic, staking logic, competition rules, Firestore rules, payout authority, or reward calculations changed.
+- Documentation decision: CHANGELOG and TESTING_AND_RELEASE updated. ARCHITECTURE, AGENTS, SOLANA_SECURITY_AND_DATA_RULES, MOBILE_UI_UX_STANDARDS, and VERSION unchanged.
+- Version remains `versionCode = 21`, `versionName = "1.1.6-phase11c5"`.
+
+# 2026-09-11 — Phase 11C.5 visual identity + badge polish
+
+- Replaced generic badge check/bolt marks with distinct scalable Radiant Rush crests for launch, daily, wallet, proof, on-chain, SKR, chest, run, combo, collection, and streak achievements.
+- Added a responsive SKR Passport crest card showing tier, eligible SKR, stake boost, frame, and aura without changing SKR or ranked-game authority.
+- Tightened badge copy and kept all badge/Passport text wrapping instead of clipping or ellipsizing on compact/large-font layouts.
+- Android version bumped to `versionCode = 21`, `versionName = "1.1.6-phase11c5"`.
+- Firestore rules, wallet signing, SKR reads/staking logic, ranked attempts, gameplay-XP caps, chest reward authority, and payout eligibility are unchanged.
+- Documentation decision: CHANGELOG, ARCHITECTURE, TESTING_AND_RELEASE, and MOBILE_UI_UX_STANDARDS updated; AGENTS and SOLANA_SECURITY_AND_DATA_RULES unchanged.
+
 ## Phase 11C.4.1 — connected-device smoke-test restoration fix
 
 - Fixed physical-device Compose smoke tests that could time out when Android restored the shell on a non-Home tab.

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
+import com.thinkblox.radiantrush.ui.components.PassportCrestCard
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
@@ -195,10 +196,19 @@ fun ProfileScreen(
             )
         }
         item {
+            PassportCrestCard(
+                tier = user.skrTier,
+                eligibleBalance = user.skrEligibleBalance,
+                stakeBoostActive = user.skrStakeBoostActive,
+                frameLabel = user.skrFrameLabel,
+                auraLabel = user.skrAuraLabel,
+            )
+        }
+        item {
             ProfileInfoRow(
                 title = "Passport Eligible SKR",
-                value = "${user.skrTier} • ${user.skrEligibleBalance}",
-                helper = "Liquid + active stake. Unstaking SKR is shown separately.",
+                value = user.skrEligibleBalance,
+                helper = "Liquid + active stake.",
                 icon = Icons.Filled.Token,
                 copyValue = user.skrMint,
                 copyLabel = "Copy Mint",

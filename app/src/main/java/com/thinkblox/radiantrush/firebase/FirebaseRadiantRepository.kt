@@ -1770,11 +1770,11 @@ class FirebaseRadiantRepository(
 
     private fun badgeState(user: UserPreview, completedIds: Set<String>): List<BadgePreview> = listOf(
         BadgePreview("First Launch", "Start Radiant Rush.", unlocked = true),
-        BadgePreview("Daily Ready", "Your progress is ready.", unlocked = true),
+        BadgePreview("Daily Ready", "Your daily progress is ready.", unlocked = true),
         BadgePreview("Daily Saver", "Finish today’s check-in.", unlocked = completedIds.contains(QuestIds.DAILY_CHECK_IN)),
         BadgePreview("Wallet Ready", "Connect your Solana wallet.", unlocked = user.walletStatus == "Wallet connected"),
         BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = completedIds.contains(QuestIds.SIGN_DAILY_PROOF)),
-        BadgePreview("On-Chain Spark", "Submit the first memo proof transaction.", unlocked = completedIds.contains(QuestIds.ON_CHAIN_PROOF)),
+        BadgePreview("On-Chain Spark", "Submit your first memo proof.", unlocked = completedIds.contains(QuestIds.ON_CHAIN_PROOF)),
         BadgePreview("SKR Radiant", "Unlock SKR Passport perks.", unlocked = user.hasSkr),
         BadgePreview("Radiant Chest", "Open your Daily Radiant Chest.", unlocked = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)),
         BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = user.totalRuns > 0),
