@@ -1,3 +1,11 @@
+## Phase 11D — Weekly Radiant Cup boundary
+
+`WeeklyRadiantCupRules` is Android/Firebase-free domain logic for UTC season timing, placement accolades, and sponsor metadata normalization. `LeaderboardScreen` presents the Cup using the existing wallet-deduped Ranked Radiant Run board.
+
+`FirebaseRadiantRepository` reads optional server/admin-authored sponsor metadata from `weeklyCupConfigs/{ISO_WEEK}` and reads the previous week's board for a display-only prior-season accolade. Android clients cannot write sponsor config. Sponsor metadata cannot enable payout: the domain model always returns `payoutEnabled = false`.
+
+The Cup does not create a new score authority. Existing `runWeekly` rows remain client-reported prototype competition data. Phase 11D awards only cosmetic in-app placement labels/crests; no SOL/SKR transfer, treasury key, player entry fee, wagering, or economic claim path exists. A future Phase 12 Sponsored SKR Cup requires trusted score verification and server-side payout authority.
+
 ## Phase 11C.5 — presentation-only identity layer
 
 `RadiantIdentityComponents.kt` owns scalable Compose-drawn badge and SKR Passport identity marks. It receives already-derived UI state only and has no Firebase, Mobile Wallet Adapter, Solana RPC, reward, ranking, or payout authority. `BadgeMedallion` delegates its visual mark to this component, while Profile uses `PassportCrestCard` as a responsive summary above the existing detailed Passport rows.

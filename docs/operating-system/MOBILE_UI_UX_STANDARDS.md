@@ -1,3 +1,11 @@
+## Phase 11D — Weekly Cup mobile layout rules
+
+- Weekly Cup headline, countdown, personal rank/PB, reward preview, sponsor copy, and podium content must measure against full card width and remain centered.
+- Top 3 uses stacked cards on phone layouts rather than narrow fixed three-column desktop composition.
+- Required sponsor/reward text wraps; do not ellipsize prize labels, sponsor names, rank, or countdown.
+- The standings list remains vertically scrollable and reachable on small phones and large Android font scale.
+- Sponsor state must use concise player-facing copy; security/payout architecture explanations stay in technical documentation.
+
 
 ## Phase 11C.3 no-cut/no-bleed text rule
 

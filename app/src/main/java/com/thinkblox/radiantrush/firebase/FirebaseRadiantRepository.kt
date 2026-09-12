@@ -19,6 +19,7 @@ import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.RadiantRunPreview
 import com.thinkblox.radiantrush.data.RunCompetitionPreview
 import com.thinkblox.radiantrush.data.RunLeaderboardPreview
+import com.thinkblox.radiantrush.data.WeeklyCupPreview
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
@@ -31,6 +32,7 @@ import com.thinkblox.radiantrush.logic.RunLeaderboardCandidate
 import com.thinkblox.radiantrush.logic.RunPersonalBest
 import com.thinkblox.radiantrush.logic.WeeklyRunStats
 import com.thinkblox.radiantrush.logic.WalletRunPersonalStats
+import com.thinkblox.radiantrush.logic.WeeklyRadiantCupRules
 import com.thinkblox.radiantrush.logic.RadiantGameRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.logic.RewardLoopRules
@@ -1391,6 +1393,8 @@ class FirebaseRadiantRepository(
         val now = System.currentTimeMillis()
         val currentDay = Phase11CompetitionRules.utcDayKey(now)
         val currentWeek = Phase11CompetitionRules.utcWeekKey(now)
+        val previousWeek = WeeklyRadiantCupRules.previousWeekKey(now)
+        val seasonEndsAt = WeeklyRadiantCupRules.seasonEndsAtEpochMillis(now)
         val walletAddress = userSnapshot.getString("walletAddress")
             ?.trim()
             ?.takeIf { it.isNotBlank() }
@@ -1418,6 +1422,15 @@ class FirebaseRadiantRepository(
             perfectHitsAtBest = (userSnapshot.getLong("runAllTimePerfectHits") ?: 0L).toInt(),
             weeklyRankedRuns = fallbackWeeklyRuns,
         )
+        val fallbackReward = WeeklyRadiantCupRules.rewardForPlacement(null)
+        val fallbackCup = WeeklyCupPreview(
+            seasonKey = currentWeek,
+            seasonEndsAtEpochMillis = seasonEndsAt,
+            personalBestScore = fallbackWeeklyScore,
+            projectedRewardTitle = fallbackReward.title,
+            projectedRewardDetail = fallbackReward.detail,
+            previousSeasonKey = previousWeek,
+        )
 
         fun build(
             attemptsUsed: Int,
@@ -1425,9 +1438,11 @@ class FirebaseRadiantRepository(
             personal: WalletRunPersonalStats = fallbackPersonal,
             weeklyRows: List<RunLeaderboardPreview> = emptyList(),
             allTimeRows: List<RunLeaderboardPreview> = emptyList(),
+            weeklyCup: WeeklyCupPreview = fallbackCup.copy(personalBestScore = personal.weeklyBestScore),
         ) = RunCompetitionPreview(
             weeklyLeaderboard = weeklyRows,
             allTimeLeaderboard = allTimeRows,
+            weeklyCup = weeklyCup,
             weekKey = currentWeek,
             rankedAttemptsUsedToday = attemptsUsed,
             rankedAttemptsRemaining = if (walletConnected) {
@@ -1503,6 +1518,136 @@ class FirebaseRadiantRepository(
                 }
         }
 
+        fun loadWeeklyCup(
+            weeklyCandidates: List<RunLeaderboardCandidate>,
+            personal: WalletRunPersonalStats,
+            onDone: (WeeklyCupPreview) -> Unit,
+        ) {
+            val participantCount = Phase11CompetitionRules
+                .collapseRunLeaderboardByWallet(weeklyCandidates, limit = 100)
+                .size
+            val personalRank = if (walletConnected) {
+                Phase11CompetitionRules.walletRank(walletAddress, weeklyCandidates, limit = 100)
+            } else {
+                null
+            }
+            val projectedReward = WeeklyRadiantCupRules.rewardForPlacement(personalRank)
+
+            fun loadPreviousSeason(
+                sponsorName: String?,
+                prizeLabel: String?,
+                sponsorStatus: String,
+                sponsorNote: String?,
+                sponsorActive: Boolean,
+            ) {
+                if (!walletConnected || walletAddress == null) {
+                    onDone(
+                        WeeklyCupPreview(
+                            seasonKey = currentWeek,
+                            seasonEndsAtEpochMillis = seasonEndsAt,
+                            participantCount = participantCount,
+                            personalRank = personalRank,
+                            personalBestScore = personal.weeklyBestScore,
+                            projectedRewardTitle = projectedReward.title,
+                            projectedRewardDetail = projectedReward.detail,
+                            previousSeasonKey = previousWeek,
+                            sponsorName = sponsorName,
+                            sponsoredPrizeLabel = prizeLabel,
+                            sponsoredPrizeStatus = sponsorStatus,
+                            sponsorNote = sponsorNote,
+                            sponsoredPrizeActive = sponsorActive,
+                            payoutEnabled = false,
+                        ),
+                    )
+                    return
+                }
+
+                db.collection(RUN_WEEKLY)
+                    .document(previousWeek)
+                    .collection(RUN_ENTRIES)
+                    .orderBy("score", Query.Direction.DESCENDING)
+                    .limit(100)
+                    .get()
+                    .addOnSuccessListener { previousQuery ->
+                        val previousCandidates = previousQuery.documents.map(::runCandidateFromDocument)
+                        val previousRank = Phase11CompetitionRules.walletRank(
+                            walletAddress = walletAddress,
+                            candidates = previousCandidates,
+                            limit = 100,
+                        )
+                        val previousReward = previousRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
+                        onDone(
+                            WeeklyCupPreview(
+                                seasonKey = currentWeek,
+                                seasonEndsAtEpochMillis = seasonEndsAt,
+                                participantCount = participantCount,
+                                personalRank = personalRank,
+                                personalBestScore = personal.weeklyBestScore,
+                                projectedRewardTitle = projectedReward.title,
+                                projectedRewardDetail = projectedReward.detail,
+                                previousSeasonKey = previousWeek,
+                                previousSeasonRank = previousRank,
+                                previousRewardTitle = previousReward?.title,
+                                sponsorName = sponsorName,
+                                sponsoredPrizeLabel = prizeLabel,
+                                sponsoredPrizeStatus = sponsorStatus,
+                                sponsorNote = sponsorNote,
+                                sponsoredPrizeActive = sponsorActive,
+                                payoutEnabled = false,
+                            ),
+                        )
+                    }
+                    .addOnFailureListener {
+                        onDone(
+                            WeeklyCupPreview(
+                                seasonKey = currentWeek,
+                                seasonEndsAtEpochMillis = seasonEndsAt,
+                                participantCount = participantCount,
+                                personalRank = personalRank,
+                                personalBestScore = personal.weeklyBestScore,
+                                projectedRewardTitle = projectedReward.title,
+                                projectedRewardDetail = projectedReward.detail,
+                                previousSeasonKey = previousWeek,
+                                sponsorName = sponsorName,
+                                sponsoredPrizeLabel = prizeLabel,
+                                sponsoredPrizeStatus = sponsorStatus,
+                                sponsorNote = sponsorNote,
+                                sponsoredPrizeActive = sponsorActive,
+                                payoutEnabled = false,
+                            ),
+                        )
+                    }
+            }
+
+            db.collection(WEEKLY_CUP_CONFIGS)
+                .document(currentWeek)
+                .get()
+                .addOnSuccessListener { sponsorDocument ->
+                    val sponsorState = WeeklyRadiantCupRules.sponsorState(
+                        status = sponsorDocument.getString("status"),
+                        sponsorName = sponsorDocument.getString("sponsorName"),
+                        prizeLabel = sponsorDocument.getString("prizeLabel"),
+                        note = sponsorDocument.getString("note"),
+                    )
+                    loadPreviousSeason(
+                        sponsorName = sponsorState.sponsorName,
+                        prizeLabel = sponsorState.prizeLabel,
+                        sponsorStatus = sponsorState.statusLabel,
+                        sponsorNote = sponsorState.note,
+                        sponsorActive = sponsorState.active,
+                    )
+                }
+                .addOnFailureListener {
+                    loadPreviousSeason(
+                        sponsorName = null,
+                        prizeLabel = null,
+                        sponsorStatus = "No sponsored prize this week",
+                        sponsorNote = null,
+                        sponsorActive = false,
+                    )
+                }
+        }
+
         fun loadBoards(
             attemptsUsed: Int,
             gameplayXpEarned: Int,
@@ -1515,15 +1660,18 @@ class FirebaseRadiantRepository(
                 .limit(100)
                 .get()
                 .addOnSuccessListener { weeklyQuery ->
-                    val weeklyRows = runRows(weeklyQuery.documents.map(::runCandidateFromDocument))
+                    val weeklyCandidates = weeklyQuery.documents.map(::runCandidateFromDocument)
+                    val weeklyRows = runRows(weeklyCandidates)
 
-                    db.collection(RUN_ALL_TIME)
-                        .orderBy("score", Query.Direction.DESCENDING)
-                        .limit(100)
-                        .get()
-                        .addOnSuccessListener { allTimeQuery ->
-                            val allTimeRows = runRows(allTimeQuery.documents.map(::runCandidateFromDocument))
-                            loadPersonalWalletStats { personal, personalWarning ->
+                    fun finish(
+                        allTimeRows: List<RunLeaderboardPreview>,
+                        boardWarning: String? = null,
+                    ) {
+                        loadPersonalWalletStats { personal, personalWarning ->
+                            loadWeeklyCup(
+                                weeklyCandidates = weeklyCandidates,
+                                personal = personal,
+                            ) { weeklyCup ->
                                 onLoaded(
                                     build(
                                         attemptsUsed = attemptsUsed,
@@ -1531,27 +1679,26 @@ class FirebaseRadiantRepository(
                                         personal = personal,
                                         weeklyRows = weeklyRows,
                                         allTimeRows = allTimeRows,
+                                        weeklyCup = weeklyCup,
                                     ),
-                                    mergeWarnings(attemptWarning, personalWarning),
+                                    mergeWarnings(attemptWarning, boardWarning, personalWarning),
                                 )
                             }
                         }
+                    }
+
+                    db.collection(RUN_ALL_TIME)
+                        .orderBy("score", Query.Direction.DESCENDING)
+                        .limit(100)
+                        .get()
+                        .addOnSuccessListener { allTimeQuery ->
+                            finish(runRows(allTimeQuery.documents.map(::runCandidateFromDocument)))
+                        }
                         .addOnFailureListener {
-                            loadPersonalWalletStats { personal, personalWarning ->
-                                onLoaded(
-                                    build(
-                                        attemptsUsed = attemptsUsed,
-                                        gameplayXpEarned = gameplayXpEarned,
-                                        personal = personal,
-                                        weeklyRows = weeklyRows,
-                                    ),
-                                    mergeWarnings(
-                                        attemptWarning,
-                                        personalWarning,
-                                        "All-Time Run ranks are temporarily unavailable.",
-                                    ),
-                                )
-                            }
+                            finish(
+                                allTimeRows = emptyList(),
+                                boardWarning = "All-Time Run ranks are temporarily unavailable.",
+                            )
                         }
                 }
                 .addOnFailureListener {
@@ -1882,6 +2029,7 @@ class FirebaseRadiantRepository(
         const val RUN_ALL_TIME = "runAllTime"
         const val RUN_WALLET_DAILY = "runWalletDaily"
         const val RUN_WALLETS = "wallets"
+        const val WEEKLY_CUP_CONFIGS = "weeklyCupConfigs"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100
         const val SKR_SCAN_XP = 50

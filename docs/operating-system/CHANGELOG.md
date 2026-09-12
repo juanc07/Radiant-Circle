@@ -1,3 +1,15 @@
+# 2026-09-12 — Phase 11D Weekly Radiant Cup + sponsor-ready architecture
+
+- Reframed the existing weekly Ranked Radiant Run board as the Weekly Radiant Cup with UTC season countdown, Top 3 podium, standings, participant count, connected-wallet rank, and weekly PB.
+- Added weekly cosmetic placement rewards: Champion Crest, Podium Crest, Top 10 Ribbon, and Finisher Mark. Previous-week Top 100 data can surface the connected wallet's prior-season accolade without granting economic value.
+- Added optional read-only `weeklyCupConfigs/{ISO_WEEK}` sponsor metadata. Android clients can never write sponsor configuration.
+- Sponsor metadata is display-only. `payoutEnabled` is hard-coded false in domain rules; no client score, sponsor document, SKR balance, or stake balance can authorize token payout.
+- No player entry fee, wagering, treasury key, automatic SKR transfer, or payout claim flow was added.
+- Added JVM tests for UTC season close, prior-week key, placement tiers, sponsor safety, and wallet-deduped personal rank.
+- Firestore rules changed and must be redeployed before sponsor metadata can be read from production.
+- Android version bumped to `versionCode = 22`, `versionName = "1.1.7-phase11d"`.
+- Documentation decision: CHANGELOG, ARCHITECTURE, TESTING_AND_RELEASE, SOLANA_SECURITY_AND_DATA_RULES, MOBILE_UI_UX_STANDARDS, and Phase 11D notes updated. AGENTS unchanged.
+
 # 2026-09-12 — Phase 11C.5.2 centered-content polish
 
 - Fixed badge cards whose centered children could still appear off-center because the inner `Column` and text measured at wrap-content width instead of the full card width.

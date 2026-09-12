@@ -122,9 +122,30 @@ data class RunLeaderboardPreview(
     val runsPlayed: Int,
 )
 
+data class WeeklyCupPreview(
+    val title: String = "Weekly Radiant Cup",
+    val seasonKey: String = "",
+    val seasonEndsAtEpochMillis: Long = 0L,
+    val participantCount: Int = 0,
+    val personalRank: Int? = null,
+    val personalBestScore: Int = 0,
+    val projectedRewardTitle: String = "Cup Finisher Mark",
+    val projectedRewardDetail: String = "Finish a Ranked run to join this week’s Cup.",
+    val previousSeasonKey: String? = null,
+    val previousSeasonRank: Int? = null,
+    val previousRewardTitle: String? = null,
+    val sponsorName: String? = null,
+    val sponsoredPrizeLabel: String? = null,
+    val sponsoredPrizeStatus: String = "No sponsored prize this week",
+    val sponsorNote: String? = null,
+    val sponsoredPrizeActive: Boolean = false,
+    val payoutEnabled: Boolean = false,
+)
+
 data class RunCompetitionPreview(
     val weeklyLeaderboard: List<RunLeaderboardPreview> = emptyList(),
     val allTimeLeaderboard: List<RunLeaderboardPreview> = emptyList(),
+    val weeklyCup: WeeklyCupPreview = WeeklyCupPreview(),
     val weekKey: String = "",
     val rankedAttemptsUsedToday: Int = 0,
     val rankedAttemptsRemaining: Int = 3,

@@ -1,3 +1,33 @@
+## Phase 11D — Weekly Radiant Cup verification
+
+Run the normal gate:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+After applying Phase 11D, redeploy Firestore rules:
+
+```bash
+npx.cmd firebase-tools deploy --only firestore:rules --project radiant-rush-10a9c
+```
+
+Manual Cup checks:
+
+- `Ranks > Weekly Cup` opens without horizontal clipping on Seeker/Samsung phone widths.
+- UTC season key and countdown are visible and wrap safely at large font scale.
+- Top 3 is shown as centered stacked podium cards; rank 4+ remains in standings.
+- Connected wallet sees its deduped personal rank and weekly PB; disconnected state asks for wallet connection.
+- Projected cosmetic reward changes correctly for #1, Top 3, Top 10, other ranked, and unranked states.
+- Previous-season accolade is shown only when previous-week board data contains the connected wallet in the queried range.
+- With no `weeklyCupConfigs/{week}` document, UI says no sponsored prize is active.
+- A server/admin-published config with `status = "announced"`, `sponsorName`, and `prizeLabel` is display-only.
+- Android client attempts to write `weeklyCupConfigs` must be denied.
+- No Cup state enables token payout, changes Ranked score, changes Ranked attempts, or adds an entry fee.
+
 ## Phase 11C.5.2 centered-content QA
 
 After applying the alignment polish, run the normal four-command Android gate. On Seeker and Samsung-class phone widths, inspect the Badge screen, Radiant Run completion/save card, Radiant Run reward card, and Quest detail dialog. Crests, titles, descriptions, score/reward summaries, popup copy, and popup actions must be centered against the visible card/dialog width rather than a wrap-content child. Recheck large Android font scale and confirm required text wraps without clipping, bleeding, or ellipsis.

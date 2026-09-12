@@ -218,6 +218,19 @@ class Phase11CompetitionRulesTest {
         assertEquals("9xQe…PABC", Phase11CompetitionRules.walletLabel(rows.first()))
     }
 
+    @Test
+    fun walletRankUsesDedupedWeeklyBoard() {
+        val rows = listOf(
+            candidate("wallet-b", walletB, "7YWH…BCD9", score = 3_000),
+            candidate("wallet-a-old", walletA, "9xQe…PABC", score = 1_000),
+            candidate("wallet-a-best", walletA, "9xQe…PABC", score = 2_500),
+        )
+
+        assertEquals(2, Phase11CompetitionRules.walletRank(walletA, rows, limit = 100))
+        assertEquals(1, Phase11CompetitionRules.walletRank(walletB, rows, limit = 100))
+        assertNull(Phase11CompetitionRules.walletRank(null, rows, limit = 100))
+    }
+
     private fun run(
         score: Int,
         combo: Int,

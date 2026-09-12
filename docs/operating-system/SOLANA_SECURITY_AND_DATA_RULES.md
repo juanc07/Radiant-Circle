@@ -1,3 +1,14 @@
+## Phase 11D — Weekly Cup sponsor metadata is not payout authority
+
+- `weeklyCupConfigs/{ISO_WEEK}` is public-readable presentation metadata and is not proof of funding, winner validity, or payment.
+- Android clients cannot create or update sponsor config under Firestore rules.
+- `WeeklyRadiantCupRules.sponsorState()` never enables payout; `payoutEnabled` is always false.
+- Existing Radiant Run weekly scores are client-reported prototype ranking data and must not authorize SOL/SKR transfer.
+- No sponsor, organizer, Solana Mobile, or hackathon payout is assumed.
+- No player entry fee or wagering exists.
+- No treasury/private key may be embedded in the APK.
+- Real Sponsored SKR Cup payout is deferred to Phase 12 and requires trusted score verification, final winner authority, funded prize custody, and server-side transfer execution.
+
 ## Phase 11C SKR Passport v2 security boundary
 
 Passport v2 may use the existing read-only Mainnet liquid SKR balance observation to unlock **non-economic, off-chain app perks only**: casual-only tickets, fixed chest XP/casual-ticket additions, and cosmetic profile status. The scan must not open the wallet, request a signature, transfer SKR/SOL, or claim transaction confirmation.

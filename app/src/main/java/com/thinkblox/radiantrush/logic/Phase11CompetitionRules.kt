@@ -288,6 +288,27 @@ object Phase11CompetitionRules {
         return null
     }
 
+    fun walletRank(
+        walletAddress: String?,
+        candidates: List<RunLeaderboardCandidate>,
+        limit: Int = 100,
+    ): Int? {
+        val canonicalWallet = canonicalFullWallet(walletAddress) ?: return null
+        val targetFingerprint = walletFingerprint(canonicalWallet)
+        val ranked = collapseRunLeaderboardByWallet(candidates, limit = limit)
+
+        val index = ranked.indexOfFirst { candidate ->
+            canonicalFullWallet(candidate.walletAddress) == canonicalWallet ||
+                (
+                    canonicalFullWallet(candidate.walletAddress) == null &&
+                        targetFingerprint != null &&
+                        (walletFingerprint(candidate.walletAddressShort)
+                            ?: walletFingerprint(candidate.walletAddress)) == targetFingerprint
+                    )
+        }
+        return index.takeIf { it >= 0 }?.plus(1)
+    }
+
     /**
      * Resolves wallet-scoped personal competition stats across Firebase anonymous
      * UID rows. This keeps My Stats stable when the same Solana wallet is used on

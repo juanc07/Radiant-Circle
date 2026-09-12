@@ -95,6 +95,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Phase 11D sponsor-ready Weekly Radiant Cup metadata.
+    // Android clients may read a published weekly sponsor announcement but can
+    // never create/update it. Future sponsor funding, winner verification, and
+    // token payout authority must remain in trusted server/admin infrastructure.
+    match /weeklyCupConfigs/{weekKey} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /quests/{questId} {
       allow read: if true;
       allow write: if false;
