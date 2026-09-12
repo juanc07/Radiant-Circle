@@ -405,15 +405,24 @@ class ProceduralGameAudioEngine {
 
             Cue.ChestReveal -> {
                 val rarity = voice.value.coerceIn(0, 5)
-                val base = 523.25 + rarity * 65.0
+                val base = 523.25 + rarity * 62.0
                 val chord = chordArpeggioSample(
                     t = t,
                     progress = progress,
-                    frequencies = doubleArrayOf(base, base * 1.25, base * 1.5, base * 2.0),
-                    gain = 0.22 + rarity * 0.01,
+                    frequencies = if (rarity >= 4) {
+                        doubleArrayOf(base, base * 1.25, base * 1.5, base * 2.0, base * 2.5)
+                    } else {
+                        doubleArrayOf(base, base * 1.25, base * 1.5, base * 2.0)
+                    },
+                    gain = 0.20 + rarity * 0.012,
                 )
-                val sparkle = sin(TAU * (1_900.0 + rarity * 180.0) * t) * exp(-progress * 4.0) * 0.055
-                chord + sparkle
+                val impact = sin(TAU * (116.0 + rarity * 7.0) * t) *
+                    exp(-progress * 9.0) * (0.09 + rarity * 0.018)
+                val sparkle = sin(TAU * (1_860.0 + rarity * 190.0) * t) *
+                    exp(-progress * 4.2) * (0.045 + rarity * 0.008)
+                val halo = sin(TAU * (880.0 + rarity * 85.0) * t) *
+                    exp(-progress * 2.8) * if (rarity >= 3) 0.045 else 0.025
+                chord + impact + sparkle + halo
             }
         }
     }
@@ -450,9 +459,9 @@ class ProceduralGameAudioEngine {
         Cue.RunComplete -> 0.62
         Cue.CapsuleOpen -> 0.72
         Cue.RewardReveal -> 0.82
-        Cue.ChestCharge -> 0.95
-        Cue.ChestOpen -> 0.58
-        Cue.ChestReveal -> 0.95
+        Cue.ChestCharge -> 0.62
+        Cue.ChestOpen -> 0.44
+        Cue.ChestReveal -> 0.84
     }
 
     private companion object {

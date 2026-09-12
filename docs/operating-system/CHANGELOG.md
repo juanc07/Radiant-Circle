@@ -1,3 +1,14 @@
+# 2026-09-12 — Phase 11E final reward / chest polish
+
+- Reworked Daily Radiant Chest presentation into a faster, rarity-aware reveal with stable geometry, soft rays, rarity-scaled particles/shockwaves, a persistent reward orb, centered reward tray, and stronger procedural reveal audio/haptics.
+- Fixed chest rarity presentation mapping so the real reward ladder (`Spark`, `Pulse`, `Flare`, `Aurora`, `Legendary`) now drives escalating VFX/audio instead of most tiers falling back to the same rank.
+- Firestore chest claim now starts immediately. Only very fast saves are held to a 520 ms minimum opening pose; slow saves reveal as soon as the real result arrives, removing the previous fixed pre-request delay.
+- Claimed reward UI now separates total XP, standard Rush Tickets, SKR casual tickets, and SKR XP boost into readable responsive blocks instead of one dense line.
+- No deterministic reward odds, XP/ticket amounts, SKR perk amounts, Ranked attempts/score, wallet signing, sponsor payout authority, or Firestore rules changed.
+- Added JVM tests for the presentation-only rarity ladder and visual-intensity progression.
+- Android version bumped to `versionCode = 23`, `versionName = "1.1.8-phase11e"`.
+- Documentation decision: CHANGELOG, ARCHITECTURE, TESTING_AND_RELEASE, SOLANA_SECURITY_AND_DATA_RULES, MOBILE_UI_UX_STANDARDS, and Phase 11E notes updated. AGENTS unchanged.
+
 # 2026-09-12 — Phase 11D Weekly Radiant Cup + sponsor-ready architecture
 
 - Reframed the existing weekly Ranked Radiant Run board as the Weekly Radiant Cup with UTC season countdown, Top 3 podium, standings, participant count, connected-wallet rank, and weekly PB.

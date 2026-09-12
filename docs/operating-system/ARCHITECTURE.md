@@ -1,3 +1,9 @@
+## Phase 11E — Daily chest presentation boundary
+
+`RadiantChestPresentationRules` is Android/Firebase-free presentation logic for minimum reveal pacing and rarity-driven visual intensity. `RadiantChestCard` consumes the already-resolved `RadiantChestPreview`; it does not roll rewards or authorize persistence.
+
+The Firestore claim begins immediately. UI may hold a very fast success until the 520 ms opening pose has registered, but the UI never fabricates a reward while waiting. `RewardLoopRules` and `FirebaseRadiantRepository` remain the reward/economy authority. Phase 11E changes no Ranked state, wallet/Solana authority, sponsor payout state, or Firestore security rules.
+
 ## Phase 11D — Weekly Radiant Cup boundary
 
 `WeeklyRadiantCupRules` is Android/Firebase-free domain logic for UTC season timing, placement accolades, and sponsor metadata normalization. `LeaderboardScreen` presents the Cup using the existing wallet-deduped Ranked Radiant Run board.

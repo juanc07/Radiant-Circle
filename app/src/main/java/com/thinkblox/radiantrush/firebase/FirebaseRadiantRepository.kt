@@ -1941,17 +1941,16 @@ class FirebaseRadiantRepository(
         return when {
             chestClaimedToday -> RadiantChestPreview(
                 status = RadiantChestStatus.Claimed,
-                subtitle = "Claimed for today. Come back tomorrow for another chest.",
+                subtitle = "Today’s reward is secured.",
                 progressText = progressText,
-                rewardText = buildString {
-                    append("${user.lastChestRewardRarity ?: "Reward"}: ${user.lastChestRewardTitle ?: "Daily bonus"} • +${user.lastChestRewardXp} XP")
-                    if (user.lastChestRewardTickets > 0) append(" • +${user.lastChestRewardTickets} standard")
-                    if (user.lastChestSkrBonusTickets > 0) append(" • +${user.lastChestSkrBonusTickets} SKR casual")
-                },
-                buttonLabel = "Claimed Today",
+                rewardText = "Daily reward secured",
+                buttonLabel = "Come Back Tomorrow",
                 lastRewardRarity = user.lastChestRewardRarity,
                 lastRewardTitle = user.lastChestRewardTitle,
                 lastRewardXp = user.lastChestRewardXp,
+                lastRewardStandardTickets = user.lastChestRewardTickets,
+                lastRewardSkrCasualTickets = user.lastChestSkrBonusTickets,
+                lastRewardSkrBonusXp = user.lastChestSkrBonusXp,
             )
             chestReady -> RadiantChestPreview(
                 status = RadiantChestStatus.Ready,

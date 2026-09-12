@@ -1,3 +1,28 @@
+## Phase 11E — final chest/reward verification
+
+Run the normal gate:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+No Firestore rules changed in Phase 11E, so there is no rules redeploy for this patch.
+
+Manual device checks on Seeker and Samsung-class phone widths:
+
+- Tap a Ready Daily Radiant Chest: feedback begins immediately and the repository request starts immediately.
+- A fast save reveals after roughly half a second of readable opening motion; a slow save does not add another artificial delay after the result arrives.
+- Chest/card geometry stays stable: no high-frequency jitter, whole-card shake, or neighboring Home layout movement.
+- Spark, Pulse, Flare, Aurora, and Legendary produce visibly increasing reveal intensity while preserving the pastel Radiant identity.
+- Claimed reward tray shows the real total XP and any standard Rush Ticket, SKR casual ticket, and SKR XP boost values without clipping/bleeding/ellipsis.
+- Large Android font scale keeps rarity/title/reward chips readable and centered.
+- Re-enter Home after claim: reward remains in stable claimed state and cannot be claimed twice.
+- Audio stops/releases correctly when leaving the screen; no stuck chest loop.
+- Verify Ranked attempts, Weekly Cup score, SKR Passport values, and wallet behavior are unchanged by opening the chest.
+
 ## Phase 11D — Weekly Radiant Cup verification
 
 Run the normal gate:

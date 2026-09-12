@@ -74,6 +74,7 @@ import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RadiantChestPreview
 import com.thinkblox.radiantrush.data.RadiantChestStatus
+import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.PI
@@ -532,26 +533,20 @@ fun RadiantChestCard(
     val burst = remember { Animatable(if (chest.status == RadiantChestStatus.Claimed) 1f else 0f) }
     val rewardLift = remember { Animatable(if (chest.status == RadiantChestStatus.Claimed) 1f else 0f) }
     val shakeOffset = remember { Animatable(0f) }
-    var previousChestStatus by remember { androidx.compose.runtime.mutableStateOf(chest.status) }
+    var previousChestStatus by remember { mutableStateOf(chest.status) }
+    val rarityRank = RadiantChestPresentationRules.rarityRank(chest.lastRewardRarity)
+    val particleCount = RadiantChestPresentationRules.particleCount(chest.lastRewardRarity)
+    val shockwaveCount = RadiantChestPresentationRules.shockwaveCount(chest.lastRewardRarity)
     val motion = rememberInfiniteTransition(label = "chestIdle")
     val idlePulse by motion.animateFloat(
-        initialValue = 0.97f,
-        targetValue = 1.03f,
+        initialValue = 0.975f,
+        targetValue = 1.025f,
         animationSpec = infiniteRepeatable(
-            animation = tween(780, easing = FastOutSlowInEasing),
+            animation = tween(820, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "chestPulse",
     )
-
-    fun rarityRank(): Int = when (chest.lastRewardRarity?.lowercase()) {
-        "uncommon" -> 1
-        "rare" -> 2
-        "epic" -> 3
-        "legendary" -> 4
-        "mythic" -> 5
-        else -> 0
-    }
 
     DisposableEffect(audio) {
         onDispose { audio.release() }
@@ -568,65 +563,96 @@ fun RadiantChestCard(
                 rewardLift.snapTo(0f)
                 shakeOffset.snapTo(0f)
             }
+
             RadiantChestStatus.Ready -> {
                 previousChestStatus = RadiantChestStatus.Ready
                 audio.setMusicActive(false)
-                charge.snapTo(0.22f)
-                lidOpen.snapTo(0f)
-                burst.snapTo(0f)
-                rewardLift.snapTo(0f)
-                shakeOffset.snapTo(0f)
-            }
-            RadiantChestStatus.Opening -> {
-                previousChestStatus = RadiantChestStatus.Opening
-                audio.setMusicActive(true)
-                audio.setIntensity(fever = false, finalRush = false)
                 charge.snapTo(0.18f)
                 lidOpen.snapTo(0f)
                 burst.snapTo(0f)
                 rewardLift.snapTo(0f)
                 shakeOffset.snapTo(0f)
+            }
+
+            RadiantChestStatus.Opening -> {
+                previousChestStatus = RadiantChestStatus.Opening
+                audio.setMusicActive(true)
+                audio.setIntensity(fever = false, finalRush = false)
+                charge.snapTo(0.12f)
+                lidOpen.snapTo(0f)
+                burst.snapTo(0f)
+                rewardLift.snapTo(0f)
+                shakeOffset.snapTo(0f)
+
                 audio.play(Cue.ChestCharge)
                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+
                 coroutineScope {
                     launch {
-                        charge.animateTo(1f, animationSpec = tween(760, easing = FastOutSlowInEasing))
+                        charge.animateTo(
+                            1f,
+                            animationSpec = tween(460, easing = FastOutSlowInEasing),
+                        )
                     }
-                    // A short damped shake reads as anticipation without the high-frequency
-                    // micro-jitter caused by deriving position from the charge value.
-                    shakeOffset.animateTo(
-                        targetValue = 0f,
-                        animationSpec = keyframes {
-                            durationMillis = 620
-                            0f at 0
-                            -3.5f at 90
-                            3.0f at 180
-                            -2.4f at 270
-                            1.8f at 360
-                            -1.0f at 450
-                            0f at 620
-                        },
-                    )
+                    launch {
+                        shakeOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = keyframes {
+                                durationMillis = 410
+                                0f at 0
+                                -2.2f at 80
+                                2.0f at 150
+                                -1.5f at 220
+                                1.0f at 290
+                                -0.5f at 350
+                                0f at 410
+                            },
+                        )
+                    }
                 }
+
                 audio.play(Cue.ChestOpen)
                 haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                lidOpen.animateTo(1f, animationSpec = tween(340, easing = FastOutSlowInEasing))
-                burst.animateTo(1f, animationSpec = tween(620, easing = FastOutSlowInEasing))
+                lidOpen.animateTo(
+                    0.55f,
+                    animationSpec = tween(170, easing = FastOutSlowInEasing),
+                )
             }
+
             RadiantChestStatus.Claimed -> {
                 shakeOffset.snapTo(0f)
                 val revealNow = previousChestStatus == RadiantChestStatus.Opening
                 previousChestStatus = RadiantChestStatus.Claimed
                 audio.setMusicActive(false)
-                lidOpen.snapTo(1f)
+
                 if (revealNow) {
                     burst.snapTo(0f)
                     rewardLift.snapTo(0f)
-                    audio.play(Cue.ChestReveal, rarityRank())
+                    audio.play(Cue.ChestReveal, rarityRank)
                     haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    burst.animateTo(1f, animationSpec = tween(900, easing = FastOutSlowInEasing))
-                    rewardLift.animateTo(1f, animationSpec = tween(520, easing = FastOutSlowInEasing))
+
+                    coroutineScope {
+                        launch {
+                            lidOpen.animateTo(
+                                1f,
+                                animationSpec = tween(180, easing = FastOutSlowInEasing),
+                            )
+                        }
+                        launch {
+                            burst.animateTo(
+                                1f,
+                                animationSpec = tween(760, easing = FastOutSlowInEasing),
+                            )
+                        }
+                        launch {
+                            rewardLift.animateTo(
+                                1f,
+                                animationSpec = tween(440, easing = FastOutSlowInEasing),
+                            )
+                        }
+                    }
                 } else {
+                    lidOpen.snapTo(1f)
                     burst.snapTo(1f)
                     rewardLift.snapTo(1f)
                 }
@@ -635,14 +661,15 @@ fun RadiantChestCard(
     }
 
     val isOpening = chest.status == RadiantChestStatus.Opening
-    val revealColor = when (rarityRank()) {
-        1 -> Color(0xFF22C55E)
-        2 -> Color(0xFF38BDF8)
-        3 -> Color(0xFFA855F7)
-        4 -> Color(0xFFF59E0B)
-        5 -> Color(0xFFEC4899)
-        else -> MaterialTheme.colorScheme.primary
+    val revealColor = when (rarityRank) {
+        1 -> Color(0xFFA7E3C1)
+        2 -> Color(0xFF9ECBF4)
+        3 -> Color(0xFFCAB5F4)
+        4 -> Color(0xFFFFD68A)
+        5 -> Color(0xFFFFB5D2)
+        else -> Color(0xFFAEDCF5)
     }
+    val idleGlow = Color(0xFFFFD5A6)
 
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
@@ -650,91 +677,170 @@ fun RadiantChestCard(
         colors = CardDefaults.elevatedCardColors(
             containerColor = when (chest.status) {
                 RadiantChestStatus.Ready -> MaterialTheme.colorScheme.primaryContainer
-                RadiantChestStatus.Claimed -> MaterialTheme.colorScheme.secondaryContainer
+                RadiantChestStatus.Claimed -> MaterialTheme.colorScheme.surfaceVariant
                 else -> MaterialTheme.colorScheme.surfaceVariant
             },
         ),
     ) {
         Column(
-            modifier = Modifier.padding(responsive.cardPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 14.dp),
         ) {
             Text(
                 text = chest.title,
-                style = if (responsive.isTiny) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Clip,
+                modifier = Modifier.fillMaxWidth(),
+                style = if (responsive.isTiny) {
+                    MaterialTheme.typography.titleLarge
+                } else {
+                    MaterialTheme.typography.headlineSmall
+                },
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
             )
+
+            Surface(
+                shape = RoundedCornerShape(50.dp),
+                color = when (chest.status) {
+                    RadiantChestStatus.Ready -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    RadiantChestStatus.Opening -> idleGlow.copy(alpha = 0.22f)
+                    RadiantChestStatus.Claimed -> revealColor.copy(alpha = 0.18f)
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                },
+            ) {
+                Text(
+                    text = when (chest.status) {
+                        RadiantChestStatus.Locked -> "DAILY REWARD • LOCKED"
+                        RadiantChestStatus.Ready -> "DAILY REWARD • READY"
+                        RadiantChestStatus.Opening -> "DAILY REWARD • OPENING"
+                        RadiantChestStatus.Claimed -> "DAILY REWARD • SECURED"
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+            }
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(if (responsive.isTiny) 190.dp else 220.dp)
+                    .height(if (responsive.isTiny) 198.dp else 232.dp)
                     .graphicsLayer {
-                        // Keep the card's geometry stable. Glow breathes inside the Canvas;
-                        // only the deliberate damped anticipation offset moves the chest.
+                        // Only the chest art moves, never the surrounding layout.
                         translationX = if (isOpening) shakeOffset.value else 0f
                     },
                 contentAlignment = Alignment.Center,
             ) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     val cx = size.width / 2f
-                    val cy = size.height * 0.58f
+                    val cy = size.height * 0.60f
                     val chestW = min(size.width * 0.62f, 260.dp.toPx())
                     val chestH = chestW * 0.48f
                     val bodyTop = cy - chestH * 0.12f
                     val bodyLeft = cx - chestW / 2f
-                    val gold = Color(0xFFF6C453)
-                    val darkGold = Color(0xFFB7791F)
-                    val wood = Color(0xFF6B3F24)
-                    val woodLight = Color(0xFF9A5A32)
-                    val glow = if (chest.status == RadiantChestStatus.Claimed) revealColor else Color(0xFFFFD166)
+                    val gold = Color(0xFFF3C96A)
+                    val darkGold = Color(0xFFB9822E)
+                    val wood = Color(0xFF6B3F2A)
+                    val woodLight = Color(0xFF9C6040)
+                    val glow = if (chest.status == RadiantChestStatus.Claimed) revealColor else idleGlow
                     val energy = when (chest.status) {
-                        RadiantChestStatus.Ready -> 0.40f + (idlePulse - 0.97f) * 3.0f
-                        RadiantChestStatus.Opening -> 0.25f + charge.value * 0.65f
-                        RadiantChestStatus.Claimed -> (1f - burst.value) * 0.75f + 0.18f
-                        else -> 0.08f
-                    }.coerceIn(0f, 0.95f)
+                        RadiantChestStatus.Ready -> 0.34f + (idlePulse - 0.975f) * 3.2f
+                        RadiantChestStatus.Opening -> 0.25f + charge.value * 0.64f
+                        RadiantChestStatus.Claimed -> 0.20f + (1f - burst.value) * 0.60f
+                        else -> 0.07f
+                    }.coerceIn(0f, 0.90f)
 
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(glow.copy(alpha = energy), glow.copy(alpha = energy * 0.20f), Color.Transparent),
+                            colors = listOf(
+                                glow.copy(alpha = energy),
+                                glow.copy(alpha = energy * 0.24f),
+                                Color.Transparent,
+                            ),
                             center = Offset(cx, cy),
-                            radius = chestW * 0.92f,
+                            radius = chestW * 0.95f,
                         ),
-                        radius = chestW * 0.92f,
+                        radius = chestW * 0.95f,
                         center = Offset(cx, cy),
                     )
 
-                    if (isOpening || chest.status == RadiantChestStatus.Claimed) {
-                        val p = if (chest.status == RadiantChestStatus.Claimed) burst.value else burst.value
+                    // Stable ambient motes make the ready chest feel alive without moving layout.
+                    if (chest.status != RadiantChestStatus.Locked) {
+                        repeat(12) { index ->
+                            val angle = PI * 2.0 * index / 12.0 + (idlePulse - 1f) * 2.4f
+                            val orbit = chestW * (0.63f + (index % 3) * 0.07f)
+                            val point = Offset(
+                                cx + (cos(angle) * orbit).toFloat(),
+                                cy + (sin(angle) * orbit * 0.62).toFloat(),
+                            )
+                            drawCircle(
+                                color = glow.copy(alpha = 0.18f + (index % 4) * 0.035f),
+                                radius = 2.4f + (index % 3) * 0.8f,
+                                center = point,
+                            )
+                        }
+                    }
+
+                    if (chest.status == RadiantChestStatus.Claimed) {
+                        val p = burst.value
                         val alpha = (1f - p).coerceIn(0f, 1f)
+
                         if (p < 1f) {
-                            repeat(36) { index ->
-                                val angle = PI * 2.0 * index / 36.0 + index * 0.013
-                                val travel = chestW * (0.22f + p * 0.82f) * (0.72f + (index % 7) * 0.055f)
+                            // Soft radial rays: higher rarities produce a denser, brighter reveal.
+                            repeat(12 + rarityRank * 2) { index ->
+                                val angle = PI * 2.0 * index / (12 + rarityRank * 2)
+                                val inner = chestW * (0.30f + p * 0.12f)
+                                val outer = chestW * (0.58f + p * 0.55f)
+                                val start = Offset(
+                                    cx + (cos(angle) * inner).toFloat(),
+                                    cy + (sin(angle) * inner * 0.74).toFloat(),
+                                )
+                                val finish = Offset(
+                                    cx + (cos(angle) * outer).toFloat(),
+                                    cy + (sin(angle) * outer * 0.74).toFloat(),
+                                )
+                                drawLine(
+                                    color = glow.copy(alpha = alpha * (0.22f + rarityRank * 0.035f)),
+                                    start = start,
+                                    end = finish,
+                                    strokeWidth = 3f + rarityRank * 0.45f,
+                                )
+                            }
+
+                            repeat(particleCount) { index ->
+                                val angle = PI * 2.0 * index / particleCount + index * 0.011
+                                val travel = chestW * (0.20f + p * 0.84f) *
+                                    (0.72f + (index % 7) * 0.055f)
                                 val point = Offset(
                                     cx + (cos(angle) * travel).toFloat(),
                                     cy + (sin(angle) * travel * 0.72).toFloat(),
                                 )
                                 drawCircle(
                                     color = glow.copy(alpha = alpha * 0.92f),
-                                    radius = (3.5f + (index % 4) * 1.7f) * (1f - p * 0.35f),
+                                    radius = (3.2f + (index % 4) * 1.5f) * (1f - p * 0.30f),
                                     center = point,
                                 )
                             }
-                            repeat(3) { ring ->
+
+                            repeat(shockwaveCount) { ring ->
                                 drawCircle(
-                                    color = glow.copy(alpha = alpha * (0.55f - ring * 0.13f)),
-                                    radius = chestW * (0.28f + p * (0.44f + ring * 0.12f)),
+                                    color = glow.copy(
+                                        alpha = alpha * (0.52f - ring * 0.085f).coerceAtLeast(0.16f),
+                                    ),
+                                    radius = chestW * (0.26f + p * (0.43f + ring * 0.10f)),
                                     center = Offset(cx, cy),
-                                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = (6f - ring).coerceAtLeast(2f)),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                        width = (6f - ring * 0.7f).coerceAtLeast(2.5f),
+                                    ),
                                 )
                             }
                         }
                     }
 
-                    // Chest body
+                    // Chest body.
                     drawRoundRect(
                         color = wood,
                         topLeft = Offset(bodyLeft, bodyTop),
@@ -747,7 +853,6 @@ fun RadiantChestCard(
                         size = Size(chestW * 0.92f, chestH * 0.50f),
                         cornerRadius = CornerRadius(14f, 14f),
                     )
-                    // Gold bands
                     drawRoundRect(
                         color = gold,
                         topLeft = Offset(bodyLeft + chestW * 0.12f, bodyTop),
@@ -761,8 +866,7 @@ fun RadiantChestCard(
                         cornerRadius = CornerRadius(8f, 8f),
                     )
 
-                    // Lid rises during opening.
-                    val lidLift = lidOpen.value * chestH * 0.50f
+                    val lidLift = lidOpen.value * chestH * 0.52f
                     val lidTop = bodyTop - chestH * 0.36f - lidLift
                     drawRoundRect(
                         brush = Brush.verticalGradient(listOf(woodLight, wood)),
@@ -777,7 +881,6 @@ fun RadiantChestCard(
                         cornerRadius = CornerRadius(6f, 6f),
                     )
 
-                    // Lock visibly pops away once the lid opens.
                     if (lidOpen.value < 0.72f) {
                         val lockW = chestW * 0.17f
                         val lockH = chestH * 0.28f
@@ -794,63 +897,207 @@ fun RadiantChestCard(
                         )
                     }
 
-                    if (chest.status == RadiantChestStatus.Opening && charge.value > 0.62f) {
-                        val beamAlpha = ((charge.value - 0.62f) / 0.38f).coerceIn(0f, 1f)
+                    if (chest.status == RadiantChestStatus.Opening && charge.value > 0.48f) {
+                        val beamAlpha = ((charge.value - 0.48f) / 0.52f).coerceIn(0f, 1f)
                         drawRoundRect(
                             brush = Brush.verticalGradient(
-                                listOf(glow.copy(alpha = beamAlpha * 0.52f), Color.Transparent),
+                                listOf(
+                                    glow.copy(alpha = beamAlpha * 0.58f),
+                                    glow.copy(alpha = beamAlpha * 0.16f),
+                                    Color.Transparent,
+                                ),
                             ),
-                            topLeft = Offset(cx - chestW * 0.18f, lidTop - chestH * 0.70f),
-                            size = Size(chestW * 0.36f, chestH * 0.92f),
-                            cornerRadius = CornerRadius(30f, 30f),
+                            topLeft = Offset(cx - chestW * 0.19f, lidTop - chestH * 0.92f),
+                            size = Size(chestW * 0.38f, chestH * 1.14f),
+                            cornerRadius = CornerRadius(32f, 32f),
+                        )
+                    }
+
+                    // The revealed reward stays visible after the burst finishes.
+                    if (chest.status == RadiantChestStatus.Claimed) {
+                        val lift = rewardLift.value
+                        val orbY = bodyTop - chestH * (0.33f + lift * 0.47f)
+                        val orbRadius = chestW * (0.075f + rarityRank * 0.004f)
+
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.92f),
+                                    glow.copy(alpha = 0.76f),
+                                    glow.copy(alpha = 0.12f),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(cx, orbY),
+                                radius = orbRadius * 3.2f,
+                            ),
+                            radius = orbRadius * 3.2f,
+                            center = Offset(cx, orbY),
+                        )
+                        drawCircle(
+                            color = glow,
+                            radius = orbRadius,
+                            center = Offset(cx, orbY),
+                        )
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.86f),
+                            radius = orbRadius * 0.38f,
+                            center = Offset(cx - orbRadius * 0.24f, orbY - orbRadius * 0.24f),
                         )
                     }
                 }
             }
 
-            Text(
-                text = when (chest.status) {
-                    RadiantChestStatus.Opening -> if (charge.value < 0.72f) "CHARGING…" else "OPENING!"
-                    RadiantChestStatus.Claimed -> "${chest.lastRewardRarity ?: "Reward"} • ${chest.lastRewardTitle ?: "Daily reward"}"
-                    else -> chest.subtitle
-                },
-                style = if (chest.status == RadiantChestStatus.Claimed) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
-                color = if (chest.status == RadiantChestStatus.Claimed) revealColor else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = if (chest.status == RadiantChestStatus.Claimed) FontWeight.Bold else FontWeight.Normal,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        if (chest.status == RadiantChestStatus.Claimed) {
-                            translationY = (1f - rewardLift.value) * 28f
-                            alpha = 0.35f + rewardLift.value * 0.65f
-                            scaleX = 0.88f + rewardLift.value * 0.12f
-                            scaleY = 0.88f + rewardLift.value * 0.12f
-                        }
-                    },
-            )
+            when (chest.status) {
+                RadiantChestStatus.Claimed -> {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                translationY = (1f - rewardLift.value) * 22f
+                                alpha = 0.35f + rewardLift.value * 0.65f
+                                scaleX = 0.94f + rewardLift.value * 0.06f
+                                scaleY = 0.94f + rewardLift.value * 0.06f
+                            },
+                        shape = RoundedCornerShape(22.dp),
+                        color = revealColor.copy(alpha = 0.15f),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    horizontal = if (responsive.isTiny) 12.dp else 16.dp,
+                                    vertical = if (responsive.isTiny) 12.dp else 16.dp,
+                                ),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            Text(
+                                text = (chest.lastRewardRarity ?: "Reward").uppercase(),
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = revealColor,
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = chest.lastRewardTitle ?: "Daily Radiant Reward",
+                                modifier = Modifier.fillMaxWidth(),
+                                style = if (responsive.isTiny) {
+                                    MaterialTheme.typography.titleLarge
+                                } else {
+                                    MaterialTheme.typography.headlineSmall
+                                },
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = "+${chest.lastRewardXp} XP",
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = RadiantChestPresentationRules.revealTagline(chest.lastRewardRarity),
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
 
-            if (chest.status == RadiantChestStatus.Claimed) {
-                Text(
-                    text = chest.rewardText,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .graphicsLayer {
-                            translationY = (1f - rewardLift.value) * 18f
-                            alpha = 0.30f + rewardLift.value * 0.70f
-                        },
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                )
-            } else {
-                Text(
-                    text = chest.progressText,
-                    modifier = Modifier.fillMaxWidth(),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
+                            if (responsive.isCompact) {
+                                if (chest.lastRewardStandardTickets > 0) {
+                                    ChestRewardChip(
+                                        text = "+${chest.lastRewardStandardTickets} Rush Ticket${if (chest.lastRewardStandardTickets == 1) "" else "s"}",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                                if (chest.lastRewardSkrCasualTickets > 0) {
+                                    ChestRewardChip(
+                                        text = "+${chest.lastRewardSkrCasualTickets} SKR Casual Ticket${if (chest.lastRewardSkrCasualTickets == 1) "" else "s"}",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                                if (chest.lastRewardSkrBonusXp > 0) {
+                                    ChestRewardChip(
+                                        text = "SKR Boost +${chest.lastRewardSkrBonusXp} XP",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    if (chest.lastRewardStandardTickets > 0) {
+                                        ChestRewardChip(
+                                            text = "+${chest.lastRewardStandardTickets} Rush Ticket${if (chest.lastRewardStandardTickets == 1) "" else "s"}",
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                    if (chest.lastRewardSkrCasualTickets > 0) {
+                                        ChestRewardChip(
+                                            text = "+${chest.lastRewardSkrCasualTickets} SKR Casual",
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                }
+                                if (chest.lastRewardSkrBonusXp > 0) {
+                                    ChestRewardChip(
+                                        text = "SKR Boost +${chest.lastRewardSkrBonusXp} XP",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RadiantChestStatus.Opening -> {
+                    Text(
+                        text = if (charge.value < 0.66f) "RADIANCE BUILDING…" else "OPENING!",
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "Your reward is being secured.",
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+
+                else -> {
+                    Text(
+                        text = chest.subtitle,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = chest.progressText,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    if (chest.status == RadiantChestStatus.Ready && chest.rewardText.isNotBlank()) {
+                        Text(
+                            text = chest.rewardText,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
             }
 
             Button(
@@ -876,6 +1123,28 @@ fun RadiantChestCard(
                 AdaptiveButtonText(chest.buttonLabel)
             }
         }
+    }
+}
+
+@Composable
+private fun ChestRewardChip(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.74f),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 

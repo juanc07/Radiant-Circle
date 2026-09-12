@@ -1,3 +1,7 @@
+## Phase 11E — reward presentation is not economic authority
+
+Daily Chest VFX, rarity colors, audio, haptics, timing, and reward-summary fields are display only. The UI must wait for the repository result and must never invent a reward, SKR amount, token transfer, or payout confirmation. Phase 11E adds no Solana transaction, treasury key, sponsor payout, staking action, or Firestore rule change.
+
 ## Phase 11D — Weekly Cup sponsor metadata is not payout authority
 
 - `weeklyCupConfigs/{ISO_WEEK}` is public-readable presentation metadata and is not proof of funding, winner validity, or payment.

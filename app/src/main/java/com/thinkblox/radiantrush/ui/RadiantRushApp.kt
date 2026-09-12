@@ -1,5 +1,6 @@
 package com.thinkblox.radiantrush.ui
 
+import android.os.SystemClock
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -42,6 +43,7 @@ import com.thinkblox.radiantrush.solana.WalletDisconnectResult
 import com.thinkblox.radiantrush.solana.WalletMemoProofResult
 import com.thinkblox.radiantrush.solana.WalletSignedProofResult
 import com.thinkblox.radiantrush.logic.RadiantRunResult
+import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveNavLabel
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.screens.BadgesScreen
@@ -351,14 +353,17 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
 
     fun claimDailyRadiantChest() {
-        if (!beginChestAction("Charging your Daily Radiant Chest…")) return
+        if (!beginChestAction("Opening your Daily Radiant Chest…")) return
 
-        // Let the visible charge/open animation land without making the chest feel
-        // unresponsive. The current charge sequence is ~760 ms, so a short guard
-        // keeps presentation and repository state aligned without a long dead wait.
-        scope.launch {
-            delay(850)
-            repository.claimDailyRadiantChest { nextState ->
+        // Start the real save immediately. A very fast response is held only long
+        // enough for the opening pose to register; slow network responses reveal as
+        // soon as they arrive with no extra artificial wait.
+        val startedAt = SystemClock.elapsedRealtime()
+        repository.claimDailyRadiantChest { nextState ->
+            val elapsed = SystemClock.elapsedRealtime() - startedAt
+            val remaining = (RadiantChestPresentationRules.MINIMUM_OPENING_MS - elapsed).coerceAtLeast(0L)
+            scope.launch {
+                if (remaining > 0L) delay(remaining)
                 applyRepositoryState(nextState, QuestIds.DAILY_RADIANT_CHEST)
             }
         }

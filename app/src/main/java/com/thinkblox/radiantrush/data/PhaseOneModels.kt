@@ -48,6 +48,9 @@ data class RadiantChestPreview(
     val lastRewardRarity: String? = null,
     val lastRewardTitle: String? = null,
     val lastRewardXp: Int = 0,
+    val lastRewardStandardTickets: Int = 0,
+    val lastRewardSkrCasualTickets: Int = 0,
+    val lastRewardSkrBonusXp: Int = 0,
 )
 
 enum class RadiantChestStatus(val label: String) {

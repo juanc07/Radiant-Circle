@@ -1,3 +1,12 @@
+## Phase 11E — reward reveal UX rules
+
+- Reward actions must respond immediately; do not add a fixed sleep before starting the real save/network work.
+- A short minimum reveal pose is allowed only to make feedback legible. If the backend is slower, reveal as soon as the actual result arrives with no additional presentation delay.
+- Animate chest art internally; do not shake/scale the surrounding card or move neighboring Home content.
+- Required reward information (rarity, title, XP, tickets, SKR bonus) must wrap and remain readable on compact phones and large font scale. Do not use required-text ellipsis.
+- Keep the established soft/pastel Radiant identity. Higher rarity should increase light/particle density, not replace the app with saturated arcade colors.
+- Keep reward summary centered against the full visible card width.
+
 ## Phase 11D — Weekly Cup mobile layout rules
 
 - Weekly Cup headline, countdown, personal rank/PB, reward preview, sponsor copy, and podium content must measure against full card width and remain centered.
