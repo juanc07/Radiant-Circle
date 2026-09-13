@@ -728,3 +728,39 @@ Version decision: updated to `versionCode 19` / `1.1.4-phase11c2` because this i
 - Verify `runWalletDaily/{utcDay}/wallets/{walletAddress}` contains `attemptsUsed`, `gameplayXpEarnedToday`, and `payoutEligible=false`.
 - Test My Stats at compact width and increased Android font scale; labels/values must wrap/stack without clipping, ellipsis, or bleed.
 
+
+
+## Phase 12B test gate — trusted sponsor / Cup configuration
+
+Run the normal Android gate:
+
+```bash
+./gradlew --stop
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Run the Firebase Admin tool tests:
+
+```bash
+cd scripts/firebase-admin
+npm install
+npm test
+```
+
+Before writing a real weekly config, generate temporary Admin credentials outside the repository, set `GOOGLE_APPLICATION_CREDENTIALS`, then run `manage-weekly-cup.mjs` without `--apply`. Review the exact week, sponsor, official SKR mint, exact atomic prize amount, 100% placement split, UTC start/end, funding state, and `payoutEnabled=false`. Apply only with the exact same arguments plus `--apply --confirm-project radiant-rush-10a9c`.
+
+Manual QA on Seeker:
+
+1. With no current schema-v2 config, Weekly Cup remains usable and does not invent a sponsored/funded prize.
+2. With a DRAFT config, the app does not present the prize as active.
+3. With ANNOUNCED/OPEN config, sponsor, SKR prize, prize split, Cup status, and funding status wrap cleanly on compact widths and large font scale.
+4. `NOT_CONFIGURED` and `NOT_VERIFIED` funding must never read as funded/paid/confirmed.
+5. Wrong mint/schema/week/allocation/authority fails closed to the non-trusted fallback.
+6. Ranked result receipts remain `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, `NOT_ELIGIBLE`.
+7. Existing MWA connect/sign, Devnet Memo proof, Mainnet SKR Passport, Weekly/All-Time/My Stats/XP, Daily Chest, and Radiant Rush flows regress cleanly.
+8. Verify Firestore client rules still deny writes to `weeklyCupConfigs/*`; Admin SDK tooling is the only configuration write path.
+
+Version: `27 / 1.2.2-phase12b`.

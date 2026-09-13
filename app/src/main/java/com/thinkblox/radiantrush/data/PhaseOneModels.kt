@@ -132,6 +132,7 @@ data class RunLeaderboardPreview(
 data class WeeklyCupPreview(
     val title: String = "Weekly Radiant Cup",
     val seasonKey: String = "",
+    val seasonStartsAtEpochMillis: Long = 0L,
     val seasonEndsAtEpochMillis: Long = 0L,
     val participantCount: Int = 0,
     val personalRank: Int? = null,
@@ -146,6 +147,13 @@ data class WeeklyCupPreview(
     val sponsoredPrizeStatus: String = "No sponsored prize this week",
     val sponsorNote: String? = null,
     val sponsoredPrizeActive: Boolean = false,
+    val trustedSponsorConfig: Boolean = false,
+    val cupStatusCode: String = "UNCONFIGURED",
+    val cupStatusLabel: String = "No trusted Cup config",
+    val fundingVerificationStatus: String = "NOT_CONFIGURED",
+    val fundingVerificationLabel: String = "Funding wallet not configured",
+    val placementAllocationLabel: String? = null,
+    val trustedResultsRequired: Boolean = true,
     val payoutEnabled: Boolean = false,
 )
 

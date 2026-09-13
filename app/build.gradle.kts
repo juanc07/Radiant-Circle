@@ -20,8 +20,8 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 26
-        versionName = "1.2.1-phase11f4"
+        versionCode = 27
+        versionName = "1.2.2-phase12b"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

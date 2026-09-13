@@ -3,6 +3,7 @@ package com.thinkblox.radiantrush.firebase
 import android.content.Context
 import android.util.Log
 import com.google.firebase.FirebaseApp
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
@@ -32,6 +33,7 @@ import com.thinkblox.radiantrush.logic.LeaderboardRules
 import com.thinkblox.radiantrush.logic.GameplayXpAward
 import com.thinkblox.radiantrush.logic.Phase11CompetitionRules
 import com.thinkblox.radiantrush.logic.Phase12CompetitionVerificationRules
+import com.thinkblox.radiantrush.logic.Phase12WeeklyCupConfigRules
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.logic.RetentionRules
 import com.thinkblox.radiantrush.logic.RunCompetitionMode
@@ -1878,32 +1880,40 @@ class FirebaseRadiantRepository(
             }
             val projectedReward = WeeklyRadiantCupRules.rewardForPlacement(personalRank)
 
-            fun loadPreviousSeason(
-                sponsorName: String?,
-                prizeLabel: String?,
-                sponsorStatus: String,
-                sponsorNote: String?,
-                sponsorActive: Boolean,
-            ) {
+            fun buildCup(
+                sponsor: CupSponsorPresentation,
+                previousRank: Int? = null,
+                previousRewardTitle: String? = null,
+            ) = WeeklyCupPreview(
+                seasonKey = currentWeek,
+                seasonStartsAtEpochMillis = sponsor.startsAtEpochMillis ?: 0L,
+                seasonEndsAtEpochMillis = sponsor.endsAtEpochMillis ?: seasonEndsAt,
+                participantCount = participantCount,
+                personalRank = personalRank,
+                personalBestScore = personal.weeklyBestScore,
+                projectedRewardTitle = projectedReward.title,
+                projectedRewardDetail = projectedReward.detail,
+                previousSeasonKey = previousWeek,
+                previousSeasonRank = previousRank,
+                previousRewardTitle = previousRewardTitle,
+                sponsorName = sponsor.sponsorName,
+                sponsoredPrizeLabel = sponsor.prizeLabel,
+                sponsoredPrizeStatus = sponsor.sponsorStatus,
+                sponsorNote = sponsor.sponsorNote,
+                sponsoredPrizeActive = sponsor.sponsorActive,
+                trustedSponsorConfig = sponsor.trustedConfig,
+                cupStatusCode = sponsor.cupStatusCode,
+                cupStatusLabel = sponsor.cupStatusLabel,
+                fundingVerificationStatus = sponsor.fundingStatus,
+                fundingVerificationLabel = sponsor.fundingLabel,
+                placementAllocationLabel = sponsor.placementAllocationLabel,
+                trustedResultsRequired = sponsor.trustedResultsRequired,
+                payoutEnabled = false,
+            )
+
+            fun loadPreviousSeason(sponsor: CupSponsorPresentation) {
                 if (!walletConnected || walletAddress == null) {
-                    onDone(
-                        WeeklyCupPreview(
-                            seasonKey = currentWeek,
-                            seasonEndsAtEpochMillis = seasonEndsAt,
-                            participantCount = participantCount,
-                            personalRank = personalRank,
-                            personalBestScore = personal.weeklyBestScore,
-                            projectedRewardTitle = projectedReward.title,
-                            projectedRewardDetail = projectedReward.detail,
-                            previousSeasonKey = previousWeek,
-                            sponsorName = sponsorName,
-                            sponsoredPrizeLabel = prizeLabel,
-                            sponsoredPrizeStatus = sponsorStatus,
-                            sponsorNote = sponsorNote,
-                            sponsoredPrizeActive = sponsorActive,
-                            payoutEnabled = false,
-                        ),
-                    )
+                    onDone(buildCup(sponsor))
                     return
                 }
 
@@ -1922,45 +1932,15 @@ class FirebaseRadiantRepository(
                         )
                         val previousReward = previousRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
                         onDone(
-                            WeeklyCupPreview(
-                                seasonKey = currentWeek,
-                                seasonEndsAtEpochMillis = seasonEndsAt,
-                                participantCount = participantCount,
-                                personalRank = personalRank,
-                                personalBestScore = personal.weeklyBestScore,
-                                projectedRewardTitle = projectedReward.title,
-                                projectedRewardDetail = projectedReward.detail,
-                                previousSeasonKey = previousWeek,
-                                previousSeasonRank = previousRank,
+                            buildCup(
+                                sponsor = sponsor,
+                                previousRank = previousRank,
                                 previousRewardTitle = previousReward?.title,
-                                sponsorName = sponsorName,
-                                sponsoredPrizeLabel = prizeLabel,
-                                sponsoredPrizeStatus = sponsorStatus,
-                                sponsorNote = sponsorNote,
-                                sponsoredPrizeActive = sponsorActive,
-                                payoutEnabled = false,
                             ),
                         )
                     }
                     .addOnFailureListener {
-                        onDone(
-                            WeeklyCupPreview(
-                                seasonKey = currentWeek,
-                                seasonEndsAtEpochMillis = seasonEndsAt,
-                                participantCount = participantCount,
-                                personalRank = personalRank,
-                                personalBestScore = personal.weeklyBestScore,
-                                projectedRewardTitle = projectedReward.title,
-                                projectedRewardDetail = projectedReward.detail,
-                                previousSeasonKey = previousWeek,
-                                sponsorName = sponsorName,
-                                sponsoredPrizeLabel = prizeLabel,
-                                sponsoredPrizeStatus = sponsorStatus,
-                                sponsorNote = sponsorNote,
-                                sponsoredPrizeActive = sponsorActive,
-                                payoutEnabled = false,
-                            ),
-                        )
+                        onDone(buildCup(sponsor))
                     }
             }
 
@@ -1968,28 +1948,96 @@ class FirebaseRadiantRepository(
                 .document(currentWeek)
                 .get()
                 .addOnSuccessListener { sponsorDocument ->
-                    val sponsorState = WeeklyRadiantCupRules.sponsorState(
-                        status = sponsorDocument.getString("status"),
-                        sponsorName = sponsorDocument.getString("sponsorName"),
-                        prizeLabel = sponsorDocument.getString("prizeLabel"),
-                        note = sponsorDocument.getString("note"),
-                    )
-                    loadPreviousSeason(
-                        sponsorName = sponsorState.sponsorName,
-                        prizeLabel = sponsorState.prizeLabel,
-                        sponsorStatus = sponsorState.statusLabel,
-                        sponsorNote = sponsorState.note,
-                        sponsorActive = sponsorState.active,
-                    )
+                    fun stringField(name: String): String? = sponsorDocument.get(name) as? String
+                    fun intField(name: String): Int? = (sponsorDocument.get(name) as? Number)?.toInt()
+                    fun booleanField(name: String): Boolean? = sponsorDocument.get(name) as? Boolean
+                    fun timestampMillis(name: String): Long? =
+                        (sponsorDocument.get(name) as? Timestamp)?.toDate()?.time
+
+                    val schemaVersion = intField("schemaVersion")
+                    val trustedPresentation = if (schemaVersion == Phase12WeeklyCupConfigRules.SCHEMA_VERSION) {
+                        val allocationMap = (sponsorDocument.get("placementAllocationsBps") as? Map<*, *>)
+                            .orEmpty()
+                            .mapNotNull { (rawRank, rawBps) ->
+                                val rank = rawRank?.toString()?.toIntOrNull()
+                                val bps = (rawBps as? Number)?.toInt()
+                                if (rank != null && bps != null) rank to bps else null
+                            }
+                            .toMap()
+                        Phase12WeeklyCupConfigRules.presentation(
+                            expectedWeekKey = currentWeek,
+                            schemaVersion = schemaVersion,
+                            weekKey = stringField("weekKey"),
+                            status = stringField("status"),
+                            sponsorName = stringField("sponsorName"),
+                            sponsorNote = stringField("sponsorNote"),
+                            prizeAssetSymbol = stringField("prizeAssetSymbol"),
+                            prizeMint = stringField("prizeMint"),
+                            prizeDecimals = intField("prizeDecimals"),
+                            prizeAmountAtomic = stringField("prizeAmountAtomic"),
+                            placementAllocationsBps = allocationMap,
+                            startsAtEpochMillis = timestampMillis("startsAt"),
+                            endsAtEpochMillis = timestampMillis("endsAt"),
+                            fundingWalletAddress = stringField("fundingWalletAddress"),
+                            fundingVerificationStatus = stringField("fundingVerificationStatus"),
+                            configurationAuthority = stringField("configurationAuthority"),
+                            trustedResultsRequired = booleanField("trustedResultsRequired"),
+                        )
+                    } else {
+                        null
+                    }
+
+                    if (trustedPresentation?.recognized == true) {
+                        loadPreviousSeason(
+                            CupSponsorPresentation(
+                                sponsorName = trustedPresentation.sponsorName,
+                                prizeLabel = trustedPresentation.prizeLabel,
+                                sponsorStatus = trustedPresentation.statusLabel,
+                                sponsorNote = trustedPresentation.sponsorNote,
+                                sponsorActive = trustedPresentation.published,
+                                trustedConfig = true,
+                                cupStatusCode = trustedPresentation.statusCode,
+                                cupStatusLabel = trustedPresentation.statusLabel,
+                                startsAtEpochMillis = trustedPresentation.startsAtEpochMillis,
+                                endsAtEpochMillis = trustedPresentation.endsAtEpochMillis,
+                                fundingStatus = trustedPresentation.fundingStatusCode,
+                                fundingLabel = trustedPresentation.fundingStatusLabel,
+                                placementAllocationLabel = trustedPresentation.placementAllocationLabel,
+                                trustedResultsRequired = trustedPresentation.trustedResultsRequired,
+                            ),
+                        )
+                    } else {
+                        // Backward-compatible display for the Phase 11 sponsor announcement shape.
+                        // It is deliberately not labeled as a trusted Phase 12 config.
+                        val legacy = WeeklyRadiantCupRules.sponsorState(
+                            status = stringField("status"),
+                            sponsorName = stringField("sponsorName"),
+                            prizeLabel = stringField("prizeLabel"),
+                            note = stringField("note"),
+                        )
+                        loadPreviousSeason(
+                            CupSponsorPresentation(
+                                sponsorName = legacy.sponsorName,
+                                prizeLabel = legacy.prizeLabel,
+                                sponsorStatus = if (legacy.active) {
+                                    "Legacy sponsor announcement"
+                                } else {
+                                    "No sponsored prize this week"
+                                },
+                                sponsorNote = legacy.note,
+                                sponsorActive = legacy.active,
+                                trustedConfig = false,
+                                cupStatusCode = if (legacy.active) "LEGACY_ANNOUNCED" else "UNCONFIGURED",
+                                cupStatusLabel = if (legacy.active) "Legacy announcement" else "No trusted Cup config",
+                                fundingStatus = Phase12WeeklyCupConfigRules.FUNDING_NOT_VERIFIED,
+                                fundingLabel = if (legacy.active) "Funding not verified" else "Funding wallet not configured",
+                                trustedResultsRequired = true,
+                            ),
+                        )
+                    }
                 }
                 .addOnFailureListener {
-                    loadPreviousSeason(
-                        sponsorName = null,
-                        prizeLabel = null,
-                        sponsorStatus = "No sponsored prize this week",
-                        sponsorNote = null,
-                        sponsorActive = false,
-                    )
+                    loadPreviousSeason(CupSponsorPresentation())
                 }
         }
 
@@ -2436,6 +2484,23 @@ class FirebaseRadiantRepository(
         is FirebaseFirestoreException -> "${error.code}: ${error.message ?: "Firestore error"}"
         else -> error.message ?: error::class.java.simpleName
     }
+
+    private data class CupSponsorPresentation(
+        val sponsorName: String? = null,
+        val prizeLabel: String? = null,
+        val sponsorStatus: String = "No sponsored prize this week",
+        val sponsorNote: String? = null,
+        val sponsorActive: Boolean = false,
+        val trustedConfig: Boolean = false,
+        val cupStatusCode: String = "UNCONFIGURED",
+        val cupStatusLabel: String = "No trusted Cup config",
+        val startsAtEpochMillis: Long? = null,
+        val endsAtEpochMillis: Long? = null,
+        val fundingStatus: String = Phase12WeeklyCupConfigRules.FUNDING_NOT_CONFIGURED,
+        val fundingLabel: String = "Funding wallet not configured",
+        val placementAllocationLabel: String? = null,
+        val trustedResultsRequired: Boolean = true,
+    )
 
     private data class RadiantRunCommitOutcome(
         val reward: RadiantGameRules.RunReward,

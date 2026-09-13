@@ -376,3 +376,14 @@ Radiant Rush target-color changes are presentation only and do not change ranked
 
 Weekly/All-Time personal stats may be read across multiple anonymous-auth UIDs by matching the same connected public wallet address. This is a presentation/prototype competition identity rule, not a trusted reward authority.
 
+
+
+## Phase 12B trusted sponsor configuration boundary
+
+- Android has public read-only access to `weeklyCupConfigs/{weekKey}` and no client create/update/delete authority.
+- A Cup config is presentation metadata, not proof of funding, score validity, winner status, or payout authority.
+- The config must identify the official SKR mint (`SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`) and 6 decimals. Prize amounts are stored as exact atomic-unit strings to avoid floating-point ambiguity.
+- A configured funding wallet is a public address only. Phase 12B records it as `NOT_VERIFIED`; it does not prove ownership or balance. Phase 12C must independently verify funding on-chain from trusted infrastructure.
+- `trustedResultsRequired` remains true and Android hard-codes `payoutEnabled=false` in presentation regardless of remote fields. Client-reported Ranked scores remain UNVERIFIED receipts until a trusted verifier says otherwise.
+- No service-account JSON, treasury key, private key, seed phrase, payout signer, or automatic SKR transfer may be shipped in the APK or committed to the repository.
+- No player wagering or paid entry is introduced.

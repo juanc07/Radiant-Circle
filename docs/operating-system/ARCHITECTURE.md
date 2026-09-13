@@ -488,3 +488,12 @@ Radiant Rush keeps one visual contract for tappable objects: green circles are v
 
 The existing `runWalletDaily/{utcDay}/wallets/{walletAddress}` document also mirrors capped `gameplayXpEarnedToday`, keeping both ranked-attempt usage and the 300 XP/day gameplay cap consistent across phones/reinstalls. This shared record remains prototype fairness state only and has no economic or payout authority.
 
+
+
+## Phase 12B trusted Weekly Cup configuration
+
+`weeklyCupConfigs/{weekKey}` is now the trusted, Admin-written configuration source for the current Weekly Radiant Cup. The Android app may read the document but Firestore rules deny all client writes. Schema v2 contains sponsor presentation, exact SKR prize amount in atomic units, official SKR mint/decimals, ISO-week start/end, placement allocation, optional public funding wallet, funding-verification status, `trustedResultsRequired=true`, `payoutEnabled=false`, and an explicit trusted-admin authority marker.
+
+`Phase12WeeklyCupConfigRules` is a fail-closed presentation parser: malformed schema, wrong week, wrong mint/decimals, invalid allocation, invalid time window, or wrong authority marker is not presented as a trusted sponsor config. `FirebaseRadiantRepository` retains a legacy Phase 11 announcement fallback but never labels it trusted. Android never promotes funding state, winner state, or payout eligibility.
+
+`scripts/firebase-admin/manage-weekly-cup.mjs` is developer/admin tooling, not app code. It is dry-run by default and writes only after exact project confirmation. It refuses to overwrite future verified-funding, enabled-payout, or newer-schema state so Phase 12B tooling cannot accidentally roll back Phase 12C+ trust.

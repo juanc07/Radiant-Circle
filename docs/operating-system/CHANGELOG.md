@@ -1,3 +1,15 @@
+# 2026-09-13 — Phase 12B trusted sponsor / Weekly Cup configuration
+
+- Added a schema-v2 trusted `weeklyCupConfigs/{weekKey}` contract for sponsor identity, exact SKR prize amount, ISO-week bounds, placement split, optional public funding wallet, and explicit funding-verification state.
+- Android remains read-only for Cup configuration and hard-disables payout even when future trusted infrastructure marks funding verified.
+- Added strict Android-side config validation against the official SKR mint, 6 decimals, trusted admin authority marker, 100% placement allocation, exact atomic prize amount, and current week key. Malformed or unexpected config fails closed.
+- Added mobile-first Weekly Cup presentation for trusted config status, sponsor, SKR prize, prize split, and funding state without implying that funding/results/payout are already verified.
+- Polished Cup copy so internal trust/security implementation wording stays in engineering/admin surfaces rather than player UI; DRAFT sponsor cards are hidden and published Cups use concise product labels such as `Weekly prize` and `Funding pending`.
+- Added `scripts/firebase-admin/manage-weekly-cup.mjs`, dry-run by default with exact project confirmation required for writes. It refuses to overwrite future VERIFIED funding/newer schema/payout state.
+- Added JVM and Node tests for config validation, ISO week bounds, SKR atomic conversion, placement totals, and trust-boundary behavior.
+- No funding verification, winner selection, player wagering, treasury/private key, or SKR transfer was added; those remain Phase 12C+ trusted infrastructure.
+- Version: `versionCode = 27`, `versionName = 1.2.2-phase12b`.
+
 # 2026-09-13 — Phase 12A.1 receipt observability + idempotency fix
 
 - Fixed the Phase 12A receipt path so Ranked result UI no longer hides a failed `competitionRunSubmissions` write.

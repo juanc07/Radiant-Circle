@@ -88,8 +88,13 @@ fun LeaderboardScreen(
                             walletConnected = uiState.isWalletConnected,
                         )
                     }
-                    item {
-                        WeeklyCupSponsorCard(uiState.runCompetition.weeklyCup)
+                    if (
+                        uiState.runCompetition.weeklyCup.sponsoredPrizeActive ||
+                        !uiState.runCompetition.weeklyCup.trustedSponsorConfig
+                    ) {
+                        item {
+                            WeeklyCupSponsorCard(uiState.runCompetition.weeklyCup)
+                        }
                     }
                     if (uiState.runCompetition.weeklyLeaderboard.isEmpty()) {
                         item {
@@ -204,6 +209,9 @@ private fun WeeklyCupHeaderCard(
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
             )
+            if (cup.trustedSponsorConfig || cup.cupStatusCode != "UNCONFIGURED") {
+                StatusPill(cup.cupStatusLabel)
+            }
             Text(
                 text = countdown,
                 style = MaterialTheme.typography.titleMedium,
@@ -303,42 +311,56 @@ private fun WeeklyCupSponsorCard(cup: WeeklyCupPreview) {
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Text(
-                text = "Sponsor prize",
+                text = if (cup.trustedSponsorConfig) "Weekly prize" else "Sponsor prize",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
-            if (cup.sponsoredPrizeActive) {
-                Text(
-                    text = cup.sponsoredPrizeLabel ?: cup.sponsoredPrizeStatus,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                )
-                cup.sponsorName?.let {
+
+            when {
+                cup.sponsoredPrizeActive -> {
                     Text(
-                        text = "Presented by $it",
+                        text = cup.sponsoredPrizeLabel ?: cup.sponsoredPrizeStatus,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                    )
+                    cup.sponsorName?.let {
+                        Text(
+                            text = "Presented by $it",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    if (cup.trustedSponsorConfig) {
+                        val publicFundingLabel = when (cup.fundingVerificationStatus) {
+                            "VERIFIED" -> "Funding confirmed"
+                            "REJECTED" -> "Prize unavailable"
+                            else -> "Funding pending"
+                        }
+                        StatusPill(publicFundingLabel)
+                        cup.placementAllocationLabel?.let { allocation ->
+                            Text(
+                                text = allocation,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    Text(
+                        text = cup.sponsoredPrizeStatus,
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
                 }
-                Text(
-                    text = cup.sponsorNote ?: "Sponsored results require trusted verification after the Cup closes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
-            } else {
-                Text(
-                    text = cup.sponsoredPrizeStatus,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
             }
         }
     }
