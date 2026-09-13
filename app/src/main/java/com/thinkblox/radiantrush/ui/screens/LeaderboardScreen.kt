@@ -327,7 +327,7 @@ private fun WeeklyCupSponsorCard(cup: WeeklyCupPreview) {
                     )
                 }
                 Text(
-                    text = cup.sponsorNote ?: "Sponsored rewards are confirmed after the Cup closes.",
+                    text = cup.sponsorNote ?: "Sponsored results require trusted verification after the Cup closes.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,

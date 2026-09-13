@@ -1,3 +1,33 @@
+## Phase 12A trusted competition-verification gate
+
+Deploy the updated Firestore rules before testing the Phase 12A app:
+
+```bash
+npx.cmd firebase-tools deploy --only firestore:rules --project radiant-rush-10a9c
+```
+
+Then run the normal Android gate:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Manual security/regression QA:
+
+- Connect a wallet and finish one Ranked Radiant Rush. Weekly/All-Time, XP, reward/capsule, profile, and ranked-attempt behavior must remain unchanged.
+- Confirm the Ranked result message explicitly reports whether the receipt was `CREATED`, `ALREADY EXISTS`, or `FAILED`; no receipt failure may be silent.
+- Confirm exactly one `competitionRunSubmissions/{receiptId}` receipt is created with `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, and `payoutStatus=NOT_ELIGIBLE`.
+- Retry the same completed result when possible and confirm the same receipt id is reused without creating a duplicate.
+- Confirm the receipt carries `scoreAuthority=client-reported-prototype-not-payout-authority` and a Firestore server timestamp.
+- Confirm a normal client cannot update or delete the receipt, cannot create it as `VERIFIED`, cannot set placement/payout eligibility true, and cannot add extra trusted fields.
+- Confirm a Casual run still works and does not create a trusted-Cup receipt.
+- If receipt persistence is unavailable, the existing game/prototype leaderboard path must still complete; the run simply lacks a receipt eligible for future verification.
+- Recheck wallet connect, signed daily proof, Devnet memo proof, Mainnet read-only SKR Passport/staking display, Daily Radiant Chest, public profile, all leaderboard tabs, and retention surfaces.
+- Repeat high-risk Ranks/Radiant Rush screens at larger Android font scale; required copy must not clip, bleed, overlap, or ellipsize.
+
 ## Phase 11F.4 responsive UI regression gate
 
 Run the normal four-command gate:

@@ -1,3 +1,14 @@
+## Phase 12A trusted competition receipt boundary
+
+- A Radiant Rush Android score is still client-reported and is **not** payout-grade proof.
+- Ranked runs may create `competitionRunSubmissions/{receiptId}` only as `UNVERIFIED`.
+- Client Firestore rules require `trustedPlacementEligible=false`, `payoutEligible=false`, and `payoutStatus=NOT_ELIGIBLE`, and deny all client updates/deletes on the receipt.
+- The exact client schema is allow-listed so Android cannot smuggle trusted fields such as `trustedScore`, `verifiedAt`, winner state, funding state, or a confirmed payout into the initial write.
+- `VERIFIED` / `REJECTED`, trusted placement, sponsor funding, winner snapshots, and payout lifecycle are trusted Admin/server responsibilities only.
+- Receipt score/time/week/wallet fields are still client-visible inputs; a trusted verifier must independently validate them rather than accepting them because Firestore stored them.
+- Receipt failure must not block the existing prototype leaderboard/reward path. A missing receipt means there is nothing trusted to verify; it never implies eligibility.
+- No treasury/private key, entry fee, wagering, automatic SKR transfer, fake funding, or fake confirmation is added. Mainnet SKR remains read-only.
+
 ## Rebrand compatibility boundary
 
 The product name is `Radiant Circle` and the in-app game is `Radiant Rush`. Rebranding must not silently change security/storage identifiers. `com.thinkblox.radiantrush`, the existing MWA identity URI, Firestore paths/fields, and the `radiant-rush:daily-memo-proof` protocol string remain stable unless a separately planned migration provides backward compatibility. Wallet display identity may show `Radiant Circle`.

@@ -1,3 +1,9 @@
+## Phase 12A — trusted competition-verification boundary
+
+`RadiantRunResult` now carries a stable client UUID receipt identity. `FirebaseRadiantRepository` keeps the existing Phase 11 gameplay/progression transaction unchanged as the prototype source for Weekly, All-Time, XP, rewards, and profile state. After a successful Ranked run, it separately attempts to create `competitionRunSubmissions/{receiptId}`. Receipt persistence is intentionally non-blocking so trusted-Cup infrastructure cannot make the game unusable.
+
+`Phase12CompetitionVerificationRules` defines explicit `UNVERIFIED / VERIFIED / REJECTED` vocabulary and a fixed Android initial state of `UNVERIFIED`, not placement eligible, not payout eligible, and `NOT_ELIGIBLE`. Firestore rules enforce an exact client-create schema and deny client updates/deletes. A future trusted Firebase Admin/Cloud Functions/Cloud Run service may verify receipts and add trusted score/decision fields; ordinary Android writes never cross that boundary. Existing `runWeekly`, `runAllTime`, and `runWalletDaily` remain client-reported prototype data and must never be treated as payout proof.
+
 ## Phase 11F.4 — phone-first responsive presentation boundary
 
 `rememberResponsiveUiSpec()` is the shared presentation breakpoint authority. Normal portrait phones are intentionally classified as compact so cards stack before dynamic identity, wallet, streak, tier, leaderboard, or reward text is forced into clipping or micro-font scaling. Required text is allowed to increase component height; horizontal density is reserved for wider layouts.

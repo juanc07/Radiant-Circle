@@ -18,6 +18,69 @@ service cloud.firestore {
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress == walletAddress;
     }
 
+    // Phase 12A client submissions are receipts, not trusted results. A normal
+    // Android client may create exactly one UNVERIFIED/non-payout-eligible shape.
+    // Client wallet/date/score metadata is intentionally treated as an assertion,
+    // not proof; the future trusted verifier must validate it independently.
+    // Trusted Admin/server infrastructure (Admin SDK bypasses client rules) is
+    // the only authority that may later add verification/winner/payout fields.
+    function validClientCompetitionSubmission(runId) {
+      return signedIn()
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "receiptId",
+          "ownerUid",
+          "walletAddress",
+          "utcDayKey",
+          "utcWeekKey",
+          "mode",
+          "score",
+          "maxCombo",
+          "perfectHits",
+          "radiantHits",
+          "corruptedHits",
+          "clientCompletedAtEpochMillis",
+          "scoreAuthority",
+          "verificationStatus",
+          "trustedPlacementEligible",
+          "payoutEligible",
+          "payoutStatus",
+          "submittedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.receiptId is string
+        && request.resource.data.receiptId == runId
+        && request.resource.data.receiptId.size() >= 16
+        && request.resource.data.receiptId.size() <= 80
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.walletAddress is string
+        && request.resource.data.walletAddress.size() >= 32
+        && request.resource.data.walletAddress.size() <= 64
+        && request.resource.data.utcDayKey is string
+        && request.resource.data.utcDayKey.size() == 10
+        && request.resource.data.utcWeekKey is string
+        && request.resource.data.utcWeekKey.size() == 8
+        && request.resource.data.mode == "Ranked"
+        && request.resource.data.score is int
+        && request.resource.data.score >= 0
+        && request.resource.data.maxCombo is int
+        && request.resource.data.maxCombo >= 0
+        && request.resource.data.perfectHits is int
+        && request.resource.data.perfectHits >= 0
+        && request.resource.data.radiantHits is int
+        && request.resource.data.radiantHits >= 0
+        && request.resource.data.corruptedHits is int
+        && request.resource.data.corruptedHits >= 0
+        && request.resource.data.clientCompletedAtEpochMillis is int
+        && request.resource.data.clientCompletedAtEpochMillis > 0
+        && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
+        && request.resource.data.verificationStatus == "UNVERIFIED"
+        && request.resource.data.trustedPlacementEligible == false
+        && request.resource.data.payoutEligible == false
+        && request.resource.data.payoutStatus == "NOT_ELIGIBLE"
+        && request.resource.data.submittedAt == request.time;
+    }
+
     match /users/{userId} {
       allow read, create, update: if owns(userId);
       allow delete: if false;
@@ -93,6 +156,16 @@ service cloud.firestore {
         && request.resource.data.payoutEligible == false;
 
       allow delete: if false;
+    }
+
+
+    // Phase 12A immutable client receipt inbox. Android can create only the
+    // strict UNVERIFIED shape above. It cannot edit a receipt into VERIFIED,
+    // payout-eligible, PAID/CONFIRMED, or any other trusted state.
+    match /competitionRunSubmissions/{runId} {
+      allow read: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if validClientCompetitionSubmission(runId);
+      allow update, delete: if false;
     }
 
     // Phase 11D sponsor-ready Weekly Radiant Cup metadata.

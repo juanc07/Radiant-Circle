@@ -170,4 +170,8 @@ data class RadiantRunResult(
     val radiantHits: Int,
     val corruptedHits: Int,
     val perfectHits: Int = 0,
+    /** Stable client receipt identity. The same result object reuses it on retries. */
+    val receiptId: String = Phase12CompetitionVerificationRules.newReceiptId(),
+    /** Client-reported finish time. Trusted verification must never accept it blindly. */
+    val completedAtEpochMillis: Long = System.currentTimeMillis(),
 )

@@ -1,6 +1,7 @@
 package com.thinkblox.radiantrush.firebase
 
 import android.content.Context
+import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.DocumentSnapshot
@@ -28,12 +29,15 @@ import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
 import com.thinkblox.radiantrush.logic.LeaderboardCandidate
 import com.thinkblox.radiantrush.logic.LeaderboardRules
+import com.thinkblox.radiantrush.logic.GameplayXpAward
 import com.thinkblox.radiantrush.logic.Phase11CompetitionRules
+import com.thinkblox.radiantrush.logic.Phase12CompetitionVerificationRules
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.logic.RetentionRules
 import com.thinkblox.radiantrush.logic.RunCompetitionMode
 import com.thinkblox.radiantrush.logic.RunLeaderboardCandidate
 import com.thinkblox.radiantrush.logic.RunPersonalBest
+import com.thinkblox.radiantrush.logic.RunScoreRecord
 import com.thinkblox.radiantrush.logic.WeeklyRunStats
 import com.thinkblox.radiantrush.logic.WalletRunPersonalStats
 import com.thinkblox.radiantrush.logic.WeeklyRadiantCupRules
@@ -697,10 +701,18 @@ class FirebaseRadiantRepository(
             corruptedHits = result.corruptedHits.coerceAtLeast(0),
             perfectHits = result.perfectHits.coerceAtLeast(0),
         )
+        val receiptId = safeResult.receiptId.trim()
+        if (!Phase12CompetitionVerificationRules.isValidReceiptId(receiptId)) {
+            onState(errorState("Could not save Radiant Rush run: invalid competition receipt id."))
+            return
+        }
+
         val db = FirebaseFirestore.getInstance(session.app)
         val userRef = db.collection(USERS).document(session.uid)
         val leaderboardRef = db.collection(LEADERBOARD).document(session.uid)
-        val completedAtMs = System.currentTimeMillis()
+        val completedAtMs = safeResult.completedAtEpochMillis
+            .takeIf { it > 0L }
+            ?: System.currentTimeMillis()
         val utcDayKey = Phase11CompetitionRules.utcDayKey(completedAtMs)
         val utcWeekKey = Phase11CompetitionRules.utcWeekKey(completedAtMs)
         val weeklyRef = db.collection(RUN_WEEKLY)
@@ -833,7 +845,7 @@ class FirebaseRadiantRepository(
             val collectionOwned = RadiantGameRules.ownedUniqueCount(newCounts)
 
             val runRecord = Phase11CompetitionRules.createRunScoreRecord(
-                runId = "${session.uid}_$completedAtMs",
+                runId = receiptId,
                 ownerUid = session.uid,
                 displayName = displayName,
                 walletAddress = walletAddress,
@@ -972,7 +984,7 @@ class FirebaseRadiantRepository(
                         "attemptsUsed" to rankedDecision.rankedAttemptsUsedAfter,
                         "gameplayXpEarnedToday" to xpAward.earnedAfter,
                         "lastWriterUid" to session.uid,
-                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
                         "payoutEligible" to false,
                         "updatedAt" to FieldValue.serverTimestamp(),
                     ),
@@ -995,7 +1007,7 @@ class FirebaseRadiantRepository(
                         "perfectHits" to newWeekly.perfectHitsAtBestScore,
                         "runsPlayed" to newWeekly.rankedRunsPlayed,
                         "bestCompletedAtEpochMillis" to newWeekly.bestCompletedAtEpochMillis,
-                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
                         "payoutEligible" to false,
                         "updatedAt" to FieldValue.serverTimestamp(),
                     ),
@@ -1015,7 +1027,7 @@ class FirebaseRadiantRepository(
                         "runsPlayed" to allTimeRuns,
                         "bestCompletedAtEpochMillis" to newAllTime.completedAtEpochMillis,
                         "bestWeekKey" to newAllTime.utcWeekKey,
-                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
                         "payoutEligible" to false,
                         "updatedAt" to FieldValue.serverTimestamp(),
                     ),
@@ -1023,9 +1035,17 @@ class FirebaseRadiantRepository(
                 )
             }
 
-            Triple(reward, rankedDecision.mode, xpAward)
+            RadiantRunCommitOutcome(
+                reward = reward,
+                mode = rankedDecision.mode,
+                xpAward = xpAward,
+                runRecord = runRecord,
+            )
         }
-            .addOnSuccessListener { (reward, mode, xpAward) ->
+            .addOnSuccessListener { outcome ->
+                val reward = outcome.reward
+                val mode = outcome.mode
+                val xpAward = outcome.xpAward
                 val duplicateText = if (reward.duplicate) {
                     " Duplicate converted to +${reward.duplicateShards} Radiant Shards."
                 } else {
@@ -1037,14 +1057,178 @@ class FirebaseRadiantRepository(
                     "Casual run saved; ranked boards unchanged"
                 }
                 val capText = if (xpAward.wasCapped) " Daily gameplay XP cap reached." else ""
-                loadOrCreateProfile(
-                    session.uid,
-                    onState,
-                    "$modeText • ${reward.capsuleTier}: ${reward.collectible.rarity} ${reward.collectible.title}. +${xpAward.grantedXp} performance XP.$duplicateText$capText",
-                )
+                val savedMessage =
+                    "$modeText • ${reward.capsuleTier}: ${reward.collectible.rarity} ${reward.collectible.title}. " +
+                        "+${xpAward.grantedXp} performance XP.$duplicateText$capText"
+
+                // Phase 12A.1: do not silently hide receipt failures. The normal
+                // run/reward transaction above is already committed, so a receipt
+                // failure can never take away the player's score, XP, ticket use,
+                // collectible, Weekly PB, or All-Time PB. For Ranked runs we wait
+                // only for the separate receipt attempt before refreshing the
+                // profile so the result screen reports CREATED / ALREADY EXISTS /
+                // FAILED explicitly.
+                if (mode == RunCompetitionMode.Ranked) {
+                    Log.d(
+                        TAG,
+                        "Phase12A Ranked run committed; submitting receipt ${outcome.runRecord.runId}",
+                    )
+                    submitUnverifiedCompetitionReceipt(db, outcome.runRecord) { receiptResult ->
+                        val receiptMessage = when (receiptResult.status) {
+                            CompetitionReceiptWriteStatus.CREATED ->
+                                " Competition receipt ${outcome.runRecord.runId.take(8)} created as UNVERIFIED."
+
+                            CompetitionReceiptWriteStatus.ALREADY_EXISTS ->
+                                " Competition receipt ${outcome.runRecord.runId.take(8)} already exists; no duplicate created."
+
+                            CompetitionReceiptWriteStatus.FAILED ->
+                                " Competition receipt FAILED; score/reward are still saved. ${receiptResult.detail}"
+                        }
+                        loadOrCreateProfile(
+                            session.uid,
+                            onState,
+                            savedMessage + receiptMessage,
+                        )
+                    }
+                } else {
+                    Log.d(TAG, "Phase12A receipt skipped because run mode is Casual.")
+                    loadOrCreateProfile(
+                        session.uid,
+                        onState,
+                        "$savedMessage No trusted-Cup receipt is created for Casual runs.",
+                    )
+                }
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not save Radiant Rush: ${safeMessage(error)}")
+            }
+    }
+
+    private enum class CompetitionReceiptWriteStatus {
+        CREATED,
+        ALREADY_EXISTS,
+        FAILED,
+    }
+
+    private data class CompetitionReceiptWriteResult(
+        val status: CompetitionReceiptWriteStatus,
+        val detail: String = "",
+    )
+
+    /**
+     * Creates the Phase 12A client receipt. This write can only create an
+     * UNVERIFIED/non-payout-eligible document; Firestore rules deny all client
+     * updates and deletes. A future trusted Admin/server verifier may transition
+     * the receipt to VERIFIED or REJECTED.
+     *
+     * The callback is diagnostic/UX only. The existing run/reward/leaderboard
+     * transaction is already committed before this method runs, so receipt
+     * persistence never becomes payout authority and never rolls gameplay back.
+     */
+    private fun submitUnverifiedCompetitionReceipt(
+        db: FirebaseFirestore,
+        run: RunScoreRecord,
+        onComplete: (CompetitionReceiptWriteResult) -> Unit,
+    ) {
+        if (run.mode != RunCompetitionMode.Ranked) {
+            onComplete(
+                CompetitionReceiptWriteResult(
+                    status = CompetitionReceiptWriteStatus.FAILED,
+                    detail = "Run was not Ranked.",
+                ),
+            )
+            return
+        }
+
+        val walletAddress = run.walletAddress?.trim()?.takeIf { it.isNotBlank() }
+        if (walletAddress == null) {
+            val detail = "No connected wallet was attached to the Ranked run."
+            Log.w(TAG, "Competition receipt ${run.runId} not submitted: $detail")
+            onComplete(
+                CompetitionReceiptWriteResult(
+                    status = CompetitionReceiptWriteStatus.FAILED,
+                    detail = detail,
+                ),
+            )
+            return
+        }
+
+        val trust = Phase12CompetitionVerificationRules.clientInitialTrustState()
+        val receiptRef = db.collection(COMPETITION_RUN_SUBMISSIONS).document(run.runId)
+        val payload = mapOf(
+            "schemaVersion" to Phase12CompetitionVerificationRules.RECEIPT_SCHEMA_VERSION,
+            "receiptId" to run.runId,
+            "ownerUid" to run.ownerUid,
+            "walletAddress" to walletAddress,
+            "utcDayKey" to run.utcDayKey,
+            "utcWeekKey" to run.utcWeekKey,
+            "mode" to run.mode.name,
+            "score" to run.score,
+            "maxCombo" to run.maxCombo,
+            "perfectHits" to run.perfectHits,
+            "radiantHits" to run.radiantHits,
+            "corruptedHits" to run.corruptedHits,
+            "clientCompletedAtEpochMillis" to run.completedAtEpochMillis,
+            "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
+            "verificationStatus" to trust.verificationStatus.name,
+            "trustedPlacementEligible" to trust.trustedPlacementEligible,
+            "payoutEligible" to trust.payoutEligible,
+            "payoutStatus" to trust.payoutStatus,
+            "submittedAt" to FieldValue.serverTimestamp(),
+        )
+
+        receiptRef.set(payload)
+            .addOnSuccessListener {
+                Log.d(TAG, "Created UNVERIFIED competition receipt ${run.runId}")
+                onComplete(
+                    CompetitionReceiptWriteResult(
+                        status = CompetitionReceiptWriteStatus.CREATED,
+                    ),
+                )
+            }
+            .addOnFailureListener { writeError ->
+                // A retry of the exact same completed run intentionally reuses the
+                // same receipt id. Because client updates are denied, .set() on an
+                // already-created document is rejected as an update. Read it back
+                // and treat an exact same-owner receipt as an idempotent success.
+                receiptRef.get()
+                    .addOnSuccessListener { existing ->
+                        val sameReceiptExists = existing.exists() &&
+                            existing.getString("receiptId") == run.runId &&
+                            existing.getString("ownerUid") == run.ownerUid
+
+                        if (sameReceiptExists) {
+                            Log.d(TAG, "Competition receipt ${run.runId} already exists; retry is idempotent.")
+                            onComplete(
+                                CompetitionReceiptWriteResult(
+                                    status = CompetitionReceiptWriteStatus.ALREADY_EXISTS,
+                                ),
+                            )
+                        } else {
+                            val detail = safeMessage(writeError).take(180)
+                            Log.w(TAG, "Competition receipt ${run.runId} was not persisted: $detail")
+                            onComplete(
+                                CompetitionReceiptWriteResult(
+                                    status = CompetitionReceiptWriteStatus.FAILED,
+                                    detail = detail,
+                                ),
+                            )
+                        }
+                    }
+                    .addOnFailureListener { readError ->
+                        val detail = safeMessage(writeError).take(140)
+                        val readDetail = safeMessage(readError).take(100)
+                        Log.w(
+                            TAG,
+                            "Competition receipt ${run.runId} failed and could not be checked: $detail / $readDetail",
+                        )
+                        onComplete(
+                            CompetitionReceiptWriteResult(
+                                status = CompetitionReceiptWriteStatus.FAILED,
+                                detail = "$detail (verification read also failed: $readDetail)",
+                            ),
+                        )
+                    }
             }
     }
 
@@ -2253,6 +2437,13 @@ class FirebaseRadiantRepository(
         else -> error.message ?: error::class.java.simpleName
     }
 
+    private data class RadiantRunCommitOutcome(
+        val reward: RadiantGameRules.RunReward,
+        val mode: RunCompetitionMode,
+        val xpAward: GameplayXpAward,
+        val runRecord: RunScoreRecord,
+    )
+
     private data class FirebaseSession(
         val app: FirebaseApp,
         val uid: String,
@@ -2261,6 +2452,7 @@ class FirebaseRadiantRepository(
     private class DuplicateQuestException : RuntimeException("Quest already completed today.")
 
     private companion object {
+        const val TAG = "FirebaseRadiantRepo"
         const val USERS = "users"
         const val COMPLETED_QUESTS = "completedQuests"
         const val LEADERBOARD = "leaderboard"
@@ -2269,6 +2461,7 @@ class FirebaseRadiantRepository(
         const val RUN_ALL_TIME = "runAllTime"
         const val RUN_WALLET_DAILY = "runWalletDaily"
         const val RUN_WALLETS = "wallets"
+        const val COMPETITION_RUN_SUBMISSIONS = "competitionRunSubmissions"
         const val WEEKLY_CUP_CONFIGS = "weeklyCupConfigs"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100

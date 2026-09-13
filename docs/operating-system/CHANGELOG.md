@@ -1,3 +1,23 @@
+# 2026-09-13 — Phase 12A.1 receipt observability + idempotency fix
+
+- Fixed the Phase 12A receipt path so Ranked result UI no longer hides a failed `competitionRunSubmissions` write.
+- Ranked results now report receipt `CREATED`, `ALREADY EXISTS`, or `FAILED` while keeping the already-committed score/reward/XP/leaderboard result intact.
+- Retrying the exact same completed run is idempotent: an existing immutable same-owner receipt is treated as success instead of a duplicate/update failure.
+- Simplified non-authoritative client metadata validation in Firestore rules. Wallet/day/week/score remain untrusted assertions; the hard security boundary still requires `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, `NOT_ELIGIBLE`, and denies all client updates/deletes.
+- Firestore rules changed and must be redeployed before retesting Ranked receipt creation.
+
+# 2026-09-13 — Phase 12A trusted competition-verification foundation
+
+- Added stable UUID receipt identity to completed Radiant Rush results so the same result object keeps the same identity across sanitizing copies/retries.
+- Added `competitionRunSubmissions/{receiptId}` as a separate best-effort Ranked-run receipt inbox; existing Weekly/All-Time/XP persistence remains the prototype gameplay path and does not depend on trusted-Cup availability.
+- Android-created receipts are explicitly `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, and `payoutStatus=NOT_ELIGIBLE`.
+- Firestore rules allow clients to create only the strict unverified receipt schema and deny all client updates/deletes; future `VERIFIED` / `REJECTED`, winner, funding, and payout authority remains trusted Admin/server responsibility.
+- Tightened Weekly Cup fallback copy so it no longer implies sponsored rewards are already confirmed.
+- Added Phase 12A unit coverage and implementation/QA documentation.
+- Firestore rules changed and must be deployed before testing receipt creation.
+- No player wagering/entry fee, treasury key, automatic SKR transfer, fake funding/balance/confirmation, or Mainnet SKR write path was added.
+- Android version remains `versionCode = 26`, `versionName = 1.2.1-phase11f4`; this is a trust-foundation patch, not a release handoff.
+
 # 2026-09-13 — Phase 11F.4 responsive UI hardening
 
 - Re-audited the Compose UI after retention/profile/rebrand changes and moved phone layouts to earlier stacking breakpoints so required text grows vertically instead of clipping, bleeding, or being squeezed into desktop-like rows.
