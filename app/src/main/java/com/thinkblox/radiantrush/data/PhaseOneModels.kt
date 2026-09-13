@@ -111,6 +111,8 @@ data class LeaderboardPreview(
     val streak: Int,
     val tier: String,
     val walletLabel: String? = null,
+    val avatarId: String = "fox",
+    val isCurrentUser: Boolean = false,
 )
 
 
@@ -123,6 +125,8 @@ data class RunLeaderboardPreview(
     val bestCombo: Int,
     val perfectHits: Int,
     val runsPlayed: Int,
+    val avatarId: String = "fox",
+    val isCurrentUser: Boolean = false,
 )
 
 data class WeeklyCupPreview(
@@ -143,6 +147,34 @@ data class WeeklyCupPreview(
     val sponsorNote: String? = null,
     val sponsoredPrizeActive: Boolean = false,
     val payoutEnabled: Boolean = false,
+)
+
+
+data class RetentionGoalPreview(
+    val id: String,
+    val title: String,
+    val detail: String,
+    val progress: Int,
+    val target: Int,
+) {
+    val completed: Boolean
+        get() = progress >= target
+
+    val progressLabel: String
+        get() = "${progress.coerceIn(0, target.coerceAtLeast(0))}/${target.coerceAtLeast(0)}"
+}
+
+data class RetentionPreview(
+    val dailyGoals: List<RetentionGoalPreview> = emptyList(),
+    val weeklyGoals: List<RetentionGoalPreview> = emptyList(),
+    val nextActionTitle: String = "Start today’s Rush",
+    val nextActionDetail: String = "Complete a goal to build momentum.",
+    val dailyCompleted: Int = 0,
+    val weeklyCompleted: Int = 0,
+    val streakNextTarget: Int = 3,
+    val streakRewardTitle: String = "Spark Flame",
+    val collectionNextTarget: Int = 3,
+    val collectionRewardTitle: String = "Collector Crest",
 )
 
 data class RunCompetitionPreview(
@@ -168,6 +200,7 @@ data class RunCompetitionPreview(
 
 data class UserPreview(
     val displayName: String,
+    val avatarId: String = "fox",
     val walletStatus: String,
     val walletAddress: String,
     val skrTier: String,
@@ -220,6 +253,14 @@ data class UserPreview(
     val lastRunRewardShards: Int = 0,
     val radiantShards: Int = 0,
     val collectionOwned: Int = 0,
+    val dailyActivityKey: String? = null,
+    val dailyRunsToday: Int = 0,
+    val dailyPerfectHitsToday: Int = 0,
+    val dailyBestScoreToday: Int = 0,
+    val dailyBestComboToday: Int = 0,
+    val weeklyActivityKey: String? = null,
+    val weeklyRunsCompleted: Int = 0,
+    val weeklyChestsOpened: Int = 0,
 )
 
 data class RushUiState(
@@ -232,6 +273,7 @@ data class RushUiState(
     val badges: List<BadgePreview> = PreviewContent.badges,
     val leaderboard: List<LeaderboardPreview> = PreviewContent.leaderboard,
     val runCompetition: RunCompetitionPreview = RunCompetitionPreview(),
+    val retention: RetentionPreview = RetentionPreview(),
     val todayKey: String = "local-preview",
     val lastMessage: String? = null,
     val walletActionInProgress: Boolean = false,
@@ -367,11 +409,14 @@ object PreviewContent {
         BadgePreview("Radiant Chest", "Open your Daily Radiant Chest.", unlocked = false),
         BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = false),
         BadgePreview("Collector", "Discover three Radiant collectibles.", unlocked = false),
+        BadgePreview("3-Day Streak Spark", "Keep a three-day streak alive.", unlocked = false),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = false),
+        BadgePreview("14-Day Streak Aurora", "Keep a fourteen-day streak alive.", unlocked = false),
+        BadgePreview("Vault Complete", "Discover the full Radiant collection.", unlocked = false),
     )
 
     val leaderboard = listOf(
-        LeaderboardPreview(1, "You", 0, 0, "Explorer"),
+        LeaderboardPreview(1, "You", 0, 0, "Explorer", isCurrentUser = true),
     )
 
     fun defaultState(): RushUiState = RushUiState()

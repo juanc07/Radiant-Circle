@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -29,16 +32,25 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.PassportCrestCard
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
@@ -53,9 +65,11 @@ fun ProfileScreen(
     onRetryFirebase: () -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onSavePublicProfile: (String, String) -> Unit,
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
+    val profileAvatar = PublicProfileRules.avatarFor(user.avatarId)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -88,13 +102,13 @@ fun ProfileScreen(
                         .padding(2.dp),
                 ) {
                     GradientHeroCard(
-                        title = "✦ ${user.displayName} ✦",
+                        title = "✦ ${profileAvatar.symbol} ${user.displayName} ✦",
                         subtitle = heroSubtitle,
                     )
                 }
             } else {
                 GradientHeroCard(
-                    title = user.displayName,
+                    title = "${profileAvatar.symbol} ${user.displayName}",
                     subtitle = heroSubtitle,
                 )
             }
@@ -112,6 +126,15 @@ fun ProfileScreen(
             SectionTitle(
                 title = "Player profile",
                 body = "Your progress, Radiant Run records, wallet, and SKR Passport.",
+            )
+        }
+
+        item {
+            PublicIdentityEditor(
+                displayName = user.displayName,
+                avatarId = user.avatarId,
+                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
+                onSave = onSavePublicProfile,
             )
         }
 
@@ -341,6 +364,115 @@ fun ProfileScreen(
                 onClick = onRetryFirebase,
             ) {
                 AdaptiveButtonText("Refresh Profile")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PublicIdentityEditor(
+    displayName: String,
+    avatarId: String,
+    enabled: Boolean,
+    onSave: (String, String) -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    var draftName by remember(displayName) { mutableStateOf(displayName) }
+    var selectedAvatarId by remember(avatarId) {
+        mutableStateOf(PublicProfileRules.normalizeAvatarId(avatarId))
+    }
+    val selectedAvatar = PublicProfileRules.avatarFor(selectedAvatarId)
+    val sanitized = PublicProfileRules.sanitizeDisplayName(draftName)
+    val changed = sanitized != displayName || selectedAvatarId != PublicProfileRules.normalizeAvatarId(avatarId)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "Public identity",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                text = "Choose the name and animal shown on Radiant Rush leaderboards.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier = Modifier.size(if (responsive.isTiny) 54.dp else 62.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = selectedAvatar.symbol,
+                            style = MaterialTheme.typography.headlineMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                OutlinedTextField(
+                    modifier = Modifier.weight(1f),
+                    value = draftName,
+                    onValueChange = { value ->
+                        draftName = value.take(PublicProfileRules.MAX_DISPLAY_NAME_LENGTH)
+                    },
+                    enabled = enabled,
+                    singleLine = true,
+                    label = { Text("Display name") },
+                    supportingText = {
+                        Text("${draftName.length}/${PublicProfileRules.MAX_DISPLAY_NAME_LENGTH}")
+                    },
+                )
+            }
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 2.dp),
+            ) {
+                items(PublicProfileRules.animalAvatars, key = { it.id }) { avatar ->
+                    val selected = avatar.id == selectedAvatarId
+                    OutlinedButton(
+                        enabled = enabled,
+                        shape = RoundedCornerShape(16.dp),
+                        onClick = { selectedAvatarId = avatar.id },
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(avatar.symbol, style = MaterialTheme.typography.titleLarge)
+                            Text(
+                                avatar.label,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (selected) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.onSurface
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = responsive.buttonHeight),
+                enabled = enabled && changed,
+                shape = RoundedCornerShape(16.dp),
+                onClick = { onSave(sanitized, selectedAvatarId) },
+            ) {
+                AdaptiveButtonText("Save Public Profile", compactText = "Save Profile", tinyText = "Save")
             }
         }
     }

@@ -69,7 +69,7 @@ enum class RadiantBadgeGlyph {
                 "chest" in key -> Chest
                 "first run" in key -> Run
                 "combo" in key -> Combo
-                "collector" in key -> Collector
+                "collector" in key || "vault" in key -> Collector
                 "7-day" in key || "streak" in key -> Streak
                 else -> Generic
             }

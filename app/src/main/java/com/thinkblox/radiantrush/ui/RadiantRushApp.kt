@@ -172,6 +172,23 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun savePublicProfile(displayName: String, avatarId: String) {
+        if (appState.walletActionInProgress) {
+            appState = appState.copy(lastMessage = "Please wait for the current action to finish.")
+            return
+        }
+        appState = appState.copy(
+            walletActionInProgress = true,
+            lastMessage = "Saving your public profile…",
+        )
+        repository.updatePublicProfile(
+            displayName = displayName,
+            avatarId = avatarId,
+        ) { nextState ->
+            applyRepositoryState(nextState)
+        }
+    }
+
     fun connectWallet() {
         if (appState.isWalletConnected) {
             appState = appState.copy(lastMessage = "Wallet is already connected.")
@@ -462,6 +479,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onCompleteQuest = ::completeQuest,
         onConnectWallet = ::connectWallet,
         onDisconnectWallet = ::disconnectWallet,
+        onSavePublicProfile = ::savePublicProfile,
         onClaimRadiantChest = ::claimDailyRadiantChest,
         onPlayRadiantRun = {
             if (appState.isFirebaseReady && appState.radiantRun.canPlay && !appState.walletActionInProgress) {
@@ -481,6 +499,7 @@ private fun RadiantRushShell(
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onSavePublicProfile: (String, String) -> Unit,
     onClaimRadiantChest: () -> Unit,
     onPlayRadiantRun: () -> Unit,
 ) {
@@ -579,6 +598,7 @@ private fun RadiantRushShell(
                 onCompleteQuest = onCompleteQuest,
                 onConnectWallet = onConnectWallet,
                 onDisconnectWallet = onDisconnectWallet,
+                onSavePublicProfile = onSavePublicProfile,
                 onClaimRadiantChest = onClaimRadiantChest,
                 onPlayRadiantRun = onPlayRadiantRun,
             )
@@ -595,6 +615,7 @@ private fun ScreenContent(
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onSavePublicProfile: (String, String) -> Unit,
     onClaimRadiantChest: () -> Unit,
     onPlayRadiantRun: () -> Unit,
 ) {
@@ -616,6 +637,7 @@ private fun ScreenContent(
             onRetryFirebase = onRetryFirebase,
             onConnectWallet = onConnectWallet,
             onDisconnectWallet = onDisconnectWallet,
+            onSavePublicProfile = onSavePublicProfile,
         )
         AppDestination.Demo -> DemoScreen(contentPadding, uiState)
     }

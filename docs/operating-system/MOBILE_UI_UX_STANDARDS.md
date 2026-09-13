@@ -1,3 +1,10 @@
+## Phase 11F goals and identity
+
+- Home goal cards must be single-column on compact/large-text layouts and must never ellipsize required goal text.
+- Progress values remain visible without pushing goal titles off-screen.
+- Leaderboard `YOU` markers and animal avatars are supplemental; score/rank/name remain readable at small widths.
+- Public-profile avatar choices use a horizontal scroll row rather than shrinking touch targets.
+
 ## Phase 11E — reward reveal UX rules
 
 - Reward actions must respond immediately; do not add a fixed sleep before starting the real save/network work.

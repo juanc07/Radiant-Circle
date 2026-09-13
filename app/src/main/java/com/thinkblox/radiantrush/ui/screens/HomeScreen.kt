@@ -8,22 +8,29 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Token
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.data.RetentionGoalPreview
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.MetricCard
 import com.thinkblox.radiantrush.ui.components.ProgressCard
@@ -79,6 +86,18 @@ fun HomeScreen(
             SyncStatusCard(
                 status = uiState.firebaseStatus,
                 message = uiState.lastMessage,
+            )
+        }
+
+        item {
+            RetentionMomentumCard(uiState)
+        }
+
+        item {
+            RetentionGoalsCard(
+                title = "Today’s goals",
+                completed = uiState.retention.dailyCompleted,
+                goals = uiState.retention.dailyGoals,
             )
         }
 
@@ -180,6 +199,14 @@ fun HomeScreen(
         }
 
         item {
+            RetentionGoalsCard(
+                title = "This week",
+                completed = uiState.retention.weeklyCompleted,
+                goals = uiState.retention.weeklyGoals,
+            )
+        }
+
+        item {
             SectionTitle(
                 title = "Priority quests",
                 body = "Finish today’s quests to unlock your chest and earn more Rush Tickets.",
@@ -227,6 +254,121 @@ fun HomeScreen(
     }
 }
 
+
+@Composable
+private fun RetentionMomentumCard(uiState: RushUiState) {
+    val retention = uiState.retention
+    val responsive = rememberResponsiveUiSpec()
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = "What’s next",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Text(
+                text = retention.nextActionTitle,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                text = retention.nextActionDetail,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f),
+            )
+            Text(
+                text = "Streak ${uiState.user.currentStreak}d • next ${retention.streakRewardTitle} at ${retention.streakNextTarget}d",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f),
+            )
+            Text(
+                text = "Collection ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} • ${retention.collectionRewardTitle} at ${retention.collectionNextTarget}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.76f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun RetentionGoalsCard(
+    title: String,
+    completed: Int,
+    goals: List<RetentionGoalPreview>,
+) {
+    if (goals.isEmpty()) return
+    val responsive = rememberResponsiveUiSpec()
+    val overall = (completed.toFloat() / goals.size.toFloat()).coerceIn(0f, 1f)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                Text(
+                    "$completed/${goals.size}",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+            LinearProgressIndicator(
+                progress = { overall },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            goals.forEach { goal ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Text(
+                        text = if (goal.completed) "✓" else "○",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (goal.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = goal.title,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = goal.detail,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        text = goal.progressLabel,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+    }
+}
 
 private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String? {
     if (uiState.activeQuestId == quest.id || quest.status == QuestStatus.Syncing) {

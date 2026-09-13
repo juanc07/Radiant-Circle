@@ -1,3 +1,11 @@
+## Phase 11F.1 compile hotfix gate
+
+After applying the hotfix, run the normal four-command gate. `:app:testDebugUnitTest` must first compile `HomeScreen.kt` without the missing `Modifier.padding` unresolved-reference error, then continue with assemble, connected Android tests, and installDebug.
+
+## Phase 11F gate
+
+Run the standard four-command gate after applying Phase 11F. On Seeker and Samsung verify: Home shows three daily + three weekly goals without clipping; progress resets logically when stored UTC keys are stale; finishing a run updates daily/weekly progress; opening a chest updates weekly chest progress; Profile can save each bundled animal avatar and a bounded display name; Weekly Cup, Run All-Time, and XP boards show the current player with `YOU`; no profile/retention change affects Ranked score or attempt limits.
+
 ## Phase 11E — final chest/reward verification
 
 Run the normal gate:

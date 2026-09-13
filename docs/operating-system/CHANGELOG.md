@@ -1,3 +1,20 @@
+# 2026-09-12 — Phase 11F.1 Home compile hotfix
+
+- Added the missing public Compose `androidx.compose.foundation.layout.padding` import used by the new retention cards in `HomeScreen.kt`.
+- Fixes `Unresolved reference 'padding' on receiver of type 'Modifier'` at the Phase 11F Home retention card call sites.
+- No retention economics, leaderboard behavior, profile identity, wallet/SKR logic, Firestore rules, or ranked competition behavior changed.
+- Documentation decision: CHANGELOG and TESTING_AND_RELEASE updated. ARCHITECTURE, AGENTS, MOBILE_UI_UX_STANDARDS, SOLANA_SECURITY_AND_DATA_RULES, and VERSION unchanged.
+- Version remains `versionCode = 24`, `versionName = "1.1.9-phase11f"`.
+
+# 2026-09-12 — Phase 11F retention + public identity
+
+- Added rotating UTC-daily goals and weekly activity goals built from persisted Radiant Run/chest progress.
+- Added Home “What’s next” guidance, streak milestone, and collection milestone presentation.
+- Added player-chosen display name + bundled animal avatar editing.
+- Added animal avatars and a clear `YOU` marker to Weekly Cup, Run All-Time, and XP leaderboard rows.
+- Added daily/weekly activity counters without changing Ranked scoring, Ranked attempt limits, SKR perks, or payout authority.
+- Version: `24 / 1.1.9-phase11f`.
+
 # 2026-09-12 — Phase 11E final reward / chest polish
 
 - Reworked Daily Radiant Chest presentation into a faster, rarity-aware reveal with stable geometry, soft rays, rarity-scaled particles/shockwaves, a persistent reward orb, centered reward tray, and stronger procedural reveal audio/haptics.

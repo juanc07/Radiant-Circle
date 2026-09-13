@@ -17,6 +17,7 @@ data class LeaderboardCandidate(
     val xp: Int,
     val streak: Int,
     val tier: String,
+    val avatarId: String = "fox",
     val updatedAtMs: Long = 0L,
 )
 

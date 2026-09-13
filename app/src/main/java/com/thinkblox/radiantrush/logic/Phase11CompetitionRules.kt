@@ -549,6 +549,7 @@ data class RunLeaderboardCandidate(
     val bestCombo: Int,
     val perfectHits: Int,
     val runsPlayed: Int,
+    val avatarId: String = "fox",
     val bestCompletedAtEpochMillis: Long = 0L,
     val updatedAtMs: Long = 0L,
 )

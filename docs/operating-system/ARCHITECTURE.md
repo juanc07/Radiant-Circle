@@ -1,3 +1,7 @@
+## Phase 11F retention and public identity
+
+`RetentionRules` is Android/Firebase-free and converts persisted daily/weekly activity counters plus current competition state into player-facing goals and milestones. Firebase remains the persistence layer; Home only renders derived `RetentionPreview` state. `PublicProfileRules` owns the bounded display-name and bundled animal-avatar vocabulary. Firebase anonymous UID remains private ownership/session state; wallet identity remains the public competition identity.
+
 ## Phase 11E — Daily chest presentation boundary
 
 `RadiantChestPresentationRules` is Android/Firebase-free presentation logic for minimum reveal pacing and rarity-driven visual intensity. `RadiantChestCard` consumes the already-resolved `RadiantChestPreview`; it does not roll rewards or authorize persistence.

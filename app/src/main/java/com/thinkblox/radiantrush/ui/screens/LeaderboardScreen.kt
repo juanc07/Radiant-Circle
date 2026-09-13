@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +37,7 @@ import com.thinkblox.radiantrush.data.RunCompetitionPreview
 import com.thinkblox.radiantrush.data.RunLeaderboardPreview
 import com.thinkblox.radiantrush.data.WeeklyCupPreview
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.StatusPill
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
@@ -360,8 +362,11 @@ private fun CupPodium(rows: List<RunLeaderboardPreview>) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
                 colors = CardDefaults.cardColors(
-                    if (row.rank == 1) MaterialTheme.colorScheme.tertiaryContainer
-                    else MaterialTheme.colorScheme.surface,
+                    when {
+                        row.rank == 1 -> MaterialTheme.colorScheme.tertiaryContainer
+                        row.isCurrentUser -> MaterialTheme.colorScheme.primaryContainer
+                        else -> MaterialTheme.colorScheme.surface
+                    },
                 ),
             ) {
                 Column(
@@ -378,12 +383,30 @@ private fun CupPodium(rows: List<RunLeaderboardPreview>) {
                         color = MaterialTheme.colorScheme.primary,
                         textAlign = TextAlign.Center,
                     )
+                    Surface(
+                        modifier = Modifier.size(54.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(
+                                text = PublicProfileRules.avatarFor(row.avatarId).symbol,
+                                style = MaterialTheme.typography.headlineSmall,
+                            )
+                        }
+                    }
                     Text(
                         text = row.name,
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Black,
                         textAlign = TextAlign.Center,
                     )
+                    if (row.isCurrentUser) {
+                        CurrentUserPill()
+                    }
                     row.walletLabel?.let {
                         Text(
                             text = it,
@@ -482,7 +505,10 @@ private fun RunLeaderboardRow(row: RunLeaderboardPreview) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            if (row.isCurrentUser) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surface,
+        ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -490,8 +516,21 @@ private fun RunLeaderboardRow(row: RunLeaderboardPreview) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RankBubble(row.rank)
+            PlayerAvatarBubble(row.avatarId)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(row.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Clip)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        modifier = Modifier.weight(1f, fill = false),
+                        text = row.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip,
+                    )
+                    if (row.isCurrentUser) CurrentUserPill()
+                }
                 row.walletLabel?.let {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
@@ -519,7 +558,10 @@ private fun XpLeaderboardRow(row: LeaderboardPreview) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            if (row.isCurrentUser) MaterialTheme.colorScheme.primaryContainer
+            else MaterialTheme.colorScheme.surface,
+        ),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(responsive.cardPadding),
@@ -527,8 +569,21 @@ private fun XpLeaderboardRow(row: LeaderboardPreview) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             RankBubble(row.rank)
+            PlayerAvatarBubble(row.avatarId)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(row.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Clip)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        modifier = Modifier.weight(1f, fill = false),
+                        text = row.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip,
+                    )
+                    if (row.isCurrentUser) CurrentUserPill()
+                }
                 row.walletLabel?.let {
                     Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
@@ -541,6 +596,41 @@ private fun XpLeaderboardRow(row: LeaderboardPreview) {
             }
             if (!responsive.isTiny && !responsive.hasLargeText) StatusPill(row.tier)
         }
+    }
+}
+
+@Composable
+private fun PlayerAvatarBubble(avatarId: String) {
+    Surface(
+        modifier = Modifier.size(42.dp),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = PublicProfileRules.avatarFor(avatarId).symbol,
+                style = MaterialTheme.typography.titleMedium,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CurrentUserPill() {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = MaterialTheme.colorScheme.primaryContainer,
+    ) {
+        Text(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            text = "YOU",
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Black,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
     }
 }
 

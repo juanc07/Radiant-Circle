@@ -1,3 +1,7 @@
+## Phase 11F public identity / future social boundary
+
+Public profile data is intentionally limited to a short display name and a bundled animal-avatar id. Do not store private keys, Seed Vault secrets, precise location, device fingerprints, or hidden contact data. Future chat/discovery must be opt-in and add block/report/rate-limit controls. Future SKR transfers must remain non-custodial and require explicit wallet approval; no treasury/user private key belongs in the APK.
+
 ## Phase 11E — reward presentation is not economic authority
 
 Daily Chest VFX, rarity colors, audio, haptics, timing, and reward-summary fields are display only. The UI must wait for the repository result and must never invent a reward, SKR amount, token transfer, or payout confirmation. Phase 11E adds no Solana transaction, treasury key, sponsor payout, staking action, or Firestore rule change.

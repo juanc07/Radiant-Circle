@@ -17,6 +17,8 @@ import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.RadiantChestPreview
 import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.RadiantRunPreview
+import com.thinkblox.radiantrush.data.RetentionGoalPreview
+import com.thinkblox.radiantrush.data.RetentionPreview
 import com.thinkblox.radiantrush.data.RunCompetitionPreview
 import com.thinkblox.radiantrush.data.RunLeaderboardPreview
 import com.thinkblox.radiantrush.data.WeeklyCupPreview
@@ -27,6 +29,8 @@ import com.thinkblox.radiantrush.data.UserPreview
 import com.thinkblox.radiantrush.logic.LeaderboardCandidate
 import com.thinkblox.radiantrush.logic.LeaderboardRules
 import com.thinkblox.radiantrush.logic.Phase11CompetitionRules
+import com.thinkblox.radiantrush.logic.PublicProfileRules
+import com.thinkblox.radiantrush.logic.RetentionRules
 import com.thinkblox.radiantrush.logic.RunCompetitionMode
 import com.thinkblox.radiantrush.logic.RunLeaderboardCandidate
 import com.thinkblox.radiantrush.logic.RunPersonalBest
@@ -151,6 +155,7 @@ class FirebaseRadiantRepository(
             val displayName = userSnapshot.getString("displayName")
                 ?: accountLabel?.takeIf { it.isNotBlank() }
                 ?: "Radiant Rookie"
+            val avatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
             val xp = userSnapshot.getLong("xp") ?: 0L
             val level = userSnapshot.getLong("level") ?: levelForXp(xp)
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
@@ -161,6 +166,7 @@ class FirebaseRadiantRepository(
                 userRef,
                 mapOf(
                     "displayName" to displayName,
+                    "avatarId" to avatarId,
                     "walletAddress" to cleanPublicKey,
                     "walletAddressShort" to shortenAddress(cleanPublicKey),
                     "walletAccountLabel" to accountLabel,
@@ -198,6 +204,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "avatarId" to avatarId,
                     "walletAddress" to cleanPublicKey,
                     "walletAddressShort" to shortenAddress(cleanPublicKey),
                     "xp" to xp,
@@ -515,6 +522,7 @@ class FirebaseRadiantRepository(
         val session = currentFirebaseSession(onState) ?: return
         val db = FirebaseFirestore.getInstance(session.app)
         val today = todayKey()
+        val utcWeekKey = Phase11CompetitionRules.utcWeekKey()
         val userRef = db.collection(USERS).document(session.uid)
         val chestRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.DAILY_RADIANT_CHEST}_$today")
         val dailyCheckInRef = userRef.collection(COMPLETED_QUESTS).document("${QuestIds.DAILY_CHECK_IN}_$today")
@@ -548,11 +556,23 @@ class FirebaseRadiantRepository(
 
             val oldXp = userSnapshot.getLong("xp") ?: 0L
             val oldChestXp = userSnapshot.getLong("totalChestXp") ?: 0L
+            val weeklyActivityMatches = userSnapshot.getString("weeklyActivityKey") == utcWeekKey
+            val weeklyChestsBefore = if (weeklyActivityMatches) {
+                (userSnapshot.getLong("weeklyChestsOpened") ?: 0L).toInt()
+            } else {
+                0
+            }
+            val weeklyRunsBefore = if (weeklyActivityMatches) {
+                (userSnapshot.getLong("weeklyRunsCompleted") ?: 0L).toInt()
+            } else {
+                0
+            }
             val oldRushTickets = userSnapshot.getLong("rushTickets") ?: RadiantGameRules.STARTER_TICKETS.toLong()
             val oldSkrCasualTickets = userSnapshot.getLong("skrCasualRushTickets") ?: 0L
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+            val avatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
             // Chest perks are sourced from TODAY'S completed SKR scan rather than a
             // potentially stale profile mirror from an earlier day.
             val skrTier = skrProofSnapshot.getString("skrTier")
@@ -606,6 +626,7 @@ class FirebaseRadiantRepository(
                 userRef,
                 mapOf(
                     "displayName" to displayName,
+                    "avatarId" to avatarId,
                     "walletAddress" to walletAddress,
                     "walletAddressShort" to shortenAddress(walletAddress),
                     "walletStatus" to "Wallet connected",
@@ -624,6 +645,9 @@ class FirebaseRadiantRepository(
                     "totalChestXp" to newChestXp,
                     "rushTickets" to newRushTickets,
                     "skrCasualRushTickets" to newSkrCasualTickets,
+                    "weeklyActivityKey" to utcWeekKey,
+                    "weeklyRunsCompleted" to weeklyRunsBefore,
+                    "weeklyChestsOpened" to weeklyChestsBefore + 1,
                     "phase" to 11,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 ),
@@ -634,6 +658,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "avatarId" to avatarId,
                     "walletAddress" to walletAddress,
                     "walletAddressShort" to shortenAddress(walletAddress),
                     "xp" to newXp,
@@ -762,6 +787,15 @@ class FirebaseRadiantRepository(
                 completedAtEpochMillis = completedAtMs,
             )
 
+            val dailyActivityMatches = userSnapshot.getString("dailyActivityKey") == utcDayKey
+            val dailyRunsBefore = if (dailyActivityMatches) (userSnapshot.getLong("dailyRunsToday") ?: 0L).toInt() else 0
+            val dailyPerfectBefore = if (dailyActivityMatches) (userSnapshot.getLong("dailyPerfectHitsToday") ?: 0L).toInt() else 0
+            val dailyBestScoreBefore = if (dailyActivityMatches) (userSnapshot.getLong("dailyBestScoreToday") ?: 0L).toInt() else 0
+            val dailyBestComboBefore = if (dailyActivityMatches) (userSnapshot.getLong("dailyBestComboToday") ?: 0L).toInt() else 0
+            val weeklyActivityMatches = userSnapshot.getString("weeklyActivityKey") == utcWeekKey
+            val weeklyRunsBefore = if (weeklyActivityMatches) (userSnapshot.getLong("weeklyRunsCompleted") ?: 0L).toInt() else 0
+            val weeklyChestsBefore = if (weeklyActivityMatches) (userSnapshot.getLong("weeklyChestsOpened") ?: 0L).toInt() else 0
+
             val oldRuns = (userSnapshot.getLong("totalRuns") ?: 0L).toInt()
             val oldCounts = collectionCounts(userSnapshot)
             val reward = RadiantGameRules.pickRunReward(
@@ -792,6 +826,7 @@ class FirebaseRadiantRepository(
             val newSkrCasualTickets = oldSkrCasualTickets -
                 if (usedSkrCasualTicket) RadiantGameRules.RUN_TICKET_COST else 0
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+            val avatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
             val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
             val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
             val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
@@ -840,6 +875,7 @@ class FirebaseRadiantRepository(
                 userRef,
                 mapOf(
                     "displayName" to displayName,
+                    "avatarId" to avatarId,
                     "walletAddress" to walletAddress,
                     "walletAddressShort" to shortenAddress(walletAddress),
                     "walletStatus" to if (walletConnected) {
@@ -880,6 +916,14 @@ class FirebaseRadiantRepository(
                     // Phase 11 progression XP is controlled by the daily gameplay cap.
                     "lastRunRewardXp" to xpAward.grantedXp,
                     "lastRunRewardShards" to reward.duplicateShards,
+                    "dailyActivityKey" to utcDayKey,
+                    "dailyRunsToday" to dailyRunsBefore + 1,
+                    "dailyPerfectHitsToday" to dailyPerfectBefore + safeResult.perfectHits,
+                    "dailyBestScoreToday" to maxOf(dailyBestScoreBefore, safeResult.score),
+                    "dailyBestComboToday" to maxOf(dailyBestComboBefore, safeResult.maxCombo),
+                    "weeklyActivityKey" to utcWeekKey,
+                    "weeklyRunsCompleted" to weeklyRunsBefore + 1,
+                    "weeklyChestsOpened" to weeklyChestsBefore,
                     "radiantShards" to newShards,
                     "radiantCollection" to newCollectionForFirestore,
                     "collectionOwned" to collectionOwned,
@@ -893,6 +937,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "avatarId" to avatarId,
                     "walletAddress" to walletAddress,
                     "walletAddressShort" to shortenAddress(walletAddress),
                     "xp" to newXp,
@@ -941,6 +986,7 @@ class FirebaseRadiantRepository(
                     mapOf(
                         "ownerUid" to session.uid,
                         "displayName" to displayName,
+                        "avatarId" to avatarId,
                         "walletAddress" to walletAddress,
                         "walletAddressShort" to shortenAddress(walletAddress),
                         "utcWeekKey" to newWeekly.utcWeekKey,
@@ -960,6 +1006,7 @@ class FirebaseRadiantRepository(
                     mapOf(
                         "ownerUid" to session.uid,
                         "displayName" to displayName,
+                        "avatarId" to avatarId,
                         "walletAddress" to walletAddress,
                         "walletAddressShort" to shortenAddress(walletAddress),
                         "score" to newAllTime.score,
@@ -998,6 +1045,88 @@ class FirebaseRadiantRepository(
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not save Radiant Run: ${safeMessage(error)}")
+            }
+    }
+
+    fun updatePublicProfile(
+        displayName: String,
+        avatarId: String,
+        onState: (RushUiState) -> Unit,
+    ) {
+        val session = currentFirebaseSession(onState) ?: return
+        val cleanName = PublicProfileRules.sanitizeDisplayName(displayName)
+        val cleanAvatar = PublicProfileRules.normalizeAvatarId(avatarId)
+        val db = FirebaseFirestore.getInstance(session.app)
+        val userRef = db.collection(USERS).document(session.uid)
+        val leaderboardRef = db.collection(LEADERBOARD).document(session.uid)
+        val currentWeek = Phase11CompetitionRules.utcWeekKey()
+        val weeklyRef = db.collection(RUN_WEEKLY)
+            .document(currentWeek)
+            .collection(RUN_ENTRIES)
+            .document(session.uid)
+        val allTimeRef = db.collection(RUN_ALL_TIME).document(session.uid)
+
+        db.runTransaction { transaction ->
+            val userSnapshot = transaction.get(userRef)
+            val weeklySnapshot = transaction.get(weeklyRef)
+            val allTimeSnapshot = transaction.get(allTimeRef)
+            val walletAddress = userSnapshot.getString("walletAddress")
+            val currentStreak = userSnapshot.getLong("currentStreak") ?: 0L
+            val longestStreak = userSnapshot.getLong("longestStreak") ?: currentStreak
+
+            transaction.set(
+                userRef,
+                mapOf(
+                    "displayName" to cleanName,
+                    "avatarId" to cleanAvatar,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+            transaction.set(
+                leaderboardRef,
+                mapOf(
+                    "displayName" to cleanName,
+                    "avatarId" to cleanAvatar,
+                    "walletAddress" to walletAddress,
+                    "walletAddressShort" to shortenAddress(walletAddress),
+                    "xp" to (userSnapshot.getLong("xp") ?: 0L),
+                    "level" to (userSnapshot.getLong("level") ?: 1L),
+                    "currentStreak" to currentStreak,
+                    "longestStreak" to longestStreak,
+                    "skrTier" to (userSnapshot.getString("skrTier") ?: "Explorer"),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+                SetOptions.merge(),
+            )
+            if (weeklySnapshot.exists()) {
+                transaction.set(
+                    weeklyRef,
+                    mapOf(
+                        "displayName" to cleanName,
+                        "avatarId" to cleanAvatar,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                    SetOptions.merge(),
+                )
+            }
+            if (allTimeSnapshot.exists()) {
+                transaction.set(
+                    allTimeRef,
+                    mapOf(
+                        "displayName" to cleanName,
+                        "avatarId" to cleanAvatar,
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                    SetOptions.merge(),
+                )
+            }
+        }
+            .addOnSuccessListener {
+                loadOrCreateProfile(session.uid, onState, "Public profile updated.")
+            }
+            .addOnFailureListener { error ->
+                loadOrCreateProfile(session.uid, onState, "Could not update profile: ${safeMessage(error)}")
             }
     }
 
@@ -1079,6 +1208,7 @@ class FirebaseRadiantRepository(
             val newLongestStreak = maxOf(longestStreak, newStreak)
             val newLevel = levelForXp(newXp)
             val displayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+            val avatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
             val savedWalletAddress = walletAddress ?: userSnapshot.getString("walletAddress")
             val walletStatus = if (!savedWalletAddress.isNullOrBlank()) "Wallet connected" else "Wallet not connected yet"
             val skrTier = userSnapshot.getString("skrTier") ?: "Explorer"
@@ -1099,6 +1229,7 @@ class FirebaseRadiantRepository(
 
             val userUpdate = mutableMapOf<String, Any?>(
                 "displayName" to displayName,
+                "avatarId" to avatarId,
                 "walletAddress" to savedWalletAddress,
                 "walletAddressShort" to shortenAddress(savedWalletAddress),
                 "walletStatus" to walletStatus,
@@ -1120,6 +1251,7 @@ class FirebaseRadiantRepository(
                 leaderboardRef,
                 mapOf(
                     "displayName" to displayName,
+                    "avatarId" to avatarId,
                     "walletAddress" to savedWalletAddress,
                     "walletAddressShort" to shortenAddress(savedWalletAddress),
                     "xp" to newXp,
@@ -1172,6 +1304,7 @@ class FirebaseRadiantRepository(
                 } else {
                     val baseProfile = mapOf(
                         "displayName" to "Radiant Rookie",
+                        "avatarId" to PublicProfileRules.DEFAULT_AVATAR_ID,
                         "walletAddress" to null,
                         "walletAddressShort" to null,
                         "walletStatus" to "Wallet not connected yet",
@@ -1204,6 +1337,14 @@ class FirebaseRadiantRepository(
                         "radiantShards" to 0L,
                         "radiantCollection" to emptyMap<String, Long>(),
                         "collectionOwned" to 0L,
+                        "dailyActivityKey" to null,
+                        "dailyRunsToday" to 0L,
+                        "dailyPerfectHitsToday" to 0L,
+                        "dailyBestScoreToday" to 0L,
+                        "dailyBestComboToday" to 0L,
+                        "weeklyActivityKey" to null,
+                        "weeklyRunsCompleted" to 0L,
+                        "weeklyChestsOpened" to 0L,
                         "phase" to 11,
                         "createdAt" to FieldValue.serverTimestamp(),
                         "updatedAt" to FieldValue.serverTimestamp(),
@@ -1262,7 +1403,8 @@ class FirebaseRadiantRepository(
                     completedIds.add(QuestIds.SKR_HOLDER)
                 }
 
-                val walletConnected = !userSnapshot.getString("walletAddress").isNullOrBlank()
+                val currentWalletAddress = userSnapshot.getString("walletAddress")?.trim()?.takeIf { it.isNotBlank() }
+                val walletConnected = currentWalletAddress != null
                 if (userSnapshot.getString("lastChestClaimDate") == today) {
                     completedIds.add(QuestIds.DAILY_RADIANT_CHEST)
                 }
@@ -1284,6 +1426,7 @@ class FirebaseRadiantRepository(
                                     xp = (document.getLong("xp") ?: 0L).toInt(),
                                     streak = (document.getLong("currentStreak") ?: 0L).toInt(),
                                     tier = document.getString("skrTier") ?: "Explorer",
+                                    avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
                                     updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
                                 )
                             },
@@ -1297,6 +1440,9 @@ class FirebaseRadiantRepository(
                                 streak = row.streak,
                                 tier = row.tier,
                                 walletLabel = LeaderboardRules.walletLabel(row),
+                                avatarId = PublicProfileRules.normalizeAvatarId(row.avatarId),
+                                isCurrentUser = currentWalletAddress != null &&
+                                    row.walletAddress?.trim() == currentWalletAddress,
                             )
                         }.ifEmpty {
                             if (walletConnected) listOf(profileToLeaderboardRow(userSnapshot)) else emptyList()
@@ -1354,6 +1500,11 @@ class FirebaseRadiantRepository(
                             userSnapshot = userSnapshot,
                             walletConnected = walletConnected,
                         ) { runCompetition, competitionWarning ->
+                            val retention = retentionState(
+                                user = user,
+                                radiantRun = radiantRun,
+                                competition = runCompetition,
+                            )
                             val mergedMessage = listOfNotNull(message, competitionWarning)
                                 .filter { it.isNotBlank() }
                                 .joinToString(" ")
@@ -1369,6 +1520,7 @@ class FirebaseRadiantRepository(
                                     badges = badges,
                                     leaderboard = leaderboard,
                                     runCompetition = runCompetition,
+                                    retention = retention,
                                     todayKey = today,
                                     lastMessage = mergedMessage,
                                 ),
@@ -1661,7 +1813,7 @@ class FirebaseRadiantRepository(
                 .get()
                 .addOnSuccessListener { weeklyQuery ->
                     val weeklyCandidates = weeklyQuery.documents.map(::runCandidateFromDocument)
-                    val weeklyRows = runRows(weeklyCandidates)
+                    val weeklyRows = runRows(weeklyCandidates, walletAddress)
 
                     fun finish(
                         allTimeRows: List<RunLeaderboardPreview>,
@@ -1692,7 +1844,7 @@ class FirebaseRadiantRepository(
                         .limit(100)
                         .get()
                         .addOnSuccessListener { allTimeQuery ->
-                            finish(runRows(allTimeQuery.documents.map(::runCandidateFromDocument)))
+                            finish(runRows(allTimeQuery.documents.map(::runCandidateFromDocument), walletAddress))
                         }
                         .addOnFailureListener {
                             finish(
@@ -1772,11 +1924,15 @@ class FirebaseRadiantRepository(
             bestCombo = (document.getLong("bestCombo") ?: 0L).toInt(),
             perfectHits = (document.getLong("perfectHits") ?: 0L).toInt(),
             runsPlayed = (document.getLong("runsPlayed") ?: 0L).toInt(),
+            avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
             bestCompletedAtEpochMillis = document.getLong("bestCompletedAtEpochMillis") ?: 0L,
             updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
         )
 
-    private fun runRows(candidates: List<RunLeaderboardCandidate>): List<RunLeaderboardPreview> =
+    private fun runRows(
+        candidates: List<RunLeaderboardCandidate>,
+        currentWalletAddress: String?,
+    ): List<RunLeaderboardPreview> =
         Phase11CompetitionRules.collapseRunLeaderboardByWallet(candidates, limit = 20)
             .mapIndexed { index, row ->
                 RunLeaderboardPreview(
@@ -1787,6 +1943,9 @@ class FirebaseRadiantRepository(
                     bestCombo = row.bestCombo,
                     perfectHits = row.perfectHits,
                     runsPlayed = row.runsPlayed,
+                    avatarId = PublicProfileRules.normalizeAvatarId(row.avatarId),
+                    isCurrentUser = currentWalletAddress != null &&
+                        row.walletAddress?.trim() == currentWalletAddress,
                 )
             }
 
@@ -1847,6 +2006,7 @@ class FirebaseRadiantRepository(
 
         return UserPreview(
             displayName = snapshot.getString("displayName") ?: "Radiant Rookie",
+            avatarId = PublicProfileRules.normalizeAvatarId(snapshot.getString("avatarId")),
             walletStatus = walletStatus,
             walletAddress = walletAddress ?: "Connect your Solana wallet",
             skrTier = snapshot.getString("skrTier") ?: "Explorer",
@@ -1903,6 +2063,14 @@ class FirebaseRadiantRepository(
             lastRunRewardShards = (snapshot.getLong("lastRunRewardShards") ?: 0L).toInt(),
             radiantShards = (snapshot.getLong("radiantShards") ?: 0L).toInt(),
             collectionOwned = (snapshot.getLong("collectionOwned") ?: 0L).toInt(),
+            dailyActivityKey = snapshot.getString("dailyActivityKey"),
+            dailyRunsToday = (snapshot.getLong("dailyRunsToday") ?: 0L).toInt(),
+            dailyPerfectHitsToday = (snapshot.getLong("dailyPerfectHitsToday") ?: 0L).toInt(),
+            dailyBestScoreToday = (snapshot.getLong("dailyBestScoreToday") ?: 0L).toInt(),
+            dailyBestComboToday = (snapshot.getLong("dailyBestComboToday") ?: 0L).toInt(),
+            weeklyActivityKey = snapshot.getString("weeklyActivityKey"),
+            weeklyRunsCompleted = (snapshot.getLong("weeklyRunsCompleted") ?: 0L).toInt(),
+            weeklyChestsOpened = (snapshot.getLong("weeklyChestsOpened") ?: 0L).toInt(),
         )
     }
 
@@ -1913,7 +2081,61 @@ class FirebaseRadiantRepository(
         streak = (snapshot.getLong("currentStreak") ?: 0L).toInt(),
         tier = snapshot.getString("skrTier") ?: "Explorer",
         walletLabel = shortenAddress(snapshot.getString("walletAddress")),
+        avatarId = PublicProfileRules.normalizeAvatarId(snapshot.getString("avatarId")),
+        isCurrentUser = true,
     )
+
+    private fun retentionState(
+        user: UserPreview,
+        radiantRun: RadiantRunPreview,
+        competition: RunCompetitionPreview,
+    ): RetentionPreview {
+        val utcDay = Phase11CompetitionRules.utcDayKey()
+        val utcWeek = Phase11CompetitionRules.utcWeekKey()
+        val dailyMatches = user.dailyActivityKey == utcDay
+        val weeklyMatches = user.weeklyActivityKey == utcWeek
+        val input = RetentionRules.RetentionInput(
+            utcDayKey = utcDay,
+            currentStreak = user.currentStreak,
+            collectionOwned = radiantRun.collectionOwned,
+            collectionTotal = radiantRun.collectionTotal,
+            dailyRuns = if (dailyMatches) user.dailyRunsToday else 0,
+            dailyPerfectHits = if (dailyMatches) user.dailyPerfectHitsToday else 0,
+            dailyBestScore = if (dailyMatches) user.dailyBestScoreToday else 0,
+            dailyBestCombo = if (dailyMatches) user.dailyBestComboToday else 0,
+            dailyGameplayXp = competition.dailyGameplayXpEarned,
+            weeklyRuns = if (weeklyMatches) user.weeklyRunsCompleted else 0,
+            weeklyRankedRuns = competition.personalWeeklyRuns,
+            weeklyChests = if (weeklyMatches) user.weeklyChestsOpened else 0,
+        )
+        val daily = RetentionRules.dailyGoals(input)
+        val weekly = RetentionRules.weeklyGoals(input)
+        val next = RetentionRules.nextAction(daily, weekly)
+        val streakMilestone = RetentionRules.nextStreakMilestone(user.currentStreak)
+        val collectionMilestone = RetentionRules.nextCollectionMilestone(
+            collectionOwned = radiantRun.collectionOwned,
+            collectionTotal = radiantRun.collectionTotal,
+        )
+        fun RetentionRules.ProgressGoal.toPreview() = RetentionGoalPreview(
+            id = id,
+            title = title,
+            detail = detail,
+            progress = progress,
+            target = target,
+        )
+        return RetentionPreview(
+            dailyGoals = daily.map { it.toPreview() },
+            weeklyGoals = weekly.map { it.toPreview() },
+            nextActionTitle = next?.title ?: "Daily goals complete",
+            nextActionDetail = next?.detail ?: "Keep your streak alive and climb the Weekly Radiant Cup.",
+            dailyCompleted = daily.count { it.completed },
+            weeklyCompleted = weekly.count { it.completed },
+            streakNextTarget = streakMilestone.target,
+            streakRewardTitle = streakMilestone.title,
+            collectionNextTarget = collectionMilestone.target,
+            collectionRewardTitle = collectionMilestone.title,
+        )
+    }
 
     private fun badgeState(user: UserPreview, completedIds: Set<String>): List<BadgePreview> = listOf(
         BadgePreview("First Launch", "Start Radiant Rush.", unlocked = true),
@@ -1927,7 +2149,10 @@ class FirebaseRadiantRepository(
         BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = user.totalRuns > 0),
         BadgePreview("Combo Pilot", "Reach a 10-hit combo in Radiant Run.", unlocked = user.lastRunMaxCombo >= 10),
         BadgePreview("Collector", "Discover three Radiant collectibles.", unlocked = user.collectionOwned >= 3),
+        BadgePreview("3-Day Streak Spark", "Keep a three-day streak alive.", unlocked = user.currentStreak >= 3),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = user.currentStreak >= 7),
+        BadgePreview("14-Day Streak Aurora", "Keep a fourteen-day streak alive.", unlocked = user.currentStreak >= 14),
+        BadgePreview("Vault Complete", "Discover the full Radiant collection.", unlocked = user.collectionOwned >= RadiantGameRules.collectibles.size),
     )
 
     private fun radiantChestState(
