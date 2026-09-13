@@ -3,6 +3,7 @@ package com.thinkblox.radiantrush.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -19,26 +20,37 @@ fun BadgesScreen(
     badges: List<BadgePreview>,
 ) {
     val responsive = rememberResponsiveUiSpec()
-    val columns = if (responsive.isCompact || responsive.hasLargeText) {
-        GridCells.Fixed(1)
-    } else {
-        GridCells.Adaptive(minSize = 172.dp)
+
+    // Badges are a visual collection, so phones should preserve a gallery
+    // instead of collapsing into a one-card-per-row settings-style list.
+    // Only extremely narrow layouts fall back to one column.
+    val columnCount = when {
+        responsive.screenWidthDp < 300 -> 1
+        responsive.screenWidthDp >= 840 -> 4
+        responsive.screenWidthDp >= 600 -> 3
+        else -> 2
     }
+
+    val gridGap = if (responsive.isTiny) 8.dp else 12.dp
 
     LazyVerticalGrid(
         modifier = Modifier.fillMaxSize(),
-        columns = columns,
+        columns = GridCells.Fixed(columnCount),
         contentPadding = PaddingValues(
             start = responsive.screenPadding,
-            top = 14.dp,
+            top = contentPadding.calculateTopPadding() + 14.dp,
             end = responsive.screenPadding,
-            bottom = 24.dp,
+            bottom = contentPadding.calculateBottomPadding() + 24.dp,
         ),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(gridGap),
+        verticalArrangement = Arrangement.spacedBy(gridGap),
     ) {
-        items(badges) { badge ->
+        items(
+            items = badges,
+            key = { badge -> badge.title },
+        ) { badge ->
             BadgeMedallion(
+                modifier = Modifier.fillMaxWidth(),
                 title = badge.title,
                 description = badge.description,
                 unlocked = badge.unlocked,
