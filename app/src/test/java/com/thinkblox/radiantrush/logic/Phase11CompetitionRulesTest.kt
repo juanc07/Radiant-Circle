@@ -346,4 +346,27 @@ class Phase11CompetitionRulesTest {
         assertEquals(1, decision.rankedAttemptsUsedAfter)
     }
 
+    @Test
+    fun runBoardKeepsBestScoreButUsesFreshestIdentity() {
+        val oldBest = candidate("old-uid", walletA, "9xQe…PABC", score = 4_000).copy(
+            displayName = "Old Runner",
+            avatarId = "fox",
+            updatedAtMs = 10L,
+        )
+        val freshIdentity = candidate("new-uid", walletA, "9xQe…PABC", score = 2_000).copy(
+            displayName = "New Runner",
+            avatarId = "ghost",
+            updatedAtMs = 50L,
+        )
+
+        val result = Phase11CompetitionRules
+            .collapseRunLeaderboardByWallet(listOf(oldBest, freshIdentity))
+            .single()
+
+        assertEquals(4_000, result.score)
+        assertEquals("old-uid", result.sourceId)
+        assertEquals("New Runner", result.displayName)
+        assertEquals("ghost", result.avatarId)
+    }
+
 }

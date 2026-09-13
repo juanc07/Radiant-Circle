@@ -29,7 +29,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
 import kotlin.math.cos
@@ -132,7 +131,7 @@ fun RadiantBadgeCrest(
                 style = Stroke(width = stroke),
             )
 
-            // Signature Radiant Rush eight-ray crown around every unlocked crest.
+            // Signature Radiant Circle eight-ray crown around every unlocked crest.
             if (unlocked) {
                 repeat(8) { index ->
                     val angle = (index * 45.0 - 90.0) * PI / 180.0
@@ -493,7 +492,7 @@ private fun PassportTextBlock(
     val textAlign = if (centered) TextAlign.Center else TextAlign.Start
 
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = alignment,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -503,16 +502,14 @@ private fun PassportTextBlock(
             fontWeight = FontWeight.Bold,
             color = contentColor,
             textAlign = textAlign,
-            maxLines = 2,
-            overflow = TextOverflow.Clip,
+            softWrap = true,
         )
         Text(
             text = eligibleBalance,
             style = MaterialTheme.typography.titleMedium,
             color = contentColor.copy(alpha = 0.90f),
             textAlign = textAlign,
-            maxLines = 2,
-            overflow = TextOverflow.Clip,
+            softWrap = true,
         )
         if (stakeBoostActive) {
             Text(
@@ -521,8 +518,7 @@ private fun PassportTextBlock(
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.tertiary,
                 textAlign = textAlign,
-                maxLines = 2,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
         }
         Text(

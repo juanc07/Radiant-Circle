@@ -1,3 +1,22 @@
+## Phase 11F.4 — required-text growth rules
+
+- Treat phone portrait widths as compact early. Prefer a single full-width column over shrinking typography to preserve a two/three-column desktop composition.
+- Required titles, descriptions, scores, wallet labels, tier names, goal copy, and reward copy may grow vertically. Do not solve required-text overflow with ellipsis or visually tiny auto-scaling.
+- When a row contains two or more independently dynamic text blocks, compact/large-text layouts must stack the blocks or move secondary values below the primary content.
+- Leaderboard identity rows on compact phones stack rank/avatar/name first, then wallet/status/score details. The `YOU` marker must never steal width from the player's name.
+- Bottom navigation with six destinations may hide unselected labels on compact phone widths; icons and selected labels remain the navigation affordance.
+- Badge grids are single-column on compact/large-text layouts. Badge title/description height is content-driven.
+- Profile icon selection uses a scrollable adaptive grid of icon-only cells. Category names live in a horizontal scrolling chip row; the selected icon's human-readable label is shown separately at full width.
+- Dialogs containing scrollable content should consume a safe fraction of the phone viewport rather than combining several fixed pixel/dp heights that can overflow under font scaling.
+
+## Product naming and navigation
+
+- The installed app and shell are `Radiant Circle`.
+- The 20-second skill game is `Radiant Rush`.
+- Do not call the whole app Radiant Rush in player-facing copy.
+- Do not call the game Radiant Run in new player-facing copy.
+- Compact labels may shorten `Open Radiant Circle` to `Open Circle`, but required branding text must not clip or ellipsize.
+
 ## Phase 11F goals and identity
 
 - Home goal cards must be single-column on compact/large-text layouts and must never ellipsize required goal text.
@@ -31,7 +50,7 @@
 - Test compact phone width, Seeker/Samsung-class widths, large font scale, and a larger tablet/foldable width before accepting new cards or buttons.
 - Animated cards must not change layout geometry frame-to-frame in ways that look like jitter. Prefer drawing glow/particles inside a stable box and use short damped transforms for intentional shake.
 
-## Phase 11C.3 Radiant Run visual language
+## Phase 11C.3 Radiant Rush visual language
 
 - Preserve the established pastel game palette. Do not hard-code saturated green/gold replacements for the main Radiant target merely to explain hit rules.
 - Only the actual target may use target-like circular affordances. FEVER/background decoration must use a clearly non-target shape or placement.
@@ -48,11 +67,11 @@
 
 ## Phase 11B.1 competition-state clarity
 
-Radiant Run must never leave the user guessing why a score did or did not enter the ranked boards. Before play, the Competition row must explicitly show one of: `RANKED`, `CASUAL • connect wallet`, or `CASUAL • ranked attempts used`. Empty Weekly/All-Time states must likewise explain when wallet connection is required. Ranked-attempt copy should state that the allowance is shared by the connected wallet across devices.
+Radiant Rush must never leave the user guessing why a score did or did not enter the ranked boards. Before play, the Competition row must explicitly show one of: `RANKED`, `CASUAL • connect wallet`, or `CASUAL • ranked attempts used`. Empty Weekly/All-Time states must likewise explain when wallet connection is required. Ranked-attempt copy should state that the allowance is shared by the connected wallet across devices.
 
 ## Phase 10 gameplay UI rules
 
-- Radiant Run must remain playable on small Android screens with large touch targets; gameplay cannot depend on tiny text or precision taps.
+- Radiant Rush must remain playable on small Android screens with large touch targets; gameplay cannot depend on tiny text or precision taps.
 - Radiant and Corruption targets must differ by both shape/marking and semantic copy, not color alone.
 - Score, combo, and timer stay visible throughout the run.
 - Haptics are feedback, not the only signal.
@@ -224,7 +243,7 @@ Reward screens must clearly say when no wallet popup is expected. The Daily Radi
 
 ## Phase 11B competition UI decision
 
-The Ranks destination now uses horizontally scrollable tabs (`Run Weekly`, `Run All-Time`, `My Stats`, `XP`) so small Android screens do not compress four competing labels into clipped fixed-width tabs. Run rows keep score visually dominant while combo/PERFECT/run-count metadata may wrap to two lines. The Radiant Run briefing explicitly shows Ranked vs Casual status and daily gameplay-XP progress before the player spends a ticket. Required security/fairness copy uses wrapping text rather than ellipsis.
+The Ranks destination now uses horizontally scrollable tabs (`Run Weekly`, `Run All-Time`, `My Stats`, `XP`) so small Android screens do not compress four competing labels into clipped fixed-width tabs. Run rows keep score visually dominant while combo/PERFECT/run-count metadata may wrap to two lines. The Radiant Rush briefing explicitly shows Ranked vs Casual status and daily gameplay-XP progress before the player spends a ticket. Required security/fairness copy uses wrapping text rather than ellipsis.
 
 
 ## Phase 11C.1 — staking/Passport responsiveness
@@ -259,3 +278,11 @@ Competition metric rows must not force a label and value onto one horizontal lin
 - Tier and Passport identity blocks must stack on compact screens or large font scale; do not squeeze icon + tier + balance + perk status into one fixed-height row.
 - Required badge/Passport text must wrap and expand vertically. Do not use ellipsis for titles, tier labels, eligible SKR values, or perk status.
 - Visual identity may be richer than surrounding cards, but it must preserve the established pastel Radiant Rush palette and Material theme contrast.
+
+
+## Profile avatar picker
+
+- The visible profile avatar is the tap target for changing the icon; do not force a permanently expanded horizontal chooser into the Profile screen.
+- Avatar selection must open in a bounded, scrollable mobile-first dialog with category filtering so the library can grow without overflowing small screens.
+- Avatar labels may wrap to two lines; they must not be clipped or replaced with ellipsis when the label is required to understand the choice.
+- The current leaderboard entry must keep the explicit `YOU` marker and must render the current saved identity even when wallet dedupe selects a legacy score row.

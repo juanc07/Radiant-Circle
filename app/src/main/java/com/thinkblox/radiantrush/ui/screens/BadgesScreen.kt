@@ -19,15 +19,15 @@ fun BadgesScreen(
     badges: List<BadgePreview>,
 ) {
     val responsive = rememberResponsiveUiSpec()
-    val minCardWidth = when {
-        responsive.isTiny -> 170.dp
-        responsive.isCompact || responsive.hasLargeText -> 160.dp
-        else -> 148.dp
+    val columns = if (responsive.isCompact || responsive.hasLargeText) {
+        GridCells.Fixed(1)
+    } else {
+        GridCells.Adaptive(minSize = 172.dp)
     }
 
     LazyVerticalGrid(
         modifier = Modifier.fillMaxSize(),
-        columns = GridCells.Adaptive(minSize = minCardWidth),
+        columns = columns,
         contentPadding = PaddingValues(
             start = responsive.screenPadding,
             top = 14.dp,

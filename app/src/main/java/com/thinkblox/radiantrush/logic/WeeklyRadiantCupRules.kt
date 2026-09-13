@@ -8,7 +8,7 @@ import java.time.temporal.TemporalAdjusters
  * Pure Phase 11D Weekly Radiant Cup rules.
  *
  * The Cup is competitive presentation around the existing client-reported
- * Ranked Radiant Run board. It deliberately has no token payout authority.
+ * Ranked Radiant Rush board. It deliberately has no token payout authority.
  * Sponsor metadata is display-only until a future trusted backend verifies
  * scores, funding, winners, and payout instructions.
  */

@@ -80,7 +80,7 @@ fun WelcomeScreen(
                     )
                 }
                 Column {
-                    Text("Radiant Rush", style = MaterialTheme.typography.titleLarge)
+                    Text("Radiant Circle", style = MaterialTheme.typography.titleLarge)
                     Text(
                         "Daily quests • skill runs • SKR perks",
                         style = MaterialTheme.typography.bodyMedium,
@@ -117,17 +117,20 @@ fun WelcomeScreen(
             )
 
             Card(
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
             ) {
                 Column(
-                    modifier = Modifier.padding(responsive.cardPadding),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(responsive.cardPadding),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("Today’s loop", style = MaterialTheme.typography.titleLarge)
                     WelcomeBullet("Finish daily quests")
                     WelcomeBullet("Earn Rush Tickets")
-                    WelcomeBullet("Play a 20-second Radiant Run")
+                    WelcomeBullet("Play a 20-second Radiant Rush")
                     WelcomeBullet("Open your Daily Radiant Chest")
                     WelcomeBullet("Grow your SKR Passport and collection")
                 }
@@ -146,7 +149,7 @@ fun WelcomeScreen(
                 contentPadding = PaddingValues(horizontal = responsive.buttonHorizontalPadding, vertical = 8.dp),
                 onClick = onEnterDemoShell,
             ) {
-                AdaptiveButtonText("Open Radiant Rush", compactText = "Open Rush", tinyText = "Open")
+                AdaptiveButtonText("Open Radiant Circle", compactText = "Open Circle", tinyText = "Open")
             }
             OutlinedButton(
                 modifier = Modifier

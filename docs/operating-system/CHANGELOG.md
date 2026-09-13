@@ -1,3 +1,31 @@
+# 2026-09-13 — Phase 11F.4 responsive UI hardening
+
+- Re-audited the Compose UI after retention/profile/rebrand changes and moved phone layouts to earlier stacking breakpoints so required text grows vertically instead of clipping, bleeding, or being squeezed into desktop-like rows.
+- Reworked the public-profile identity editor and icon dialog: phone editor stacks vertically; picker uses a near-full-screen adaptive grid, scrollable categories, icon-only cells, current-category opening, and a separate selected-icon label.
+- Expanded bundled profile choices with Faces, Nature, and Food categories while retaining Animals, Cosmic, Mystic, Spooky, Zodiac, and Weird.
+- Hardened leaderboards, badges, Passport, Home retention goals, hero/status cards, bottom navigation, metric cards, and collectible cards for Seeker/Samsung-class widths and larger font scales.
+- No Firebase rules, wallet/Solana authority, SKR/staking logic, reward economics, Ranked limits, sponsor authority, or payout eligibility changed.
+- Version: `versionCode = 26`, `versionName = 1.2.1-phase11f4`.
+
+# 2026-09-13 — Phase 11F.3 Radiant Circle product rebrand
+
+- Renamed the user-facing Android product from **Radiant Rush** to **Radiant Circle**.
+- Renamed the former `Radiant Run` player-facing game label to **Radiant Rush**, preserving the Rush identity as the game inside Radiant Circle.
+- Updated launcher/app label, Welcome/Home/Profile/leaderboard/game copy, MWA wallet display identity, RPC errors, and signed daily-proof heading to the new product naming contract.
+- Kept `com.thinkblox.radiantrush`, internal Kotlin class/file names, Firestore schema, MWA identity URI, and `radiant-rush:daily-memo-proof` protocol string stable to avoid breaking upgrades, Firebase/wallet continuity, or persisted data.
+- No competition rules, rewards, SKR economics, Firestore rules, payout authority, or wallet signing behavior changed.
+- Version: `versionCode = 25`, `versionName = 1.2.0-phase11f3`.
+
+# 2026-09-13 — Phase 11F.2 leaderboard identity + avatar picker polish
+
+- Fixed stale current-player identity on wallet-deduplicated XP, Weekly Cup, and All-Time leaderboards. When a legacy anonymous-UID row owns the best score/XP for the same connected wallet, the visible `YOU` row now uses the current saved display name and avatar instead of stale identity metadata.
+- Replaced the inline animal chooser with a tap-to-open, scrollable, mobile-first avatar picker.
+- Expanded bundled profile icons to 50+ choices across Animals, Cosmic, Mystic, Spooky, Zodiac, and Weird categories.
+- Added pure profile-rule coverage for expanded categories and zodiac/spooky choices.
+- No ranking score, XP, ranked-attempt, SKR, chest, payout, or Firestore-rule behavior changed.
+- Documentation decision: CHANGELOG, MOBILE_UI_UX_STANDARDS, TESTING_AND_RELEASE, and Phase 11F doc updated. ARCHITECTURE, AGENTS, SOLANA_SECURITY_AND_DATA_RULES, and VERSION unchanged.
+- Version remains `versionCode = 24`, `versionName = "1.1.9-phase11f"`.
+
 # 2026-09-12 — Phase 11F.1 Home compile hotfix
 
 - Added the missing public Compose `androidx.compose.foundation.layout.padding` import used by the new retention cards in `HomeScreen.kt`.
@@ -57,7 +85,7 @@
 
 # 2026-09-11 — Phase 11C.5 visual identity + badge polish
 
-- Replaced generic badge check/bolt marks with distinct scalable Radiant Rush crests for launch, daily, wallet, proof, on-chain, SKR, chest, run, combo, collection, and streak achievements.
+- Replaced generic badge check/bolt marks with distinct scalable Radiant Circle crests for launch, daily, wallet, proof, on-chain, SKR, chest, run, combo, collection, and streak achievements.
 - Added a responsive SKR Passport crest card showing tier, eligible SKR, stake boost, frame, and aura without changing SKR or ranked-game authority.
 - Tightened badge copy and kept all badge/Passport text wrapping instead of clipping or ellipsizing on compact/large-font layouts.
 - Android version bumped to `versionCode = 21`, `versionName = "1.1.6-phase11c5"`.

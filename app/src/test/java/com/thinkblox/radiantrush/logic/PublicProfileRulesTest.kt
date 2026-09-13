@@ -18,4 +18,17 @@ class PublicProfileRulesTest {
         assertEquals("fox", PublicProfileRules.normalizeAvatarId("dragon"))
         assertEquals("🦊", PublicProfileRules.avatarFor("dragon").symbol)
     }
+
+    @Test
+    fun expandedAvatarLibrarySupportsCategoriesAndZodiac() {
+        assertTrue(PublicProfileRules.profileAvatars.size >= 70)
+        assertTrue(PublicProfileRules.avatarCategories.contains("Zodiac"))
+        assertTrue(PublicProfileRules.avatarCategories.contains("Spooky"))
+        assertTrue(PublicProfileRules.avatarCategories.contains("Faces"))
+        assertTrue(PublicProfileRules.avatarCategories.contains("Nature"))
+        assertTrue(PublicProfileRules.avatarCategories.contains("Food"))
+        assertEquals("♌", PublicProfileRules.avatarFor("leo").symbol)
+        assertEquals("👻", PublicProfileRules.avatarFor("ghost").symbol)
+        assertTrue(PublicProfileRules.avatarsForCategory("Cosmic").isNotEmpty())
+    }
 }

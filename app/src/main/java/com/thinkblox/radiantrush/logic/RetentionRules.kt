@@ -44,7 +44,7 @@ object RetentionRules {
 
     fun dailyGoals(input: RetentionInput): List<ProgressGoal> {
         val specs = listOf(
-            GoalSpec("run_once", "Run the light", "Finish 1 Radiant Run today.", 1) { it.dailyRuns },
+            GoalSpec("run_once", "Run the light", "Finish 1 Radiant Rush today.", 1) { it.dailyRuns },
             GoalSpec("perfect_five", "Perfect pulse", "Land 5 PERFECT hits today.", 5) { it.dailyPerfectHits },
             GoalSpec("xp_hundred", "Momentum", "Earn 100 gameplay XP today.", 100) { it.dailyGameplayXp },
             GoalSpec("score_1200", "Bright score", "Reach 1,200 in one run today.", 1200) { it.dailyBestScore },
@@ -73,7 +73,7 @@ object RetentionRules {
     }
 
     fun weeklyGoals(input: RetentionInput): List<ProgressGoal> = listOf(
-        ProgressGoal("weekly_runs", "Weekly runner", "Finish 5 Radiant Runs this week.", input.weeklyRuns, 5),
+        ProgressGoal("weekly_runs", "Weekly runner", "Finish 5 Radiant Rush runs this week.", input.weeklyRuns, 5),
         ProgressGoal("weekly_ranked", "Cup contender", "Finish 3 Ranked runs this week.", input.weeklyRankedRuns, 3),
         ProgressGoal("weekly_chests", "Chest rhythm", "Open 3 Daily Radiant Chests this week.", input.weeklyChests, 3),
     )

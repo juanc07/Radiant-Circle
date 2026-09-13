@@ -2,20 +2,27 @@ package com.thinkblox.radiantrush.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -29,6 +36,7 @@ import androidx.compose.material.icons.filled.Token
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -45,10 +53,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
@@ -125,7 +134,7 @@ fun ProfileScreen(
         item {
             SectionTitle(
                 title = "Player profile",
-                body = "Your progress, Radiant Run records, wallet, and SKR Passport.",
+                body = "Your progress, Radiant Rush records, wallet, and SKR Passport.",
             )
         }
 
@@ -148,7 +157,7 @@ fun ProfileScreen(
         }
         item {
             ProfileInfoRow(
-                title = "Radiant Run",
+                title = "Radiant Rush",
                 value = "Best ${user.bestRunScore} • ${user.totalRuns} runs",
                 helper = "Last ${user.lastRunScore} • x${user.lastRunMaxCombo} combo • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collectibles",
                 icon = Icons.Filled.Bolt,
@@ -381,6 +390,8 @@ private fun PublicIdentityEditor(
     var selectedAvatarId by remember(avatarId) {
         mutableStateOf(PublicProfileRules.normalizeAvatarId(avatarId))
     }
+    var showAvatarPicker by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf("Animals") }
     val selectedAvatar = PublicProfileRules.avatarFor(selectedAvatarId)
     val sanitized = PublicProfileRules.sanitizeDisplayName(draftName)
     val changed = sanitized != displayName || selectedAvatarId != PublicProfileRules.normalizeAvatarId(avatarId)
@@ -402,68 +413,107 @@ private fun PublicIdentityEditor(
                 fontWeight = FontWeight.Black,
             )
             Text(
-                text = "Choose the name and animal shown on Radiant Rush leaderboards.",
+                text = "Choose the name and icon shown on Radiant Circle leaderboards.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Surface(
-                    modifier = Modifier.size(if (responsive.isTiny) 54.dp else 62.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
+            if (responsive.isCompact || responsive.hasLargeText) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .size(if (responsive.isTiny) 72.dp else 82.dp)
+                                .clickable(enabled = enabled) {
+                                    selectedCategory = selectedAvatar.category
+                                    showAvatarPicker = true
+                                },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = selectedAvatar.symbol,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
                         Text(
-                            text = selectedAvatar.symbol,
-                            style = MaterialTheme.typography.headlineMedium,
+                            text = "Tap to change icon",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
                     }
-                }
-                OutlinedTextField(
-                    modifier = Modifier.weight(1f),
-                    value = draftName,
-                    onValueChange = { value ->
-                        draftName = value.take(PublicProfileRules.MAX_DISPLAY_NAME_LENGTH)
-                    },
-                    enabled = enabled,
-                    singleLine = true,
-                    label = { Text("Display name") },
-                    supportingText = {
-                        Text("${draftName.length}/${PublicProfileRules.MAX_DISPLAY_NAME_LENGTH}")
-                    },
-                )
-            }
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 2.dp),
-            ) {
-                items(PublicProfileRules.animalAvatars, key = { it.id }) { avatar ->
-                    val selected = avatar.id == selectedAvatarId
-                    OutlinedButton(
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = draftName,
+                        onValueChange = { value -> draftName = value.take(PublicProfileRules.MAX_DISPLAY_NAME_LENGTH) },
                         enabled = enabled,
-                        shape = RoundedCornerShape(16.dp),
-                        onClick = { selectedAvatarId = avatar.id },
+                        singleLine = true,
+                        label = { Text("Display name") },
+                        supportingText = { Text("${draftName.length}/${PublicProfileRules.MAX_DISPLAY_NAME_LENGTH}") },
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(avatar.symbol, style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                avatar.label,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (selected) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.onSurface
+                        Surface(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clickable(enabled = enabled) {
+                                    selectedCategory = selectedAvatar.category
+                                    showAvatarPicker = true
                                 },
-                            )
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = selectedAvatar.symbol,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
                         }
+                        Text(
+                            text = "Change icon",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
+                    OutlinedTextField(
+                        modifier = Modifier.weight(1f),
+                        value = draftName,
+                        onValueChange = { value -> draftName = value.take(PublicProfileRules.MAX_DISPLAY_NAME_LENGTH) },
+                        enabled = enabled,
+                        singleLine = true,
+                        label = { Text("Display name") },
+                        supportingText = { Text("${draftName.length}/${PublicProfileRules.MAX_DISPLAY_NAME_LENGTH}") },
+                    )
                 }
             }
+            Text(
+                text = "${selectedAvatar.category} • ${selectedAvatar.label}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -473,6 +523,151 @@ private fun PublicIdentityEditor(
                 onClick = { onSave(sanitized, selectedAvatarId) },
             ) {
                 AdaptiveButtonText("Save Public Profile", compactText = "Save Profile", tinyText = "Save")
+            }
+        }
+    }
+
+    if (showAvatarPicker) {
+        AvatarPickerDialog(
+            selectedAvatarId = selectedAvatarId,
+            selectedCategory = selectedCategory,
+            enabled = enabled,
+            onCategoryChanged = { selectedCategory = it },
+            onAvatarSelected = {
+                selectedAvatarId = it
+                showAvatarPicker = false
+            },
+            onDismiss = { showAvatarPicker = false },
+        )
+    }
+}
+
+@Composable
+private fun AvatarPickerDialog(
+    selectedAvatarId: String,
+    selectedCategory: String,
+    enabled: Boolean,
+    onCategoryChanged: (String) -> Unit,
+    onAvatarSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    val visibleAvatars = PublicProfileRules.avatarsForCategory(selectedCategory)
+    val selectedAvatar = PublicProfileRules.avatarFor(selectedAvatarId)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.88f)
+                .widthIn(max = 560.dp),
+            shape = RoundedCornerShape(26.dp),
+            colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (responsive.isTiny) 12.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "Choose your profile icon",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = if (responsive.isTiny) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    softWrap = true,
+                )
+                Text(
+                    text = "Tap an icon to use it. Swipe categories or scroll the icon grid.",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    softWrap = true,
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f),
+                ) {
+                    Text(
+                        text = "Selected • ${selectedAvatar.symbol} ${selectedAvatar.label}",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        softWrap = true,
+                    )
+                }
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 1.dp),
+                ) {
+                    items(PublicProfileRules.avatarCategories, key = { it }) { category ->
+                        FilterChip(
+                            selected = category == selectedCategory,
+                            onClick = { onCategoryChanged(category) },
+                            label = {
+                                Text(
+                                    text = category,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            },
+                        )
+                    }
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = if (responsive.isTiny) 62.dp else 70.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                ) {
+                    gridItems(visibleAvatars, key = { it.id }) { avatar ->
+                        val selected = avatar.id == selectedAvatarId
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .border(
+                                    width = if (selected) 3.dp else 1.dp,
+                                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = RoundedCornerShape(18.dp),
+                                )
+                                .clickable(enabled = enabled) { onAvatarSelected(avatar.id) },
+                            shape = RoundedCornerShape(18.dp),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
+                            },
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = avatar.symbol,
+                                    style = if (responsive.isTiny) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
+                }
+                OutlinedButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = responsive.buttonHeight),
+                    onClick = onDismiss,
+                ) {
+                    AdaptiveButtonText("Close")
+                }
             }
         }
     }
@@ -529,15 +724,13 @@ private fun ProfileInfoRow(
                         modifier = Modifier.weight(1f),
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
+                        softWrap = true,
                     )
                 }
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyLarge,
                     softWrap = true,
-                    overflow = TextOverflow.Clip,
                 )
                 Text(
                     text = helper,

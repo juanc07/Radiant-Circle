@@ -48,12 +48,12 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 /**
- * Firebase Auth + Firestore repository for Radiant Rush.
+ * Firebase Auth + Firestore repository for Radiant Circle.
  *
  * Phase 5 persists read-only SKR mainnet balance snapshots after the app
  * queries Solana RPC by public wallet address. Phase 9 adds a no-loss daily
  * Radiant Chest reward loop after all proof quests are completed. Phase 10
- * adds persistent Rush Tickets, the Radiant Run score loop, and collectible
+ * adds persistent Rush Tickets, the Radiant Rush score loop, and collectible
  * rewards. These are app progression only and never move SOL/SKR/tokens.
  */
 class FirebaseRadiantRepository(
@@ -1044,7 +1044,7 @@ class FirebaseRadiantRepository(
                 )
             }
             .addOnFailureListener { error ->
-                loadOrCreateProfile(session.uid, onState, "Could not save Radiant Run: ${safeMessage(error)}")
+                loadOrCreateProfile(session.uid, onState, "Could not save Radiant Rush: ${safeMessage(error)}")
             }
     }
 
@@ -1432,17 +1432,24 @@ class FirebaseRadiantRepository(
                             },
                             limit = 20,
                         )
+                        val currentDisplayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+                        val currentAvatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
                         val leaderboard = uniqueWalletRows.mapIndexed { index, row ->
+                            val isCurrentUser = currentWalletAddress != null &&
+                                row.walletAddress?.trim() == currentWalletAddress
                             LeaderboardPreview(
                                 rank = index + 1,
-                                name = row.displayName,
+                                name = if (isCurrentUser) currentDisplayName else row.displayName,
                                 xp = row.xp,
                                 streak = row.streak,
                                 tier = row.tier,
                                 walletLabel = LeaderboardRules.walletLabel(row),
-                                avatarId = PublicProfileRules.normalizeAvatarId(row.avatarId),
-                                isCurrentUser = currentWalletAddress != null &&
-                                    row.walletAddress?.trim() == currentWalletAddress,
+                                avatarId = if (isCurrentUser) {
+                                    currentAvatarId
+                                } else {
+                                    PublicProfileRules.normalizeAvatarId(row.avatarId)
+                                },
+                                isCurrentUser = isCurrentUser,
                             )
                         }.ifEmpty {
                             if (walletConnected) listOf(profileToLeaderboardRow(userSnapshot)) else emptyList()
@@ -1550,6 +1557,8 @@ class FirebaseRadiantRepository(
         val walletAddress = userSnapshot.getString("walletAddress")
             ?.trim()
             ?.takeIf { it.isNotBlank() }
+        val currentDisplayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+        val currentAvatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
         val legacyAttemptsUsed = Phase11CompetitionRules.rankedAttemptsUsedToday(
             savedDayKey = userSnapshot.getString("rankedRunsDayKey"),
             savedAttemptsUsed = (userSnapshot.getLong("rankedAttemptsUsedToday") ?: 0L).toInt(),
@@ -1813,7 +1822,7 @@ class FirebaseRadiantRepository(
                 .get()
                 .addOnSuccessListener { weeklyQuery ->
                     val weeklyCandidates = weeklyQuery.documents.map(::runCandidateFromDocument)
-                    val weeklyRows = runRows(weeklyCandidates, walletAddress)
+                    val weeklyRows = runRows(weeklyCandidates, walletAddress, currentDisplayName, currentAvatarId)
 
                     fun finish(
                         allTimeRows: List<RunLeaderboardPreview>,
@@ -1844,7 +1853,7 @@ class FirebaseRadiantRepository(
                         .limit(100)
                         .get()
                         .addOnSuccessListener { allTimeQuery ->
-                            finish(runRows(allTimeQuery.documents.map(::runCandidateFromDocument), walletAddress))
+                            finish(runRows(allTimeQuery.documents.map(::runCandidateFromDocument), walletAddress, currentDisplayName, currentAvatarId))
                         }
                         .addOnFailureListener {
                             finish(
@@ -1864,7 +1873,7 @@ class FirebaseRadiantRepository(
                             mergeWarnings(
                                 attemptWarning,
                                 personalWarning,
-                                "Radiant Run ranks are temporarily unavailable.",
+                                "Radiant Rush ranks are temporarily unavailable.",
                             ),
                         )
                     }
@@ -1932,20 +1941,27 @@ class FirebaseRadiantRepository(
     private fun runRows(
         candidates: List<RunLeaderboardCandidate>,
         currentWalletAddress: String?,
+        currentDisplayName: String,
+        currentAvatarId: String,
     ): List<RunLeaderboardPreview> =
         Phase11CompetitionRules.collapseRunLeaderboardByWallet(candidates, limit = 20)
             .mapIndexed { index, row ->
+                val isCurrentUser = currentWalletAddress != null &&
+                    row.walletAddress?.trim() == currentWalletAddress
                 RunLeaderboardPreview(
                     rank = index + 1,
-                    name = row.displayName,
+                    name = if (isCurrentUser) currentDisplayName else row.displayName,
                     walletLabel = Phase11CompetitionRules.walletLabel(row),
                     score = row.score,
                     bestCombo = row.bestCombo,
                     perfectHits = row.perfectHits,
                     runsPlayed = row.runsPlayed,
-                    avatarId = PublicProfileRules.normalizeAvatarId(row.avatarId),
-                    isCurrentUser = currentWalletAddress != null &&
-                        row.walletAddress?.trim() == currentWalletAddress,
+                    avatarId = if (isCurrentUser) {
+                        currentAvatarId
+                    } else {
+                        PublicProfileRules.normalizeAvatarId(row.avatarId)
+                    },
+                    isCurrentUser = isCurrentUser,
                 )
             }
 
@@ -2138,7 +2154,7 @@ class FirebaseRadiantRepository(
     }
 
     private fun badgeState(user: UserPreview, completedIds: Set<String>): List<BadgePreview> = listOf(
-        BadgePreview("First Launch", "Start Radiant Rush.", unlocked = true),
+        BadgePreview("First Launch", "Start Radiant Circle.", unlocked = true),
         BadgePreview("Daily Ready", "Your daily progress is ready.", unlocked = true),
         BadgePreview("Daily Saver", "Finish today’s check-in.", unlocked = completedIds.contains(QuestIds.DAILY_CHECK_IN)),
         BadgePreview("Wallet Ready", "Connect your Solana wallet.", unlocked = user.walletStatus == "Wallet connected"),
@@ -2146,8 +2162,8 @@ class FirebaseRadiantRepository(
         BadgePreview("On-Chain Spark", "Submit your first memo proof.", unlocked = completedIds.contains(QuestIds.ON_CHAIN_PROOF)),
         BadgePreview("SKR Radiant", "Unlock SKR Passport perks.", unlocked = user.hasSkr),
         BadgePreview("Radiant Chest", "Open your Daily Radiant Chest.", unlocked = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)),
-        BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = user.totalRuns > 0),
-        BadgePreview("Combo Pilot", "Reach a 10-hit combo in Radiant Run.", unlocked = user.lastRunMaxCombo >= 10),
+        BadgePreview("First Run", "Finish your first Radiant Rush.", unlocked = user.totalRuns > 0),
+        BadgePreview("Combo Pilot", "Reach a 10-hit combo in Radiant Rush.", unlocked = user.lastRunMaxCombo >= 10),
         BadgePreview("Collector", "Discover three Radiant collectibles.", unlocked = user.collectionOwned >= 3),
         BadgePreview("3-Day Streak Spark", "Keep a three-day streak alive.", unlocked = user.currentStreak >= 3),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = user.currentStreak >= 7),

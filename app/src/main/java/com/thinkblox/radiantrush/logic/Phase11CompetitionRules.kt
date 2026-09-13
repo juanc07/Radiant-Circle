@@ -10,7 +10,7 @@ import kotlin.math.min
  * Phase 11A pure competition rules.
  *
  * Security/fairness boundary:
- * - ranked score is always the raw Radiant Run score;
+ * - ranked score is always the raw Radiant Rush score;
  * - gameplay XP is a separate capped progression reward;
  * - wallet/SKR wealth is deliberately absent from score calculations;
  * - client-produced run records are prototype ranking data only and can never
@@ -246,7 +246,7 @@ object Phase11CompetitionRules {
     }
 
     /**
-     * Wallet-deduplicated Radiant Run board. This mirrors the Phase 9.1 legacy
+     * Wallet-deduplicated Radiant Rush board. This mirrors the Phase 9.1 legacy
      * compatibility rules: explicit disconnect tombstones are excluded, full
      * wallets are canonical, and unique legacy short fingerprints collapse into
      * their matching full wallet when possible.
@@ -266,16 +266,25 @@ object Phase11CompetitionRules {
             .groupBy(keySelector = { it.first }, valueTransform = { it.second })
             .mapValues { (_, wallets) -> wallets.distinct().singleOrNull() }
 
-        val bestByIdentity = linkedMapOf<String, RunLeaderboardCandidate>()
-        eligible.sortedWith(runCandidateComparator).forEach { candidate ->
+        val groupedByIdentity = linkedMapOf<String, MutableList<RunLeaderboardCandidate>>()
+        eligible.forEach { candidate ->
             val identity = runIdentityKey(candidate, fullWalletsByFingerprint) ?: return@forEach
-            val current = bestByIdentity[identity]
-            if (current == null || runCandidateComparator.compare(candidate, current) < 0) {
-                bestByIdentity[identity] = candidate
-            }
+            groupedByIdentity.getOrPut(identity) { mutableListOf() }.add(candidate)
         }
 
-        return bestByIdentity.values
+        val mergedRows = groupedByIdentity.values.mapNotNull { rows ->
+            val bestRanked = rows.minWithOrNull(runCandidateComparator) ?: return@mapNotNull null
+            val freshestIdentity = rows.maxWithOrNull(
+                compareBy<RunLeaderboardCandidate> { it.updatedAtMs }
+                    .thenBy { it.sourceId },
+            ) ?: bestRanked
+            bestRanked.copy(
+                displayName = freshestIdentity.displayName,
+                avatarId = freshestIdentity.avatarId,
+            )
+        }
+
+        return mergedRows
             .sortedWith(runCandidateComparator)
             .take(limit)
     }

@@ -400,14 +400,14 @@ object PreviewContent {
     val collection = emptyList<RadiantCollectiblePreview>()
 
     val badges = listOf(
-        BadgePreview("First Launch", "Start Radiant Rush.", unlocked = true),
+        BadgePreview("First Launch", "Start Radiant Circle.", unlocked = true),
         BadgePreview("Daily Ready", "Finish your daily check-in.", unlocked = false),
         BadgePreview("Wallet Ready", "Connect your Solana wallet.", unlocked = false),
         BadgePreview("Daily Proof", "Sign the daily proof message.", unlocked = false),
         BadgePreview("On-Chain Spark", "Submit first memo proof.", unlocked = false),
         BadgePreview("SKR Radiant", "Unlock SKR Passport perks.", unlocked = false),
         BadgePreview("Radiant Chest", "Open your Daily Radiant Chest.", unlocked = false),
-        BadgePreview("First Run", "Finish your first Radiant Run.", unlocked = false),
+        BadgePreview("First Run", "Finish your first Radiant Rush.", unlocked = false),
         BadgePreview("Collector", "Discover three Radiant collectibles.", unlocked = false),
         BadgePreview("3-Day Streak Spark", "Keep a three-day streak alive.", unlocked = false),
         BadgePreview("7-Day Rush", "Keep a seven-day streak alive.", unlocked = false),

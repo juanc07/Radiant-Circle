@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -92,7 +93,7 @@ fun RadiantRunLauncherCard(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Radiant Run",
+                            text = "Radiant Rush",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.ExtraBold,
                         )
@@ -243,7 +244,9 @@ private fun CollectibleMiniCard(item: RadiantCollectiblePreview) {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
     }
     Surface(
-        modifier = Modifier.size(width = 116.dp, height = 132.dp),
+        modifier = Modifier
+            .width(132.dp)
+            .heightIn(min = 154.dp),
         shape = RoundedCornerShape(20.dp),
         color = container,
     ) {
@@ -269,7 +272,7 @@ private fun CollectibleMiniCard(item: RadiantCollectiblePreview) {
                 text = if (item.discovered) item.title else "Unknown",
                 style = MaterialTheme.typography.labelLarge,
                 textAlign = TextAlign.Center,
-                maxLines = 2,
+                softWrap = true,
             )
             Text(
                 text = if (item.discovered) "${item.rarity} • x${item.count}" else item.rarity,

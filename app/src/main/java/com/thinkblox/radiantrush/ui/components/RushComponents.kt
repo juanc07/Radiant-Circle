@@ -110,20 +110,21 @@ fun rememberResponsiveUiSpec(): ResponsiveUiSpec {
     val density = LocalDensity.current
     val width = configuration.screenWidthDp
     val fontScale = density.fontScale
-    val tiny = width <= 360 || fontScale >= 1.35f
-    // Treat normal phone widths (including ~400–430dp devices such as Seeker-class
-    // hardware) as compact. Phone layouts should stack before text ever has to clip.
-    val compact = width <= 480 || fontScale >= 1.18f
+    // Bias aggressively toward stacked phone layouts. The app has many dynamic
+    // strings (wallet state, streaks, tiers, leaderboard identity), so a layout
+    // should become compact before text is forced into clipping or awkward wraps.
+    val tiny = width <= 380 || fontScale >= 1.30f
+    val compact = width <= 600 || fontScale >= 1.15f
 
     return ResponsiveUiSpec(
         screenWidthDp = width,
         fontScale = fontScale,
         isCompact = compact,
         isTiny = tiny,
-        hasLargeText = fontScale >= 1.18f,
+        hasLargeText = fontScale >= 1.15f,
         screenPadding = when {
             tiny -> 12.dp
-            compact -> 16.dp
+            compact -> 14.dp
             else -> 20.dp
         },
         cardPadding = when {
@@ -142,8 +143,8 @@ fun rememberResponsiveUiSpec(): ResponsiveUiSpec {
             else -> 18.dp
         },
         buttonTextSize = when {
-            tiny -> 12.sp
-            compact -> 13.sp
+            tiny -> 13.sp
+            compact -> 14.sp
             else -> 14.sp
         },
         navTextSize = when {
@@ -185,7 +186,7 @@ fun ResponsiveUiSpec.actionLabel(text: String): String = when (text) {
     "Scanning SKR…" -> chooseLabel("Scanning SKR…", "Scanning…", "Scan…")
     "Scanning SKR + stake…" -> chooseLabel("Scanning SKR + stake…", "Scanning SKR…", "Scanning…")
     "Checking SKR…" -> chooseLabel("Checking SKR…", "Checking…", "Checking…")
-    "Open Radiant Rush" -> chooseLabel("Open Radiant Rush", "Open Rush", "Open")
+    "Open Radiant Circle" -> chooseLabel("Open Radiant Circle", "Open Circle", "Open")
     "Open Chest" -> chooseLabel("Open Daily Chest", "Open Chest", "Open")
     "Opening…" -> chooseLabel("Opening Chest…", "Opening…", "Open…")
     "Claimed Today" -> chooseLabel("Claimed Today", "Claimed", "Done")
@@ -241,10 +242,14 @@ fun AdaptiveNavLabel(
 ) {
     val responsive = rememberResponsiveUiSpec()
     Text(
+        modifier = Modifier.fillMaxWidth(),
         text = responsive.chooseLabel(text, compactText, tinyText),
-        maxLines = 1,
+        maxLines = 2,
+        softWrap = true,
         overflow = TextOverflow.Clip,
+        textAlign = TextAlign.Center,
         fontSize = responsive.navTextSize,
+        lineHeight = responsive.navTextSize * 1.08f,
     )
 }
 
@@ -264,31 +269,56 @@ fun GradientHeroCard(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
         ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(responsive.cardPadding),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        if (responsive.isCompact || responsive.hasLargeText) {
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
+                    modifier = Modifier.fillMaxWidth(),
                     text = title,
                     style = if (responsive.isTiny) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
+                    softWrap = true,
                 )
                 Text(
+                    modifier = Modifier.fillMaxWidth(),
                     text = subtitle,
                     style = if (responsive.isTiny) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                    softWrap = true,
                 )
+                trailing?.invoke()
             }
-            if (!responsive.isTiny) {
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        softWrap = true,
+                    )
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                        softWrap = true,
+                    )
+                }
                 trailing?.invoke()
             }
         }
@@ -329,40 +359,17 @@ fun MetricCard(
                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
-            val isSingleTokenValue = value.none { it.isWhitespace() }
-            if (isSingleTokenValue) {
-                // Never split or clip tier names such as “Explorer”. Start at the
-                // intended display size, then step down only if the measured line
-                // would overflow its actual card width/font-scale combination.
-                val baseSize = when {
-                    responsive.isTiny -> 20.sp
-                    responsive.isCompact -> 22.sp
-                    else -> 24.sp
-                }
-                var fittedSize by remember(value, responsive.screenWidthDp, responsive.fontScale) {
-                    mutableStateOf(baseSize)
-                }
-                Text(
-                    text = value,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontSize = fittedSize),
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip,
-                    onTextLayout = { result ->
-                        if (result.hasVisualOverflow && fittedSize.value > 12f) {
-                            fittedSize = (fittedSize.value - 1f).sp
-                        }
-                    },
-                )
-            } else {
-                Text(
-                    text = value,
-                    style = if (responsive.isTiny) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
-                    maxLines = 3,
-                    softWrap = true,
-                    overflow = TextOverflow.Clip,
-                )
-            }
+            Text(
+                modifier = Modifier.fillMaxWidth(),
+                text = value,
+                style = when {
+                    responsive.isTiny -> MaterialTheme.typography.titleLarge
+                    responsive.isCompact -> MaterialTheme.typography.headlineSmall
+                    else -> MaterialTheme.typography.headlineSmall
+                },
+                softWrap = true,
+                overflow = TextOverflow.Clip,
+            )
             Text(
                 text = label,
                 style = MaterialTheme.typography.titleSmall,
@@ -424,8 +431,7 @@ fun QuestCard(
                     Text(
                         text = quest.title,
                         style = if (responsive.isTiny) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
+                        softWrap = true,
                     )
                     Text(
                         text = quest.description,
@@ -434,7 +440,7 @@ fun QuestCard(
                     )
                 }
             }
-            if (responsive.isTiny || responsive.hasLargeText) {
+            if (responsive.isCompact || responsive.hasLargeText) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -450,8 +456,7 @@ fun QuestCard(
                         text = quest.status.label,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
+                        softWrap = true,
                     )
                 }
             } else {
@@ -467,8 +472,7 @@ fun QuestCard(
                         text = quest.status.label,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Clip,
+                        softWrap = true,
                     )
                 }
             }
@@ -1167,9 +1171,10 @@ fun StatusPill(
                 vertical = if (responsive.isTiny) 6.dp else 7.dp,
             ),
             text = text,
-            maxLines = if (text.none { it.isWhitespace() }) 1 else 2,
-            softWrap = text.any { it.isWhitespace() },
+            maxLines = 3,
+            softWrap = true,
             overflow = TextOverflow.Clip,
+            textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelMedium,
         )
     }
@@ -1187,9 +1192,9 @@ fun SectionTitle(
     ) {
         Text(
             text = title,
+            modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.headlineSmall,
-            maxLines = 2,
-            overflow = TextOverflow.Clip,
+            softWrap = true,
         )
         if (body != null) {
             Text(
@@ -1221,45 +1226,85 @@ fun SyncStatusCard(
             },
         ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(responsive.cardPadding),
-            horizontalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = status.icon,
-                contentDescription = null,
-                tint = when (status) {
-                    FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
-                    else -> MaterialTheme.colorScheme.primary
-                },
-            )
+        if (responsive.isCompact || responsive.hasLargeText) {
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = status.icon,
+                        contentDescription = null,
+                        tint = when (status) {
+                            FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                    )
+                    Text(
+                        modifier = Modifier.weight(1f),
+                        text = status.label,
+                        style = MaterialTheme.typography.titleMedium,
+                        softWrap = true,
+                    )
+                }
                 Text(
-                    text = status.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                )
-                Text(
+                    modifier = Modifier.fillMaxWidth(),
                     text = message ?: status.detail,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    softWrap = true,
                 )
+                if (onRetry != null) {
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onRetry,
+                    ) {
+                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
+                        Spacer(modifier = Modifier.size(6.dp))
+                        AdaptiveButtonText("Retry")
+                    }
+                }
             }
-            if (onRetry != null) {
-                TextButton(onClick = onRetry) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = null,
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = status.icon,
+                    contentDescription = null,
+                    tint = when (status) {
+                        FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
+                        else -> MaterialTheme.colorScheme.primary
+                    },
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(text = status.label, style = MaterialTheme.typography.titleMedium, softWrap = true)
+                    Text(
+                        text = message ?: status.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        softWrap = true,
                     )
-                    Spacer(modifier = Modifier.size(6.dp))
-                    AdaptiveButtonText("Retry")
+                }
+                if (onRetry != null) {
+                    TextButton(onClick = onRetry) {
+                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
+                        Spacer(modifier = Modifier.size(6.dp))
+                        AdaptiveButtonText("Retry")
+                    }
                 }
             }
         }
@@ -1296,8 +1341,7 @@ fun ProgressCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
+                    softWrap = true,
                 )
             }
             LinearProgressIndicator(
@@ -1353,8 +1397,7 @@ fun BadgeMedallion(
                 modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
-                maxLines = 3,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
             Text(
                 text = description,
@@ -1362,8 +1405,7 @@ fun BadgeMedallion(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                maxLines = 5,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
         }
     }

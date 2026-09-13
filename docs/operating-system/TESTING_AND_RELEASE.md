@@ -1,3 +1,35 @@
+## Phase 11F.4 responsive UI regression gate
+
+Run the normal four-command gate:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Manual device matrix before committing:
+
+- Seeker portrait at default font size: Home, Quests, Badges, Ranks (all tabs), Profile, Guide, Radiant Rush completion/reward.
+- Samsung-class phone portrait at default font size.
+- Repeat the highest-risk screens (Home, Ranks, Profile icon picker, Badges) with Android font scale increased.
+- Confirm required text does not clip, bleed outside cards, disappear, ellipsize, or split into visually broken fragments.
+- Profile identity editor must stack on phone widths. Tapping the avatar must open the scrollable picker; category chips scroll horizontally; icon grid scrolls vertically; icon cells remain square and labels do not crowd the cells.
+- Opening the picker from a saved non-Animal avatar must open that avatar's category.
+- Leaderboard `YOU` rows must keep name, avatar, rank, score/XP, and tier readable without horizontal collision.
+- Badges must render one card per row on compact/large-text layouts.
+- Bottom navigation must remain tappable without six visible labels colliding on phone widths.
+- No Firebase rule deployment is required for this phase.
+
+## Phase 11F.3 Radiant Circle rebrand gate
+
+Run the standard four-command gate. On device verify the launcher/app label, Welcome screen, Home title, wallet approval identity, disconnect/RPC errors, and app-level navigation say `Radiant Circle`; verify the 20-second game, game launcher, Ranked/All-Time copy, profile game stats, daily/weekly game goals, and game result/save copy say `Radiant Rush`. Confirm the existing package/applicationId still upgrades the installed app rather than creating a second app. Confirm wallet connection, Firebase data, daily memo proof compatibility, leaderboards, and persisted profile state remain intact.
+
+## Phase 11F.2 identity/picker regression gate
+
+After applying 11F.2, run the standard four-command gate. On device, change both display name and avatar, save, then immediately verify the XP, Weekly Cup, and All-Time leaderboards show the new identity on the row marked `YOU` without requiring another run. Open the avatar picker on a small screen, switch every category, scroll the grid, and verify selections are readable and tappable without clipping.
+
 ## Phase 11F.1 compile hotfix gate
 
 After applying the hotfix, run the normal four-command gate. `:app:testDebugUnitTest` must first compile `HomeScreen.kt` without the missing `Modifier.padding` unresolved-reference error, then continue with assemble, connected Android tests, and installDebug.
@@ -63,7 +95,7 @@ Manual Cup checks:
 
 ## Phase 11C.5.2 centered-content QA
 
-After applying the alignment polish, run the normal four-command Android gate. On Seeker and Samsung-class phone widths, inspect the Badge screen, Radiant Run completion/save card, Radiant Run reward card, and Quest detail dialog. Crests, titles, descriptions, score/reward summaries, popup copy, and popup actions must be centered against the visible card/dialog width rather than a wrap-content child. Recheck large Android font scale and confirm required text wraps without clipping, bleeding, or ellipsis.
+After applying the alignment polish, run the normal four-command Android gate. On Seeker and Samsung-class phone widths, inspect the Badge screen, Radiant Rush completion/save card, Radiant Rush reward card, and Quest detail dialog. Crests, titles, descriptions, score/reward summaries, popup copy, and popup actions must be centered against the visible card/dialog width rather than a wrap-content child. Recheck large Android font scale and confirm required text wraps without clipping, bleeding, or ellipsis.
 
 ## Phase 11C.5.1 compile hotfix gate
 
@@ -84,7 +116,7 @@ Before accepting the Phase 11C.5 visual patch:
 
 ## Phase 11C.4.1 connected-device smoke-test rule
 
-Instrumentation tests must not assume an Activity restored by Android is already on Home. Wait for either the Welcome entry action or the persistent shell navigation, then explicitly navigate to the screen under test. Radiant Run itself is transient and is not restored across Activity recreation because its gameplay state is in-memory.
+Instrumentation tests must not assume an Activity restored by Android is already on Home. Wait for either the Welcome entry action or the persistent shell navigation, then explicitly navigate to the screen under test. Radiant Rush itself is transient and is not restored across Activity recreation because its gameplay state is in-memory.
 
 ## Phase 11C.3 chest timing hotfix gate
 
@@ -92,7 +124,7 @@ On a physical phone, tap an eligible Daily Radiant Chest and confirm feedback be
 
 ## Phase 11C.3 UI regression gate
 
-Before committing Phase 11C.3, run the normal unit/build/device gate and manually verify on both a compact phone and a ~400–430dp phone: `Explorer` and every other tier/status value stays intact with no clipping, orphaned characters, bleed, or required ellipsis; Home metrics stack when three columns would be unsafe; Radiant Run uses the established pastel target palette; FEVER/background effects cannot be mistaken for tappable targets; and Daily Radiant Chest opening uses a smooth damped anticipation shake with no high-frequency jitter. Also re-check large Android font scale.
+Before committing Phase 11C.3, run the normal unit/build/device gate and manually verify on both a compact phone and a ~400–430dp phone: `Explorer` and every other tier/status value stays intact with no clipping, orphaned characters, bleed, or required ellipsis; Home metrics stack when three columns would be unsafe; Radiant Rush uses the established pastel target palette; FEVER/background effects cannot be mistaken for tappable targets; and Daily Radiant Chest opening uses a smooth damped anticipation shake with no high-frequency jitter. Also re-check large Android font scale.
 
 ## Phase 11C verification gate — SKR Passport v2 + fair perks
 
@@ -371,7 +403,7 @@ For every Phase 4 build after the memo proof fix, test this exact flow on a real
 1. Connect an MWA-compatible wallet in devnet/test mode.
 2. Tap `Submit Memo Proof` once.
 3. Approve the wallet request.
-4. Return to Radiant Rush.
+4. Return to Radiant Circle.
 5. Confirm the on-chain memo quest enters a saving/syncing state and cannot be tapped repeatedly.
 6. Confirm the quest changes to completed after Firebase saves the transaction proof.
 7. Restart the app and confirm the quest remains completed for that date.
@@ -382,9 +414,9 @@ For every Phase 4 build after the memo proof fix, test this exact flow on a real
 
 Run this after applying the MWA reauthorization/signature action fix:
 
-1. Force stop Phantom and Radiant Rush, then reopen Phantom.
+1. Force stop Phantom and Radiant Circle, then reopen Phantom.
 2. Confirm Phantom is on Devnet and has devnet SOL.
-3. Open Radiant Rush and connect wallet.
+3. Open Radiant Circle and connect wallet.
 4. Tap `Sign Daily Proof` once and approve.
 5. Confirm the quest becomes completed and the Profile screen shows `Last Signed Proof`.
 6. Tap `Copy Signature` and confirm Android shows a copied toast.
@@ -411,7 +443,7 @@ After applying the memo preflight fix:
 1. Build `./gradlew :app:assembleDebug`.
 2. Run on a physical Android device with Phantom installed.
 3. Set Phantom to Devnet and ensure the wallet has devnet SOL.
-4. Connect wallet in Radiant Rush once.
+4. Connect wallet in Radiant Circle once.
 5. Tap `Send Memo` once.
 6. Confirm Phantom shows a transaction approval, not only a connect approval.
 7. Approve the transaction and return to the app.
@@ -576,12 +608,12 @@ Automated regression gate remains:
 
 Audio/VFX require physical-device QA because JVM/instrumentation smoke tests do not prove perceived audio quality or frame feel:
 
-1. Start Radiant Run and confirm countdown + BGM start without delay/crash.
+1. Start Radiant Rush and confirm countdown + BGM start without delay/crash.
 2. Confirm normal hit, PERFECT, corruption, miss, FEVER, final-five-second, run-complete, capsule, and reward sounds are distinguishable.
 3. Toggle mute during gameplay; confirm silence occurs without affecting scoring/timer.
 4. Confirm positive/corruption/PERFECT impact particles and flashes are visible but do not hide the next target.
 5. Confirm no obvious crackle/audio runaway after 5 back-to-back runs.
-6. Background/foreground the app from the briefing/result screen and confirm no stuck audio after leaving Radiant Run.
+6. Background/foreground the app from the briefing/result screen and confirm no stuck audio after leaving Radiant Rush.
 7. Reconfirm ticket deduction, best score, reward, collection, and wallet-based ranks after gameplay.
 
 ## Phase 10.1.1 manual game-feel QA
@@ -653,7 +685,7 @@ After applying Phase 11C.2, run the normal four-command Android gate and verify 
 - Home/Quests/Profile/Ranks/Guide copy reads like product UI and contains no phase/framework/judge/internal-storage commentary.
 - Daily Chest visibly stays in Opening long enough to see charge, shake, beam, lid/lock burst, particles and shockwaves; haptics and chest audio fire once; claimed reward then appears.
 - Repeated navigation does not leave an audio thread/music state stuck.
-- Radiant Run valid targets stay green during FEVER, red remains avoid-only, and no cyan circular decoration looks tappable.
+- Radiant Rush valid targets stay green during FEVER, red remains avoid-only, and no cyan circular decoration looks tappable.
 - Green target taps reliably produce score/combo feedback, including near the visible outer edge.
 
 Version decision: updated to `versionCode 19` / `1.1.4-phase11c2` because this is a visible APK milestone patch.

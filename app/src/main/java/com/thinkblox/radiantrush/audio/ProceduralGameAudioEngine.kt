@@ -13,7 +13,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 /**
- * Tiny runtime synth used by Radiant Run.
+ * Tiny runtime synth used by Radiant Rush.
  *
  * It intentionally ships no mp3/wav assets. A single AudioTrack mixes a lightweight
  * procedural background loop with short synthesized SFX voices on an audio thread.

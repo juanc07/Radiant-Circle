@@ -343,7 +343,7 @@ fun RadiantRunScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("RADIANT RUN", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                Text("RADIANT RUSH", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                 Text(
                     "20-second skill run",
                     style = MaterialTheme.typography.bodySmall,
@@ -535,7 +535,7 @@ private fun BriefingPanel(
                 Icon(Icons.Filled.PlayArrow, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
                 AdaptiveButtonText(
-                    if (uiState.radiantRun.canPlay) "Start Radiant Run" else "Earn a Rush Ticket",
+                    if (uiState.radiantRun.canPlay) "Start Radiant Rush" else "Earn a Rush Ticket",
                     compactText = if (uiState.radiantRun.canPlay) "Start Run" else "Earn Ticket",
                     tinyText = if (uiState.radiantRun.canPlay) "Start" else "No Ticket",
                 )

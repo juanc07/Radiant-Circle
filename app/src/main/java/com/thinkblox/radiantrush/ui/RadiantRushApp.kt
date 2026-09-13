@@ -70,7 +70,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
     var appState by remember { mutableStateOf(PreviewContent.defaultState()) }
     var enteredShell by rememberSaveable { mutableStateOf(false) }
-    // Radiant Run owns transient in-memory gameplay state. Do not restore the run route
+    // Radiant Rush owns transient in-memory gameplay state. Do not restore the run route
     // across Activity recreation/process restoration; restoring only the route can reopen a
     // half-reset run and also makes device tests depend on whatever screen was previously open.
     var showRadiantRun by remember { mutableStateOf(false) }
@@ -246,7 +246,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                         appState = nextState.copy(
                             walletActionInProgress = false,
                             activeQuestId = null,
-                            lastMessage = "Wallet disconnected from Radiant Rush.",
+                            lastMessage = "Wallet disconnected from Radiant Circle.",
                         )
                     }
                 }
@@ -399,7 +399,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         appState = appState.copy(
             walletActionInProgress = true,
             activeQuestId = QuestIds.RADIANT_RUN,
-            lastMessage = "Saving Radiant Run score and opening capsule…",
+            lastMessage = "Saving Radiant Rush score and opening capsule…",
         )
         repository.completeRadiantRun(result) { nextState ->
             applyRepositoryState(nextState, QuestIds.RADIANT_RUN)
@@ -485,7 +485,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             if (appState.isFirebaseReady && appState.radiantRun.canPlay && !appState.walletActionInProgress) {
                 showRadiantRun = true
             } else {
-                appState = appState.copy(lastMessage = "Radiant Run needs cloud sync and at least 1 Rush Ticket.")
+                appState = appState.copy(lastMessage = "Radiant Rush needs cloud sync and at least 1 Rush Ticket.")
             }
         },
     )
@@ -512,14 +512,14 @@ private fun RadiantRushShell(
                 title = {
                     Text(
                         text = when (destination) {
-                            AppDestination.Home -> "Radiant Rush"
+                            AppDestination.Home -> "Radiant Circle"
                             AppDestination.Quests -> "Quests"
                             AppDestination.Badges -> "Badges"
                             AppDestination.Leaderboard -> "Ranks"
                             AppDestination.Profile -> "Profile"
                             AppDestination.Demo -> "Guide"
                         },
-                        maxLines = 1,
+                        softWrap = false,
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -546,7 +546,7 @@ private fun RadiantRushShell(
                         ),
                         selected = destination == item,
                         onClick = { destination = item },
-                        alwaysShowLabel = !responsive.isTiny,
+                        alwaysShowLabel = !responsive.isCompact && !responsive.hasLargeText,
                         icon = {
                             Icon(
                                 imageVector = item.icon,

@@ -54,12 +54,12 @@ fun DemoScreen(
         item {
             SectionTitle(
                 title = "How to play",
-                body = "Build your daily streak, earn tickets, play Radiant Run, and grow your Passport.",
+                body = "Build your daily streak, earn tickets, play Radiant Rush, and grow your Passport.",
             )
         }
         item { GuideStep(Icons.Filled.AccountBalanceWallet, "1. Connect", "Connect your Solana wallet to unlock wallet quests.") }
         item { GuideStep(Icons.Filled.CheckCircle, "2. Finish quests", "Complete today’s quests to earn XP and Rush Tickets.") }
-        item { GuideStep(Icons.Filled.Bolt, "3. Play Radiant Run", "Use a ticket, hit Radiant targets, avoid red Corruption, and build your combo.") }
+        item { GuideStep(Icons.Filled.Bolt, "3. Play Radiant Rush", "Use a ticket, hit Radiant targets, avoid red Corruption, and build your combo.") }
         item { GuideStep(Icons.Filled.EmojiEvents, "4. Open your chest", "Finish all daily quests to unlock your Daily Radiant Chest.") }
         item { GuideStep(Icons.Filled.Token, "5. Grow your SKR Passport", "Liquid and active staked SKR unlock casual-play perks, chest boosts, and cosmetics.") }
         item {
@@ -73,8 +73,28 @@ fun DemoScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Text("Your progress", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text("${uiState.completedQuestCount}/${uiState.quests.size} quests • ${uiState.user.xp} XP • ${uiState.user.currentStreak}-day streak")
-                    Text("SKR Passport: ${uiState.user.skrTier} • ${uiState.user.skrEligibleBalance}", color = MaterialTheme.colorScheme.onPrimaryContainer)
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = "${uiState.completedQuestCount}/${uiState.quests.size} quests • ${uiState.user.xp} XP",
+                        softWrap = true,
+                    )
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = "${uiState.user.currentStreak}-day streak",
+                        softWrap = true,
+                    )
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = "SKR Passport: ${uiState.user.skrTier}",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        softWrap = true,
+                    )
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = uiState.user.skrEligibleBalance,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        softWrap = true,
+                    )
                 }
             }
         }

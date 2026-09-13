@@ -5,7 +5,7 @@ Phase 11F makes the existing game, quests, chest, collection, and Weekly Radiant
 ## Player-facing loop
 
 - Home shows one clear **What’s next** action.
-- Three UTC-daily Radiant Run goals rotate deterministically across devices.
+- Three UTC-daily Radiant Rush goals rotate deterministically across devices.
 - Three weekly goals track total runs, ranked runs, and Daily Radiant Chests.
 - Streak and collection milestones show the next cosmetic recognition target.
 - Public profile adds a short display name plus a bundled animal avatar.
@@ -42,3 +42,15 @@ Daily and weekly values are reset logically by their UTC key; stale counters are
 - SOLANA_SECURITY_AND_DATA_RULES: updated with public-profile/social boundaries.
 - MOBILE_UI_UX_STANDARDS: updated for goals, avatar rows, and YOU marker.
 - VERSION: Android build version advanced in `app/build.gradle.kts`; no separate VERSION file exists.
+
+
+## 11F.2 public-identity polish
+
+- The signed-in wallet's leaderboard row now overlays the freshly saved profile name/avatar after wallet dedupe. This prevents an older anonymous-UID score row from visually winning the identity when the same wallet has been used on multiple devices/installations.
+- Profile icon selection moved from an inline animal strip to a tap-to-open scrollable picker.
+- The bundled icon library now includes Animals, Cosmic, Mystic, Spooky, Zodiac, and Weird categories. No photo upload or location data is introduced.
+- The current player's row remains explicitly marked as `YOU`; ranking score, XP, wallet identity, and competition ordering are unchanged.
+
+## Phase 11F.4 responsive follow-up
+
+The retention/public-identity surfaces received a dedicated compact-screen audit. Home goal rows now stack progress text on phones; leaderboard identity rows stack rank/avatar/name and score details; the public-profile editor stacks vertically; and the avatar picker uses a viewport-bounded scrollable grid with icon-only cells. The bundled avatar library also expands with Faces, Nature, and Food categories. No retention scoring/economics changed.

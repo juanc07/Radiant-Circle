@@ -78,7 +78,7 @@ fun HomeScreen(
         item {
             GradientHeroCard(
                 title = "Today’s Rush",
-                subtitle = "Finish today’s quests, earn Rush Tickets, play Radiant Run, and grow your collection.",
+                subtitle = "Finish today’s quests, earn Rush Tickets, play Radiant Rush, and grow your collection.",
             )
         }
 
@@ -318,18 +318,39 @@ private fun RetentionGoalsCard(
                 .padding(responsive.cardPadding),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
-                Text(
-                    "$completed/${goals.size}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Black,
-                )
+            if (responsive.isCompact || responsive.hasLargeText) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        softWrap = true,
+                    )
+                    Text(
+                        text = "$completed/${goals.size} complete",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Black)
+                    Text(
+                        "$completed/${goals.size}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Black,
+                    )
+                }
             }
             LinearProgressIndicator(
                 progress = { overall },
@@ -346,24 +367,42 @@ private fun RetentionGoalsCard(
                         style = MaterialTheme.typography.titleMedium,
                         color = if (goal.completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
                         Text(
+                            modifier = Modifier.fillMaxWidth(),
                             text = goal.title,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Bold,
+                            softWrap = true,
                         )
                         Text(
+                            modifier = Modifier.fillMaxWidth(),
                             text = goal.detail,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            softWrap = true,
+                        )
+                        if (responsive.isCompact || responsive.hasLargeText) {
+                            Text(
+                                text = goal.progressLabel,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
+                                softWrap = true,
+                            )
+                        }
+                    }
+                    if (!responsive.isCompact && !responsive.hasLargeText) {
+                        Text(
+                            text = goal.progressLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
-                    Text(
-                        text = goal.progressLabel,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
                 }
             }
         }

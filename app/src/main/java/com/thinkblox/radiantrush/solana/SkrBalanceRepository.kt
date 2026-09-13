@@ -285,7 +285,7 @@ class SkrBalanceRepository {
     }
 
     private fun friendlyRpcFailure(error: Throwable): String = when (error) {
-        is java.net.UnknownHostException -> "Radiant Rush could not reach Solana mainnet RPC. Check phone internet/DNS, then refresh SKR Passport."
+        is java.net.UnknownHostException -> "Radiant Circle could not reach Solana mainnet RPC. Check phone internet/DNS, then refresh SKR Passport."
         is java.net.SocketTimeoutException -> "Solana mainnet RPC timed out. Refresh SKR Passport again in a moment."
         is IllegalArgumentException -> error.message ?: "Wallet address or on-chain SKR data was not valid."
         else -> error.message ?: error::class.java.simpleName

@@ -30,7 +30,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.LeaderboardPreview
 import com.thinkblox.radiantrush.data.RunCompetitionPreview
@@ -64,8 +63,7 @@ fun LeaderboardScreen(
                     text = {
                         Text(
                             text = title,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
+                            softWrap = false,
                         )
                     },
                 )
@@ -97,7 +95,7 @@ fun LeaderboardScreen(
                         item {
                             EmptyRunRanks(
                                 if (uiState.isWalletConnected) {
-                                    "No Ranked scores yet this week. Finish a Ranked Radiant Run to join the Cup."
+                                    "No Ranked scores yet this week. Finish a Ranked Radiant Rush to join the Cup."
                                 } else {
                                     "Connect your wallet to join the Weekly Radiant Cup."
                                 },
@@ -130,7 +128,7 @@ fun LeaderboardScreen(
                 1 -> {
                     item {
                         SectionTitle(
-                            title = "Radiant Run • All-Time",
+                            title = "Radiant Rush • All-Time",
                             body = "Your best ranked run ever. Casual runs do not change this board.",
                         )
                     }
@@ -138,7 +136,7 @@ fun LeaderboardScreen(
                         item {
                             EmptyRunRanks(
                                 if (uiState.isWalletConnected) {
-                                    "No all-time score yet. Finish a Ranked Radiant Run."
+                                    "No all-time score yet. Finish a Ranked Radiant Rush."
                                 } else {
                                     "Connect your wallet to join ranked competition."
                                 },
@@ -465,16 +463,17 @@ private fun PersonalCompetitionCard(
     competition: RunCompetitionPreview,
     walletConnected: Boolean,
 ) {
+    val responsive = rememberResponsiveUiSpec()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(18.dp),
+            modifier = Modifier.fillMaxWidth().padding(responsive.cardPadding),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("My Radiant Run stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("My Radiant Rush stats", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text(
                 if (walletConnected) {
                     "${competition.rankedAttemptsRemaining}/3 Ranked runs left today"
@@ -502,6 +501,7 @@ private fun PersonalCompetitionCard(
 
 @Composable
 private fun RunLeaderboardRow(row: RunLeaderboardPreview) {
+    val responsive = rememberResponsiveUiSpec()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(22.dp),
@@ -510,44 +510,93 @@ private fun RunLeaderboardRow(row: RunLeaderboardPreview) {
             else MaterialTheme.colorScheme.surface,
         ),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RankBubble(row.rank)
-            PlayerAvatarBubble(row.avatarId)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        if (responsive.isCompact || responsive.hasLargeText) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        modifier = Modifier.weight(1f, fill = false),
-                        text = row.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
-                    )
-                    if (row.isCurrentUser) CurrentUserPill()
+                    RankBubble(row.rank)
+                    PlayerAvatarBubble(row.avatarId)
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = row.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            softWrap = true,
+                        )
+                        if (row.isCurrentUser) CurrentUserPill()
+                    }
                 }
                 row.walletLabel?.let {
-                    Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        softWrap = true,
+                    )
                 }
                 Text(
-                    "Combo ${row.bestCombo} • PERFECT ${row.perfectHits} • ${row.runsPlayed} ranked run${if (row.runsPlayed == 1) "" else "s"}",
+                    modifier = Modifier.fillMaxWidth(),
+                    text = row.score.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "Combo ${row.bestCombo} • PERFECT ${row.perfectHits} • ${row.runsPlayed} ranked run${if (row.runsPlayed == 1) "" else "s"}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
+                    softWrap = true,
                 )
             }
-            Text(
-                row.score.toString(),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.primary,
-            )
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(responsive.cardPadding),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RankBubble(row.rank)
+                PlayerAvatarBubble(row.avatarId)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = row.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            softWrap = true,
+                        )
+                        if (row.isCurrentUser) CurrentUserPill()
+                    }
+                    row.walletLabel?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, softWrap = true)
+                    }
+                    Text(
+                        text = "Combo ${row.bestCombo} • PERFECT ${row.perfectHits} • ${row.runsPlayed} ranked run${if (row.runsPlayed == 1) "" else "s"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        softWrap = true,
+                    )
+                }
+                Text(
+                    text = row.score.toString(),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
     }
 }
@@ -563,38 +612,82 @@ private fun XpLeaderboardRow(row: LeaderboardPreview) {
             else MaterialTheme.colorScheme.surface,
         ),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(responsive.cardPadding),
-            horizontalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RankBubble(row.rank)
-            PlayerAvatarBubble(row.avatarId)
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (responsive.isCompact || responsive.hasLargeText) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        modifier = Modifier.weight(1f, fill = false),
-                        text = row.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
-                    )
-                    if (row.isCurrentUser) CurrentUserPill()
+                    RankBubble(row.rank)
+                    PlayerAvatarBubble(row.avatarId)
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            modifier = Modifier.fillMaxWidth(),
+                            text = row.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            softWrap = true,
+                        )
+                        if (row.isCurrentUser) CurrentUserPill()
+                    }
                 }
                 row.walletLabel?.let {
-                    Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = it,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        softWrap = true,
+                    )
                 }
                 Text(
-                    "${row.xp} XP • ${row.streak}-day streak",
-                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.fillMaxWidth(),
+                    text = "${row.xp} XP • ${row.streak}-day streak",
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    softWrap = true,
                 )
-                if (responsive.isTiny || responsive.hasLargeText) StatusPill(row.tier)
+                StatusPill(row.tier)
             }
-            if (!responsive.isTiny && !responsive.hasLargeText) StatusPill(row.tier)
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(responsive.cardPadding),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RankBubble(row.rank)
+                PlayerAvatarBubble(row.avatarId)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            modifier = Modifier.weight(1f),
+                            text = row.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            softWrap = true,
+                        )
+                        if (row.isCurrentUser) CurrentUserPill()
+                    }
+                    row.walletLabel?.let {
+                        Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, softWrap = true)
+                    }
+                    Text(
+                        "${row.xp} XP • ${row.streak}-day streak",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        softWrap = true,
+                    )
+                }
+                StatusPill(row.tier)
+            }
         }
     }
 }
@@ -650,7 +743,7 @@ private fun RankBubble(rank: Int) {
 @Composable
 private fun StatLine(label: String, value: String) {
     val responsive = rememberResponsiveUiSpec()
-    if (responsive.isTiny || responsive.hasLargeText) {
+    if (responsive.isCompact || responsive.hasLargeText) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -664,8 +757,7 @@ private fun StatLine(label: String, value: String) {
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
         }
     } else {
@@ -679,15 +771,13 @@ private fun StatLine(label: String, value: String) {
                 text = label,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
             Text(
                 text = value,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Bold,
-                maxLines = 2,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
         }
     }
