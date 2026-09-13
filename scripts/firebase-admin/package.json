@@ -1,0 +1,16 @@
+{
+  "name": "radiant-circle-firebase-admin-tools",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "cleanup:dry-run": "node cleanup-stale-dev-data.mjs --project radiant-rush-10a9c",
+    "test": "node --test cleanup-stale-dev-data.test.mjs"
+  },
+  "dependencies": {
+    "firebase-admin": "14.4.0"
+  }
+}
