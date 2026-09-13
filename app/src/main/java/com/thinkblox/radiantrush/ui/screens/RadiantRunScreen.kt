@@ -138,6 +138,7 @@ fun RadiantRunScreen(
     var maxCombo by remember { mutableIntStateOf(0) }
     var radiantHits by remember { mutableIntStateOf(0) }
     var corruptedHits by remember { mutableIntStateOf(0) }
+    var perfectHits by remember { mutableIntStateOf(0) }
     var targetSerial by remember { mutableIntStateOf(0) }
     var target by remember { mutableStateOf<RunTarget?>(null) }
     var popText by remember { mutableStateOf("READY") }
@@ -176,6 +177,7 @@ fun RadiantRunScreen(
         maxCombo = 0
         radiantHits = 0
         corruptedHits = 0
+        perfectHits = 0
         targetSerial = 0
         target = null
         popText = "GET READY"
@@ -191,6 +193,7 @@ fun RadiantRunScreen(
             maxCombo = maxCombo,
             radiantHits = radiantHits,
             corruptedHits = corruptedHits,
+            perfectHits = perfectHits,
         ).also { finalResult = it }
         phase = RunPhase.Saving
         onSubmitResult(result)
@@ -255,6 +258,7 @@ fun RadiantRunScreen(
                         maxCombo = maxCombo,
                         radiantHits = radiantHits,
                         corruptedHits = corruptedHits,
+                        perfectHits = perfectHits,
                     )
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     submitFinalResult()
@@ -339,9 +343,9 @@ fun RadiantRunScreen(
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text("RADIANT RUN", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
+                Text("RADIANT RUSH", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Black)
                 Text(
-                    "Procedural synth audio + Canvas VFX • no media assets required",
+                    "20-second skill run",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -359,7 +363,7 @@ fun RadiantRunScreen(
                 ) {
                     Icon(Icons.Filled.ConfirmationNumber, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.size(5.dp))
-                    Text(uiState.radiantRun.rushTickets.toString(), fontWeight = FontWeight.Bold)
+                    Text(uiState.radiantRun.totalPlayableTickets.toString(), fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -389,7 +393,7 @@ fun RadiantRunScreen(
                         val dx = tap.x - center.x
                         val dy = tap.y - center.y
                         val distance = sqrt(dx * dx + dy * dy)
-                        if (distance <= radius * 1.3f) {
+                        if (distance <= radius * 1.45f) {
                             if (active.corrupted) {
                                 score = (score - 140).coerceAtLeast(0)
                                 combo = 0
@@ -403,6 +407,7 @@ fun RadiantRunScreen(
                                 combo += 1
                                 maxCombo = maxOf(maxCombo, combo)
                                 radiantHits += 1
+                                if (perfect) perfectHits += 1
                                 val comboGain = combo * 10
                                 val feverGain = if (combo >= 5) 65 else 0
                                 val perfectGain = if (perfect) 50 else 0
@@ -441,7 +446,7 @@ fun RadiantRunScreen(
                 },
             )
             RunPhase.Saving -> SavingPanel(
-                result = finalResult ?: RadiantRunResult(score, maxCombo, radiantHits, corruptedHits),
+                result = finalResult ?: RadiantRunResult(score, maxCombo, radiantHits, corruptedHits, perfectHits),
                 message = uiState.lastMessage,
                 saving = uiState.walletActionInProgress,
                 onRetry = ::submitFinalResult,
@@ -466,6 +471,10 @@ private fun BriefingPanel(
     onExit: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val rankedWithStandardTicket = uiState.isWalletConnected &&
+        uiState.runCompetition.rankedAttemptsRemaining > 0 &&
+        uiState.radiantRun.rushTickets > 0
+    val usesSkrCasualTicket = !rankedWithStandardTicket && uiState.radiantRun.skrCasualRushTickets > 0
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -475,17 +484,45 @@ private fun BriefingPanel(
             modifier = Modifier.padding(responsive.cardPadding),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("A real 20-second skill run", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Text("20-second skill run", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
             Text(
-                "Tap glowing Radiant energy before it moves. Hit near the center for PERFECT. Ignore red Corruption. Chain 5 hits to enter FEVER.",
+                "Tap glowing Radiant targets. Aim for the center for PERFECT. Avoid red Corruption. Chain 5 hits for FEVER.",
                 style = MaterialTheme.typography.bodyLarge,
             )
             RunStatRow("Best score", uiState.radiantRun.bestScore.toString())
             RunStatRow("Runs finished", uiState.radiantRun.totalRuns.toString())
             RunStatRow("Collection", "${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal}")
-            RunStatRow("Entry", "1 free Rush Ticket")
+            RunStatRow(
+                "Tickets",
+                "${uiState.radiantRun.rushTickets} standard • ${uiState.radiantRun.skrCasualRushTickets} SKR casual",
+            )
+            RunStatRow(
+                "Entry",
+                when {
+                    rankedWithStandardTicket -> "1 standard Rush Ticket"
+                    usesSkrCasualTicket -> "1 SKR casual ticket"
+                    else -> "1 standard Rush Ticket"
+                },
+            )
+            RunStatRow(
+                "Competition",
+                when {
+                    !uiState.isWalletConnected ->
+                        "CASUAL • connect wallet to publish ranked score"
+                    rankedWithStandardTicket ->
+                        "RANKED • ${uiState.runCompetition.rankedAttemptsRemaining}/3 wallet attempts left"
+                    uiState.runCompetition.rankedAttemptsRemaining > 0 && usesSkrCasualTicket ->
+                        "CASUAL • SKR bonus tickets cannot fund ranked attempts"
+                    else ->
+                        "CASUAL • 3/3 ranked wallet attempts used today"
+                },
+            )
+            RunStatRow(
+                "Gameplay XP",
+                "${uiState.runCompetition.dailyGameplayXpEarned}/${uiState.runCompetition.dailyGameplayXpCap} today",
+            )
             Text(
-                "Finishing saves one capsule reveal, XP, best score, and collectible progress to Firebase. Rush Tickets cannot be bought with SOL/SKR in this phase.",
+                "SKR bonus tickets are Casual-only. Ranked runs stay skill-based.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -498,7 +535,7 @@ private fun BriefingPanel(
                 Icon(Icons.Filled.PlayArrow, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
                 AdaptiveButtonText(
-                    if (uiState.radiantRun.canPlay) "Start Radiant Run" else "Earn a Rush Ticket",
+                    if (uiState.radiantRun.canPlay) "Start Radiant Rush" else "Earn a Rush Ticket",
                     compactText = if (uiState.radiantRun.canPlay) "Start Run" else "Earn Ticket",
                     tinyText = if (uiState.radiantRun.canPlay) "Start" else "No Ticket",
                 )
@@ -541,7 +578,8 @@ private fun GamePanel(
     target: RunTarget?,
     hitFeedback: HitFeedback?,
     onTap: (Offset, Float, Float) -> Unit,
-) {
+ ) {
+    val responsive = rememberResponsiveUiSpec()
     val primary = MaterialTheme.colorScheme.primary
     val tertiary = MaterialTheme.colorScheme.tertiary
     val error = MaterialTheme.colorScheme.error
@@ -645,16 +683,12 @@ private fun GamePanel(
                 }
 
                 if (fever) {
-                    val center = Offset(size.width / 2f, size.height / 2f)
-                    repeat(3) { ring ->
-                        val radius = min(size.width, size.height) * (0.22f + ring * 0.15f + 0.035f * targetPulse)
-                        drawCircle(
-                            color = tertiary.copy(alpha = 0.055f),
-                            radius = radius,
-                            center = center,
-                            style = Stroke(width = 3f),
-                        )
-                    }
+                    // FEVER is a screen-state glow, not a target. Keep it rectangular so
+                    // players never mistake decorative cyan circles for something tappable.
+                    drawRect(
+                        color = tertiary.copy(alpha = 0.16f),
+                        style = Stroke(width = 5f),
+                    )
                 }
 
                 target?.let { active ->
@@ -808,13 +842,26 @@ private fun GamePanel(
                 )
             }
 
-            Row(
-                modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text("◎ CENTER = PERFECT", style = MaterialTheme.typography.labelSmall, color = tertiary)
-                Text("✕ RED = IGNORE", style = MaterialTheme.typography.labelSmall, color = error)
-                Text("BEST x$maxCombo", style = MaterialTheme.typography.labelSmall)
+            if (responsive.isCompact || responsive.hasLargeText) {
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text("● RADIANT = HIT", style = MaterialTheme.typography.labelSmall, color = primary)
+                    Text("◎ CENTER = PERFECT", style = MaterialTheme.typography.labelSmall, color = tertiary)
+                    Text("✕ RED = AVOID", style = MaterialTheme.typography.labelSmall, color = error)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text("● RADIANT = HIT", style = MaterialTheme.typography.labelSmall, color = primary)
+                    Text("◎ CENTER = PERFECT", style = MaterialTheme.typography.labelSmall, color = tertiary)
+                    Text("✕ RED = AVOID", style = MaterialTheme.typography.labelSmall, color = error)
+                }
             }
         }
     }
@@ -831,15 +878,29 @@ private fun SavingPanel(
     val responsive = rememberResponsiveUiSpec()
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp)) {
         Column(
-            modifier = Modifier.padding(responsive.cardPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (saving) CircularProgressIndicator()
-            Text("RUN COMPLETE", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
-            Text("${result.score} points • x${result.maxCombo} best combo", style = MaterialTheme.typography.titleLarge)
             Text(
-                if (saving) "Saving score and opening your capsule…" else (message ?: "Save did not finish."),
+                text = "RUN COMPLETE",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "${result.score} points • x${result.maxCombo} best combo",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.titleLarge,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = if (saving) "Saving score and opening your capsule…" else (message ?: "Save did not finish."),
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -896,14 +957,18 @@ private fun RewardPanel(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
     ) {
         Column(
-            modifier = Modifier.padding(responsive.cardPadding),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                RadiantGameRules.capsuleTierForScore(uiState.radiantRun.lastScore).uppercase(),
+                text = RadiantGameRules.capsuleTierForScore(uiState.radiantRun.lastScore).uppercase(),
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
             )
             Box(
                 modifier = Modifier
@@ -961,31 +1026,48 @@ private fun RewardPanel(
                 }
             }
             Text(
-                uiState.radiantRun.lastRewardRarity ?: "Reward",
+                text = uiState.radiantRun.lastRewardRarity ?: "Reward",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 color = rewardPastel,
                 fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
             )
             Text(
-                uiState.radiantRun.lastRewardTitle ?: "Radiant Collectible",
+                text = uiState.radiantRun.lastRewardTitle ?: "Radiant Collectible",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
             )
             Text(
-                if (duplicate) {
+                text = if (duplicate) {
                     "Duplicate converted to +${uiState.radiantRun.lastRewardShards} Radiant Shards • +${uiState.radiantRun.lastRewardXp} XP"
                 } else {
                     "NEW DISCOVERY • +${uiState.radiantRun.lastRewardXp} XP"
                 },
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
             )
             reward?.let {
-                Text(it.description, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                Text(
+                    text = it.description,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                )
             }
             Text(
-                "Score ${uiState.radiantRun.lastScore} • Best ${uiState.radiantRun.bestScore} • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collected",
+                text = "${uiState.runCompetition.lastRunMode ?: "Casual"} • +${uiState.runCompetition.lastRunPerformanceXp} performance XP • ${uiState.runCompetition.rankedAttemptsRemaining}/3 ranked attempts left",
+                modifier = Modifier.fillMaxWidth(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "Score ${uiState.radiantRun.lastScore} • Best ${uiState.radiantRun.bestScore} • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collected",
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -996,7 +1078,17 @@ private fun RewardPanel(
                 onClick = onPlayAgain,
             ) {
                 AdaptiveButtonText(
-                    if (uiState.radiantRun.canPlay) "Run Again • 1 Ticket" else "No Tickets Left",
+                    if (uiState.radiantRun.canPlay) {
+                        if (uiState.radiantRun.skrCasualRushTickets > 0 &&
+                            (!uiState.isWalletConnected || uiState.runCompetition.rankedAttemptsRemaining == 0 || uiState.radiantRun.rushTickets == 0)
+                        ) {
+                            "Run Again • Casual"
+                        } else {
+                            "Run Again • 1 Ticket"
+                        }
+                    } else {
+                        "No Tickets Left"
+                    },
                     compactText = if (uiState.radiantRun.canPlay) "Run Again" else "No Tickets",
                     tinyText = if (uiState.radiantRun.canPlay) "Again" else "Done",
                 )

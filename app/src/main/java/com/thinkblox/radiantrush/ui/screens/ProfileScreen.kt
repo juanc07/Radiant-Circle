@@ -1,17 +1,29 @@
 package com.thinkblox.radiantrush.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
@@ -24,20 +36,32 @@ import androidx.compose.material.icons.filled.Token
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
+import com.thinkblox.radiantrush.ui.components.PassportCrestCard
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
@@ -50,9 +74,11 @@ fun ProfileScreen(
     onRetryFirebase: () -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onSavePublicProfile: (String, String) -> Unit,
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
+    val profileAvatar = PublicProfileRules.avatarFor(user.avatarId)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -65,14 +91,36 @@ fun ProfileScreen(
         verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 12.dp else 16.dp),
     ) {
         item {
-            GradientHeroCard(
-                title = user.displayName,
-                subtitle = if (uiState.isWalletConnected) {
-                    "${user.walletStatus}. Public Solana address is linked."
-                } else {
-                    "${user.walletStatus}. Connect with Mobile Wallet Adapter."
-                },
-            )
+            val heroSubtitle = if (uiState.isWalletConnected) {
+                buildString {
+                    append("${user.walletStatus}. Public Solana address is linked.")
+                    if (user.hasSkr) append(" ${user.skrAuraLabel} active.")
+                }
+            } else {
+                "${user.walletStatus}. Connect your Solana wallet."
+            }
+            if (user.hasSkr) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(
+                            width = 2.dp,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            shape = RoundedCornerShape(30.dp),
+                        )
+                        .padding(2.dp),
+                ) {
+                    GradientHeroCard(
+                        title = "✦ ${profileAvatar.symbol} ${user.displayName} ✦",
+                        subtitle = heroSubtitle,
+                    )
+                }
+            } else {
+                GradientHeroCard(
+                    title = "${profileAvatar.symbol} ${user.displayName}",
+                    subtitle = heroSubtitle,
+                )
+            }
         }
 
         item {
@@ -85,32 +133,41 @@ fun ProfileScreen(
 
         item {
             SectionTitle(
-                title = "Identity readiness",
-                body = "Phase 10 links real Solana proofs to a native skill game: quests earn Rush Tickets, runs earn collectible capsules, and Firebase keeps score/progression synced.",
+                title = "Player profile",
+                body = "Your progress, Radiant Rush records, wallet, and SKR Passport.",
+            )
+        }
+
+        item {
+            PublicIdentityEditor(
+                displayName = user.displayName,
+                avatarId = user.avatarId,
+                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
+                onSave = onSavePublicProfile,
             )
         }
 
         item {
             ProfileInfoRow(
-                title = "Firebase Profile",
+                title = "Progress",
                 value = "${user.xp} XP • ${user.currentStreak}-day streak • ${uiState.todayKey}",
-                helper = "Firebase UID stays internal; public ranks collapse duplicate rows by connected wallet identity.",
+                helper = "Your XP and daily streak.",
                 icon = Icons.Filled.Storage,
             )
         }
         item {
             ProfileInfoRow(
-                title = "Radiant Run",
+                title = "Radiant Rush",
                 value = "Best ${user.bestRunScore} • ${user.totalRuns} runs",
-                helper = "Last ${user.lastRunScore} • x${user.lastRunMaxCombo} combo • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collectibles.",
+                helper = "Last ${user.lastRunScore} • x${user.lastRunMaxCombo} combo • ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} collectibles",
                 icon = Icons.Filled.Bolt,
             )
         }
         item {
             ProfileInfoRow(
                 title = "Rush Tickets / Shards",
-                value = "${user.rushTickets} tickets • ${user.radiantShards} shards",
-                helper = "Free in-app progression only. Tickets are earned from proof quests/chests; SOL, SKR, and XP are not wagers.",
+                value = "${user.rushTickets} standard • ${user.skrCasualRushTickets} SKR casual • ${user.radiantShards} shards",
+                helper = "Standard tickets can enter Ranked runs. SKR bonus tickets are Casual-only.",
                 icon = Icons.Filled.ConfirmationNumber,
             )
         }
@@ -133,9 +190,19 @@ fun ProfileScreen(
                     uiState.radiantChest.status.label
                 },
                 helper = if (user.lastChestRewardXp > 0) {
-                    "${user.lastChestRewardTitle ?: "Daily reward"} claimed ${user.lastChestClaimDate ?: "today"}. Total chest XP: ${user.totalChestXp}."
+                    buildString {
+                        append("${user.lastChestRewardTitle ?: "Daily reward"} claimed ${user.lastChestClaimDate ?: "today"}. Total chest XP: ${user.totalChestXp}.")
+                        if (user.lastChestRewardTickets > 0) append(" +${user.lastChestRewardTickets} Rush Tickets.")
+                        if (user.lastChestSkrBonusXp > 0 || user.lastChestSkrBonusTickets > 0) {
+                            append(" SKR perk included +${user.lastChestSkrBonusXp} XP")
+                            if (user.lastChestSkrBonusTickets > 0) {
+                                append(" and +${user.lastChestSkrBonusTickets} ticket${if (user.lastChestSkrBonusTickets == 1) "" else "s"}")
+                            }
+                            append(".")
+                        }
+                    }
                 } else {
-                    "Complete all daily proofs to unlock a no-loss chest reveal. XP is never spent as a wager."
+                    "Complete today’s quests to unlock your chest."
                 },
                 icon = Icons.Filled.EmojiEvents,
             )
@@ -145,9 +212,9 @@ fun ProfileScreen(
                 title = "Wallet",
                 value = user.walletAddress,
                 helper = if (uiState.isWalletConnected) {
-                    "Public address only. No seed phrase or private key is stored."
+                    "Connected and ready for wallet quests."
                 } else {
-                    "Tap Connect Wallet to authorize through an MWA-compatible Solana wallet."
+                    "Connect your Solana wallet to continue."
                 },
                 icon = Icons.Filled.AccountBalanceWallet,
                 copyValue = user.walletAddress.takeIf { uiState.isWalletConnected },
@@ -155,29 +222,103 @@ fun ProfileScreen(
             )
         }
         item {
+            SectionTitle(
+                title = "SKR Passport",
+                body = "Liquid + active staked SKR unlock daily perks, chest boosts, and cosmetics.",
+            )
+        }
+        item {
+            PassportCrestCard(
+                tier = user.skrTier,
+                eligibleBalance = user.skrEligibleBalance,
+                stakeBoostActive = user.skrStakeBoostActive,
+                frameLabel = user.skrFrameLabel,
+                auraLabel = user.skrAuraLabel,
+            )
+        }
+        item {
             ProfileInfoRow(
-                title = "SKR Tier",
-                value = user.skrTier,
-                helper = "${user.skrMultiplier} XP boost from the latest mainnet SKR scan.",
+                title = "Passport Eligible SKR",
+                value = user.skrEligibleBalance,
+                helper = "Liquid + active stake.",
+                icon = Icons.Filled.Token,
+                copyValue = user.skrMint,
+                copyLabel = "Copy Mint",
+            )
+        }
+        item {
+            ProfileInfoRow(
+                title = "Liquid SKR",
+                value = user.skrBalance,
+                helper = "Last refreshed: ${user.lastSkrChecked ?: "Not yet"}",
                 icon = Icons.Filled.Token,
             )
         }
         item {
             ProfileInfoRow(
-                title = "SKR Balance",
-                value = user.skrBalance,
-                helper = "${user.skrNetwork} • checked ${user.lastSkrChecked ?: "not yet"}. Read-only scan; copy uses the official SKR mint.",
-                icon = Icons.Filled.Token,
-                copyValue = user.skrMint,
-                copyLabel = "Copy Mint",
+                title = "Daily Holder Perks",
+                value = if (user.hasSkr) {
+                    buildString {
+                        append("+${user.skrDailyBonusTickets} bonus ticket${if (user.skrDailyBonusTickets == 1) "" else "s"}/day")
+                        append(" • Chest +${user.skrChestBonusXp} XP")
+                        if (user.skrChestBonusTickets > 0) append(" +${user.skrChestBonusTickets} ticket${if (user.skrChestBonusTickets == 1) "" else "s"}")
+                    }
+                } else {
+                    "Explorer • no holder perks yet"
+                },
+                helper = if (user.hasSkr) {
+                    buildString {
+                        append("${user.skrDailyBonusTicketsGrantedToday}/${user.skrDailyBonusTickets} daily bonus tickets claimed.")
+                        if (user.skrStakeBoostActive) append(" ${user.skrStakeBoostLabel} active.")
+                    }
+                } else {
+                    "Hold or actively stake SKR to unlock Passport perks."
+                },
+                icon = Icons.Filled.ConfirmationNumber,
             )
+        }
+        item {
+            ProfileInfoRow(
+                title = "Passport Cosmetics",
+                value = "${user.skrFrameLabel} • ${user.skrAuraLabel}",
+                helper = "Badge: ${user.skrHolderCollectibleLabel}",
+                icon = Icons.Filled.EmojiEvents,
+            )
+        }
+        item {
+            ProfileInfoRow(
+                title = "Active Staked SKR",
+                value = if (user.skrStakedVerified) user.skrStakedBalance else "Read unavailable",
+                helper = buildString {
+                    append(user.skrStakedStatus)
+                    if (user.skrStakeBoostActive) append(" • ${user.skrStakeBoostLabel}: +1 Casual ticket/day, +25 Chest XP")
+                    else if (user.skrStakedVerified) append(" • Stake Boost unlocks with active stake")
+                },
+                icon = Icons.Filled.Security,
+                copyValue = user.skrStakingProgramId,
+                copyLabel = "Copy Staking Program",
+            )
+        }
+        if (user.skrStakedVerified && user.skrUnstakingBalance != "0 SKR") {
+            item {
+                ProfileInfoRow(
+                    title = "Unstaking SKR",
+                    value = user.skrUnstakingBalance,
+                    helper = if (user.skrUnstakingReady) {
+                        "Cooldown complete. Ready to withdraw."
+                    } else {
+                        "Cooldown in progress."
+                    },
+                    icon = Icons.Filled.Security,
+                )
+            }
         }
         if (!user.lastSignedMessageSignature.isNullOrBlank()) {
             item {
                 ProfileInfoRow(
                     title = "Last Signed Proof",
                     value = shortenForProfile(user.lastSignedMessageSignature.orEmpty()),
-                    helper = "MWA message signature saved in today’s completedQuests document.",
+                    helper = "Today’s signed wallet proof.",
                     icon = Icons.Filled.Security,
                     copyValue = user.lastSignedMessageSignature,
                     copyLabel = "Copy Signature",
@@ -189,20 +330,12 @@ fun ProfileScreen(
                 ProfileInfoRow(
                     title = "Last Memo Transaction",
                     value = shortenForProfile(user.lastOnChainTxSignature.orEmpty()),
-                    helper = user.lastOnChainExplorerUrl ?: "Saved devnet transaction signature.",
+                    helper = user.lastOnChainExplorerUrl ?: "Today’s memo transaction.",
                     icon = Icons.Filled.Token,
                     copyValue = user.lastOnChainExplorerUrl ?: user.lastOnChainTxSignature,
                     copyLabel = if (!user.lastOnChainExplorerUrl.isNullOrBlank()) "Copy Explorer" else "Copy TX",
                 )
             }
-        }
-        item {
-            ProfileInfoRow(
-                title = "Security Rule",
-                value = "No secrets in APK",
-                helper = "Private keys, mint authority, and reward authority never belong in the Android app.",
-                icon = Icons.Filled.Security,
-            )
         }
         item {
             Button(
@@ -239,7 +372,302 @@ fun ProfileScreen(
                 shape = RoundedCornerShape(16.dp),
                 onClick = onRetryFirebase,
             ) {
-                AdaptiveButtonText("Refresh Firebase Sync")
+                AdaptiveButtonText("Refresh Profile")
+            }
+        }
+    }
+}
+
+@Composable
+private fun PublicIdentityEditor(
+    displayName: String,
+    avatarId: String,
+    enabled: Boolean,
+    onSave: (String, String) -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    var draftName by remember(displayName) { mutableStateOf(displayName) }
+    var selectedAvatarId by remember(avatarId) {
+        mutableStateOf(PublicProfileRules.normalizeAvatarId(avatarId))
+    }
+    var showAvatarPicker by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf("Animals") }
+    val selectedAvatar = PublicProfileRules.avatarFor(selectedAvatarId)
+    val sanitized = PublicProfileRules.sanitizeDisplayName(draftName)
+    val changed = sanitized != displayName || selectedAvatarId != PublicProfileRules.normalizeAvatarId(avatarId)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "Public identity",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                text = "Choose the name and icon shown on Radiant Circle leaderboards.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (responsive.isCompact || responsive.hasLargeText) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .size(if (responsive.isTiny) 72.dp else 82.dp)
+                                .clickable(enabled = enabled) {
+                                    selectedCategory = selectedAvatar.category
+                                    showAvatarPicker = true
+                                },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = selectedAvatar.symbol,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Tap to change icon",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = draftName,
+                        onValueChange = { value -> draftName = value.take(PublicProfileRules.MAX_DISPLAY_NAME_LENGTH) },
+                        enabled = enabled,
+                        singleLine = true,
+                        label = { Text("Display name") },
+                        supportingText = { Text("${draftName.length}/${PublicProfileRules.MAX_DISPLAY_NAME_LENGTH}") },
+                    )
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clickable(enabled = enabled) {
+                                    selectedCategory = selectedAvatar.category
+                                    showAvatarPicker = true
+                                },
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = selectedAvatar.symbol,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                        Text(
+                            text = "Change icon",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    OutlinedTextField(
+                        modifier = Modifier.weight(1f),
+                        value = draftName,
+                        onValueChange = { value -> draftName = value.take(PublicProfileRules.MAX_DISPLAY_NAME_LENGTH) },
+                        enabled = enabled,
+                        singleLine = true,
+                        label = { Text("Display name") },
+                        supportingText = { Text("${draftName.length}/${PublicProfileRules.MAX_DISPLAY_NAME_LENGTH}") },
+                    )
+                }
+            }
+            Text(
+                text = "${selectedAvatar.category} • ${selectedAvatar.label}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = responsive.buttonHeight),
+                enabled = enabled && changed,
+                shape = RoundedCornerShape(16.dp),
+                onClick = { onSave(sanitized, selectedAvatarId) },
+            ) {
+                AdaptiveButtonText("Save Public Profile", compactText = "Save Profile", tinyText = "Save")
+            }
+        }
+    }
+
+    if (showAvatarPicker) {
+        AvatarPickerDialog(
+            selectedAvatarId = selectedAvatarId,
+            selectedCategory = selectedCategory,
+            enabled = enabled,
+            onCategoryChanged = { selectedCategory = it },
+            onAvatarSelected = {
+                selectedAvatarId = it
+                showAvatarPicker = false
+            },
+            onDismiss = { showAvatarPicker = false },
+        )
+    }
+}
+
+@Composable
+private fun AvatarPickerDialog(
+    selectedAvatarId: String,
+    selectedCategory: String,
+    enabled: Boolean,
+    onCategoryChanged: (String) -> Unit,
+    onAvatarSelected: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    val visibleAvatars = PublicProfileRules.avatarsForCategory(selectedCategory)
+    val selectedAvatar = PublicProfileRules.avatarFor(selectedAvatarId)
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.88f)
+                .widthIn(max = 560.dp),
+            shape = RoundedCornerShape(26.dp),
+            colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(if (responsive.isTiny) 12.dp else 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = "Choose your profile icon",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = if (responsive.isTiny) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    softWrap = true,
+                )
+                Text(
+                    text = "Tap an icon to use it. Swipe categories or scroll the icon grid.",
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    softWrap = true,
+                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.62f),
+                ) {
+                    Text(
+                        text = "Selected • ${selectedAvatar.symbol} ${selectedAvatar.label}",
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        softWrap = true,
+                    )
+                }
+                LazyRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 1.dp),
+                ) {
+                    items(PublicProfileRules.avatarCategories, key = { it }) { category ->
+                        FilterChip(
+                            selected = category == selectedCategory,
+                            onClick = { onCategoryChanged(category) },
+                            label = {
+                                Text(
+                                    text = category,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            },
+                        )
+                    }
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = if (responsive.isTiny) 62.dp else 70.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                ) {
+                    gridItems(visibleAvatars, key = { it.id }) { avatar ->
+                        val selected = avatar.id == selectedAvatarId
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .border(
+                                    width = if (selected) 3.dp else 1.dp,
+                                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                                    shape = RoundedCornerShape(18.dp),
+                                )
+                                .clickable(enabled = enabled) { onAvatarSelected(avatar.id) },
+                            shape = RoundedCornerShape(18.dp),
+                            color = if (selected) {
+                                MaterialTheme.colorScheme.primaryContainer
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
+                            },
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = avatar.symbol,
+                                    style = if (responsive.isTiny) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
+                }
+                OutlinedButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = responsive.buttonHeight),
+                    onClick = onDismiss,
+                ) {
+                    AdaptiveButtonText("Close")
+                }
             }
         }
     }
@@ -263,44 +691,52 @@ private fun ProfileInfoRow(
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
+    fun copy() {
+        if (!copyValue.isNullOrBlank()) {
+            clipboardManager.setText(AnnotatedString(copyValue))
+            Toast.makeText(context, "$copyLabel copied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(responsive.cardPadding),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-            )
-            Spacer(modifier = Modifier.size(2.dp))
+        if (responsive.isCompact || responsive.hasLargeText) {
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        modifier = Modifier.weight(1f),
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        softWrap = true,
+                    )
+                }
                 Text(
                     text = value,
                     style = MaterialTheme.typography.bodyLarge,
-                    maxLines = 3,
-                    overflow = TextOverflow.Clip,
+                    softWrap = true,
                 )
                 Text(
                     text = helper,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    softWrap = true,
                 )
                 if (!copyValue.isNullOrBlank()) {
                     OutlinedButton(
@@ -308,22 +744,54 @@ private fun ProfileInfoRow(
                             .fillMaxWidth()
                             .heightIn(min = if (responsive.isTiny) 46.dp else 48.dp),
                         shape = RoundedCornerShape(14.dp),
-                        onClick = {
-                            clipboardManager.setText(AnnotatedString(copyValue))
-                            Toast.makeText(context, "$copyLabel copied", Toast.LENGTH_SHORT).show()
-                        },
+                        onClick = ::copy,
                     ) {
                         AdaptiveButtonText(
                             text = copyLabel,
-                            compactText = copyLabel.replace("Copy ", "Copy "),
-                            tinyText = when {
+                            compactText = when {
                                 copyLabel.contains("Signature") -> "Copy Sign"
                                 copyLabel.contains("Explorer") -> "Copy Link"
                                 copyLabel.contains("Address") -> "Copy Addr"
-                                copyLabel.contains("Mint") -> "Copy Mint"
-                                else -> "Copy"
+                                copyLabel.contains("Program") -> "Copy Program"
+                                else -> copyLabel
                             },
+                            tinyText = "Copy",
                         )
+                    }
+                }
+            }
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(text = title, style = MaterialTheme.typography.titleMedium)
+                    Text(text = value, style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = helper,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    if (!copyValue.isNullOrBlank()) {
+                        OutlinedButton(
+                            modifier = Modifier.heightIn(min = 48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            onClick = ::copy,
+                        ) {
+                            AdaptiveButtonText(copyLabel)
+                        }
                     }
                 }
             }

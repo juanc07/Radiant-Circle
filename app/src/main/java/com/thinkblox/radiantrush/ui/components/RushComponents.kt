@@ -1,12 +1,22 @@
 package com.thinkblox.radiantrush.ui.components
 
 import android.os.SystemClock
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.keyframes
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -16,7 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -31,17 +40,25 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,11 +67,20 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.thinkblox.radiantrush.audio.ProceduralGameAudioEngine
+import com.thinkblox.radiantrush.audio.ProceduralGameAudioEngine.Cue
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RadiantChestPreview
 import com.thinkblox.radiantrush.data.RadiantChestStatus
+import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 
 
 /**
@@ -84,18 +110,21 @@ fun rememberResponsiveUiSpec(): ResponsiveUiSpec {
     val density = LocalDensity.current
     val width = configuration.screenWidthDp
     val fontScale = density.fontScale
-    val tiny = width <= 340 || fontScale >= 1.35f
-    val compact = width <= 390 || fontScale >= 1.18f
+    // Bias aggressively toward stacked phone layouts. The app has many dynamic
+    // strings (wallet state, streaks, tiers, leaderboard identity), so a layout
+    // should become compact before text is forced into clipping or awkward wraps.
+    val tiny = width <= 380 || fontScale >= 1.30f
+    val compact = width <= 600 || fontScale >= 1.15f
 
     return ResponsiveUiSpec(
         screenWidthDp = width,
         fontScale = fontScale,
         isCompact = compact,
         isTiny = tiny,
-        hasLargeText = fontScale >= 1.18f,
+        hasLargeText = fontScale >= 1.15f,
         screenPadding = when {
             tiny -> 12.dp
-            compact -> 16.dp
+            compact -> 14.dp
             else -> 20.dp
         },
         cardPadding = when {
@@ -114,8 +143,8 @@ fun rememberResponsiveUiSpec(): ResponsiveUiSpec {
             else -> 18.dp
         },
         buttonTextSize = when {
-            tiny -> 12.sp
-            compact -> 13.sp
+            tiny -> 13.sp
+            compact -> 14.sp
             else -> 14.sp
         },
         navTextSize = when {
@@ -151,12 +180,13 @@ fun ResponsiveUiSpec.actionLabel(text: String): String = when (text) {
     "Saving Memo…" -> chooseLabel("Saving Memo…", "Saving…", "Saving…")
     "Opening Wallet…" -> chooseLabel("Opening Wallet…", "Opening…", "Opening…")
     "Disconnect Wallet" -> chooseLabel("Disconnect Wallet", "Disconnect", "Disconnect")
-    "Refresh Firebase Sync" -> chooseLabel("Refresh Firebase Sync", "Refresh Sync", "Refresh")
+    "Refresh Firebase Sync" -> chooseLabel("Refresh", "Refresh", "Refresh")
     "Check SKR Balance" -> chooseLabel("Scan SKR Passport", "Scan SKR", "Scan")
     "SKR Checked" -> chooseLabel("SKR Checked", "SKR Done", "Done")
     "Scanning SKR…" -> chooseLabel("Scanning SKR…", "Scanning…", "Scan…")
+    "Scanning SKR + stake…" -> chooseLabel("Scanning SKR + stake…", "Scanning SKR…", "Scanning…")
     "Checking SKR…" -> chooseLabel("Checking SKR…", "Checking…", "Checking…")
-    "Open Radiant Rush" -> chooseLabel("Open Radiant Rush", "Open Rush", "Open")
+    "Open Radiant Circle" -> chooseLabel("Open Radiant Circle", "Open Circle", "Open")
     "Open Chest" -> chooseLabel("Open Daily Chest", "Open Chest", "Open")
     "Opening…" -> chooseLabel("Opening Chest…", "Opening…", "Open…")
     "Claimed Today" -> chooseLabel("Claimed Today", "Claimed", "Done")
@@ -165,12 +195,12 @@ fun ResponsiveUiSpec.actionLabel(text: String): String = when (text) {
 }
 
 fun ResponsiveUiSpec.proofLabel(text: String): String = when (text) {
-    "Firestore proof" -> chooseLabel("Firestore", "Cloud", "Cloud")
-    "MWA authorization" -> chooseLabel("MWA Auth", "Wallet", "Wallet")
+    "Firestore proof" -> chooseLabel("Check-In", "Check-In", "Check-In")
+    "MWA authorization" -> chooseLabel("Wallet Access", "Wallet", "Wallet")
     "MWA message signature" -> chooseLabel("Wallet Signature", "Signature", "Sign")
-    "Devnet memo transaction" -> chooseLabel("Devnet Memo", "Memo TX", "Memo")
+    "Devnet memo transaction" -> chooseLabel("Memo Proof", "Memo", "Memo")
     "SKR balance check" -> chooseLabel("SKR Check", "SKR", "SKR")
-    "Mainnet SKR balance" -> chooseLabel("Mainnet SKR", "SKR", "SKR")
+    "Mainnet SKR balance" -> chooseLabel("SKR Balance", "SKR", "SKR")
     else -> text
 }
 
@@ -212,10 +242,14 @@ fun AdaptiveNavLabel(
 ) {
     val responsive = rememberResponsiveUiSpec()
     Text(
+        modifier = Modifier.fillMaxWidth(),
         text = responsive.chooseLabel(text, compactText, tinyText),
-        maxLines = 1,
+        maxLines = 2,
+        softWrap = true,
         overflow = TextOverflow.Clip,
+        textAlign = TextAlign.Center,
         fontSize = responsive.navTextSize,
+        lineHeight = responsive.navTextSize * 1.08f,
     )
 }
 
@@ -235,31 +269,56 @@ fun GradientHeroCard(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
         ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(responsive.cardPadding),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        if (responsive.isCompact || responsive.hasLargeText) {
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Text(
+                    modifier = Modifier.fillMaxWidth(),
                     text = title,
                     style = if (responsive.isTiny) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
+                    softWrap = true,
                 )
                 Text(
+                    modifier = Modifier.fillMaxWidth(),
                     text = subtitle,
                     style = if (responsive.isTiny) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                    softWrap = true,
                 )
+                trailing?.invoke()
             }
-            if (!responsive.isTiny) {
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        softWrap = true,
+                    )
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.86f),
+                        softWrap = true,
+                    )
+                }
                 trailing?.invoke()
             }
         }
@@ -301,9 +360,14 @@ fun MetricCard(
                 )
             }
             Text(
+                modifier = Modifier.fillMaxWidth(),
                 text = value,
-                style = if (responsive.isTiny) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineSmall,
-                maxLines = 2,
+                style = when {
+                    responsive.isTiny -> MaterialTheme.typography.titleLarge
+                    responsive.isCompact -> MaterialTheme.typography.headlineSmall
+                    else -> MaterialTheme.typography.headlineSmall
+                },
+                softWrap = true,
                 overflow = TextOverflow.Clip,
             )
             Text(
@@ -367,8 +431,7 @@ fun QuestCard(
                     Text(
                         text = quest.title,
                         style = if (responsive.isTiny) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
+                        softWrap = true,
                     )
                     Text(
                         text = quest.description,
@@ -377,7 +440,7 @@ fun QuestCard(
                     )
                 }
             }
-            if (responsive.isTiny || responsive.hasLargeText) {
+            if (responsive.isCompact || responsive.hasLargeText) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -393,8 +456,7 @@ fun QuestCard(
                         text = quest.status.label,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
+                        softWrap = true,
                     )
                 }
             } else {
@@ -410,8 +472,7 @@ fun QuestCard(
                         text = quest.status.label,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Clip,
+                        softWrap = true,
                     )
                 }
             }
@@ -469,87 +530,586 @@ fun RadiantChestCard(
     modifier: Modifier = Modifier,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val haptics = LocalHapticFeedback.current
+    val audio = remember { ProceduralGameAudioEngine() }
+    val charge = remember { Animatable(0f) }
+    val lidOpen = remember { Animatable(if (chest.status == RadiantChestStatus.Claimed) 1f else 0f) }
+    val burst = remember { Animatable(if (chest.status == RadiantChestStatus.Claimed) 1f else 0f) }
+    val rewardLift = remember { Animatable(if (chest.status == RadiantChestStatus.Claimed) 1f else 0f) }
+    val shakeOffset = remember { Animatable(0f) }
+    var previousChestStatus by remember { mutableStateOf(chest.status) }
+    val rarityRank = RadiantChestPresentationRules.rarityRank(chest.lastRewardRarity)
+    val particleCount = RadiantChestPresentationRules.particleCount(chest.lastRewardRarity)
+    val shockwaveCount = RadiantChestPresentationRules.shockwaveCount(chest.lastRewardRarity)
+    val motion = rememberInfiniteTransition(label = "chestIdle")
+    val idlePulse by motion.animateFloat(
+        initialValue = 0.975f,
+        targetValue = 1.025f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(820, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "chestPulse",
+    )
+
+    DisposableEffect(audio) {
+        onDispose { audio.release() }
+    }
+
+    LaunchedEffect(chest.status) {
+        when (chest.status) {
+            RadiantChestStatus.Locked -> {
+                previousChestStatus = RadiantChestStatus.Locked
+                audio.setMusicActive(false)
+                charge.snapTo(0f)
+                lidOpen.snapTo(0f)
+                burst.snapTo(0f)
+                rewardLift.snapTo(0f)
+                shakeOffset.snapTo(0f)
+            }
+
+            RadiantChestStatus.Ready -> {
+                previousChestStatus = RadiantChestStatus.Ready
+                audio.setMusicActive(false)
+                charge.snapTo(0.18f)
+                lidOpen.snapTo(0f)
+                burst.snapTo(0f)
+                rewardLift.snapTo(0f)
+                shakeOffset.snapTo(0f)
+            }
+
+            RadiantChestStatus.Opening -> {
+                previousChestStatus = RadiantChestStatus.Opening
+                audio.setMusicActive(true)
+                audio.setIntensity(fever = false, finalRush = false)
+                charge.snapTo(0.12f)
+                lidOpen.snapTo(0f)
+                burst.snapTo(0f)
+                rewardLift.snapTo(0f)
+                shakeOffset.snapTo(0f)
+
+                audio.play(Cue.ChestCharge)
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+
+                coroutineScope {
+                    launch {
+                        charge.animateTo(
+                            1f,
+                            animationSpec = tween(460, easing = FastOutSlowInEasing),
+                        )
+                    }
+                    launch {
+                        shakeOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = keyframes {
+                                durationMillis = 410
+                                0f at 0
+                                -2.2f at 80
+                                2.0f at 150
+                                -1.5f at 220
+                                1.0f at 290
+                                -0.5f at 350
+                                0f at 410
+                            },
+                        )
+                    }
+                }
+
+                audio.play(Cue.ChestOpen)
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                lidOpen.animateTo(
+                    0.55f,
+                    animationSpec = tween(170, easing = FastOutSlowInEasing),
+                )
+            }
+
+            RadiantChestStatus.Claimed -> {
+                shakeOffset.snapTo(0f)
+                val revealNow = previousChestStatus == RadiantChestStatus.Opening
+                previousChestStatus = RadiantChestStatus.Claimed
+                audio.setMusicActive(false)
+
+                if (revealNow) {
+                    burst.snapTo(0f)
+                    rewardLift.snapTo(0f)
+                    audio.play(Cue.ChestReveal, rarityRank)
+                    haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+
+                    coroutineScope {
+                        launch {
+                            lidOpen.animateTo(
+                                1f,
+                                animationSpec = tween(180, easing = FastOutSlowInEasing),
+                            )
+                        }
+                        launch {
+                            burst.animateTo(
+                                1f,
+                                animationSpec = tween(760, easing = FastOutSlowInEasing),
+                            )
+                        }
+                        launch {
+                            rewardLift.animateTo(
+                                1f,
+                                animationSpec = tween(440, easing = FastOutSlowInEasing),
+                            )
+                        }
+                    }
+                } else {
+                    lidOpen.snapTo(1f)
+                    burst.snapTo(1f)
+                    rewardLift.snapTo(1f)
+                }
+            }
+        }
+    }
+
     val isOpening = chest.status == RadiantChestStatus.Opening
+    val revealColor = when (rarityRank) {
+        1 -> Color(0xFFA7E3C1)
+        2 -> Color(0xFF9ECBF4)
+        3 -> Color(0xFFCAB5F4)
+        4 -> Color(0xFFFFD68A)
+        5 -> Color(0xFFFFB5D2)
+        else -> Color(0xFFAEDCF5)
+    }
+    val idleGlow = Color(0xFFFFD5A6)
 
     ElevatedCard(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(26.dp),
+        shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.elevatedCardColors(
             containerColor = when (chest.status) {
                 RadiantChestStatus.Ready -> MaterialTheme.colorScheme.primaryContainer
-                RadiantChestStatus.Claimed -> MaterialTheme.colorScheme.secondaryContainer
+                RadiantChestStatus.Claimed -> MaterialTheme.colorScheme.surfaceVariant
                 else -> MaterialTheme.colorScheme.surfaceVariant
             },
         ),
     ) {
         Column(
-            modifier = Modifier.padding(responsive.cardPadding),
-            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 14.dp),
         ) {
-            Row(
+            Text(
+                text = chest.title,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.Top,
+                style = if (responsive.isTiny) {
+                    MaterialTheme.typography.titleLarge
+                } else {
+                    MaterialTheme.typography.headlineSmall
+                },
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+            )
+
+            Surface(
+                shape = RoundedCornerShape(50.dp),
+                color = when (chest.status) {
+                    RadiantChestStatus.Ready -> MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    RadiantChestStatus.Opening -> idleGlow.copy(alpha = 0.22f)
+                    RadiantChestStatus.Claimed -> revealColor.copy(alpha = 0.18f)
+                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f)
+                },
             ) {
-                Surface(
-                    modifier = Modifier.size(if (responsive.isTiny) 42.dp else 48.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface,
-                ) {
-                    Icon(
-                        modifier = Modifier.padding(if (responsive.isTiny) 9.dp else 11.dp),
-                        imageVector = when (chest.status) {
-                            RadiantChestStatus.Claimed -> Icons.Filled.CheckCircle
-                            else -> Icons.Filled.Bolt
-                        },
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                Text(
+                    text = when (chest.status) {
+                        RadiantChestStatus.Locked -> "DAILY REWARD • LOCKED"
+                        RadiantChestStatus.Ready -> "DAILY REWARD • READY"
+                        RadiantChestStatus.Opening -> "DAILY REWARD • OPENING"
+                        RadiantChestStatus.Claimed -> "DAILY REWARD • SECURED"
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (responsive.isTiny) 198.dp else 232.dp)
+                    .graphicsLayer {
+                        // Only the chest art moves, never the surrounding layout.
+                        translationX = if (isOpening) shakeOffset.value else 0f
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val cx = size.width / 2f
+                    val cy = size.height * 0.60f
+                    val chestW = min(size.width * 0.62f, 260.dp.toPx())
+                    val chestH = chestW * 0.48f
+                    val bodyTop = cy - chestH * 0.12f
+                    val bodyLeft = cx - chestW / 2f
+                    val gold = Color(0xFFF3C96A)
+                    val darkGold = Color(0xFFB9822E)
+                    val wood = Color(0xFF6B3F2A)
+                    val woodLight = Color(0xFF9C6040)
+                    val glow = if (chest.status == RadiantChestStatus.Claimed) revealColor else idleGlow
+                    val energy = when (chest.status) {
+                        RadiantChestStatus.Ready -> 0.34f + (idlePulse - 0.975f) * 3.2f
+                        RadiantChestStatus.Opening -> 0.25f + charge.value * 0.64f
+                        RadiantChestStatus.Claimed -> 0.20f + (1f - burst.value) * 0.60f
+                        else -> 0.07f
+                    }.coerceIn(0f, 0.90f)
+
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                glow.copy(alpha = energy),
+                                glow.copy(alpha = energy * 0.24f),
+                                Color.Transparent,
+                            ),
+                            center = Offset(cx, cy),
+                            radius = chestW * 0.95f,
+                        ),
+                        radius = chestW * 0.95f,
+                        center = Offset(cx, cy),
+                    )
+
+                    // Stable ambient motes make the ready chest feel alive without moving layout.
+                    if (chest.status != RadiantChestStatus.Locked) {
+                        repeat(12) { index ->
+                            val angle = PI * 2.0 * index / 12.0 + (idlePulse - 1f) * 2.4f
+                            val orbit = chestW * (0.63f + (index % 3) * 0.07f)
+                            val point = Offset(
+                                cx + (cos(angle) * orbit).toFloat(),
+                                cy + (sin(angle) * orbit * 0.62).toFloat(),
+                            )
+                            drawCircle(
+                                color = glow.copy(alpha = 0.18f + (index % 4) * 0.035f),
+                                radius = 2.4f + (index % 3) * 0.8f,
+                                center = point,
+                            )
+                        }
+                    }
+
+                    if (chest.status == RadiantChestStatus.Claimed) {
+                        val p = burst.value
+                        val alpha = (1f - p).coerceIn(0f, 1f)
+
+                        if (p < 1f) {
+                            // Soft radial rays: higher rarities produce a denser, brighter reveal.
+                            repeat(12 + rarityRank * 2) { index ->
+                                val angle = PI * 2.0 * index / (12 + rarityRank * 2)
+                                val inner = chestW * (0.30f + p * 0.12f)
+                                val outer = chestW * (0.58f + p * 0.55f)
+                                val start = Offset(
+                                    cx + (cos(angle) * inner).toFloat(),
+                                    cy + (sin(angle) * inner * 0.74).toFloat(),
+                                )
+                                val finish = Offset(
+                                    cx + (cos(angle) * outer).toFloat(),
+                                    cy + (sin(angle) * outer * 0.74).toFloat(),
+                                )
+                                drawLine(
+                                    color = glow.copy(alpha = alpha * (0.22f + rarityRank * 0.035f)),
+                                    start = start,
+                                    end = finish,
+                                    strokeWidth = 3f + rarityRank * 0.45f,
+                                )
+                            }
+
+                            repeat(particleCount) { index ->
+                                val angle = PI * 2.0 * index / particleCount + index * 0.011
+                                val travel = chestW * (0.20f + p * 0.84f) *
+                                    (0.72f + (index % 7) * 0.055f)
+                                val point = Offset(
+                                    cx + (cos(angle) * travel).toFloat(),
+                                    cy + (sin(angle) * travel * 0.72).toFloat(),
+                                )
+                                drawCircle(
+                                    color = glow.copy(alpha = alpha * 0.92f),
+                                    radius = (3.2f + (index % 4) * 1.5f) * (1f - p * 0.30f),
+                                    center = point,
+                                )
+                            }
+
+                            repeat(shockwaveCount) { ring ->
+                                drawCircle(
+                                    color = glow.copy(
+                                        alpha = alpha * (0.52f - ring * 0.085f).coerceAtLeast(0.16f),
+                                    ),
+                                    radius = chestW * (0.26f + p * (0.43f + ring * 0.10f)),
+                                    center = Offset(cx, cy),
+                                    style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                        width = (6f - ring * 0.7f).coerceAtLeast(2.5f),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+
+                    // Chest body.
+                    drawRoundRect(
+                        color = wood,
+                        topLeft = Offset(bodyLeft, bodyTop),
+                        size = Size(chestW, chestH * 0.72f),
+                        cornerRadius = CornerRadius(18f, 18f),
+                    )
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(listOf(woodLight, wood)),
+                        topLeft = Offset(bodyLeft + chestW * 0.04f, bodyTop + chestH * 0.07f),
+                        size = Size(chestW * 0.92f, chestH * 0.50f),
+                        cornerRadius = CornerRadius(14f, 14f),
+                    )
+                    drawRoundRect(
+                        color = gold,
+                        topLeft = Offset(bodyLeft + chestW * 0.12f, bodyTop),
+                        size = Size(chestW * 0.09f, chestH * 0.72f),
+                        cornerRadius = CornerRadius(8f, 8f),
+                    )
+                    drawRoundRect(
+                        color = gold,
+                        topLeft = Offset(bodyLeft + chestW * 0.79f, bodyTop),
+                        size = Size(chestW * 0.09f, chestH * 0.72f),
+                        cornerRadius = CornerRadius(8f, 8f),
+                    )
+
+                    val lidLift = lidOpen.value * chestH * 0.52f
+                    val lidTop = bodyTop - chestH * 0.36f - lidLift
+                    drawRoundRect(
+                        brush = Brush.verticalGradient(listOf(woodLight, wood)),
+                        topLeft = Offset(bodyLeft, lidTop),
+                        size = Size(chestW, chestH * 0.42f),
+                        cornerRadius = CornerRadius(22f, 22f),
+                    )
+                    drawRoundRect(
+                        color = gold,
+                        topLeft = Offset(bodyLeft, lidTop + chestH * 0.29f),
+                        size = Size(chestW, chestH * 0.10f),
+                        cornerRadius = CornerRadius(6f, 6f),
+                    )
+
+                    if (lidOpen.value < 0.72f) {
+                        val lockW = chestW * 0.17f
+                        val lockH = chestH * 0.28f
+                        drawRoundRect(
+                            color = darkGold,
+                            topLeft = Offset(cx - lockW / 2f, bodyTop + chestH * 0.15f),
+                            size = Size(lockW, lockH),
+                            cornerRadius = CornerRadius(10f, 10f),
+                        )
+                        drawCircle(
+                            color = Color(0xFF3F2B1D),
+                            radius = lockW * 0.10f,
+                            center = Offset(cx, bodyTop + chestH * 0.26f),
+                        )
+                    }
+
+                    if (chest.status == RadiantChestStatus.Opening && charge.value > 0.48f) {
+                        val beamAlpha = ((charge.value - 0.48f) / 0.52f).coerceIn(0f, 1f)
+                        drawRoundRect(
+                            brush = Brush.verticalGradient(
+                                listOf(
+                                    glow.copy(alpha = beamAlpha * 0.58f),
+                                    glow.copy(alpha = beamAlpha * 0.16f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                            topLeft = Offset(cx - chestW * 0.19f, lidTop - chestH * 0.92f),
+                            size = Size(chestW * 0.38f, chestH * 1.14f),
+                            cornerRadius = CornerRadius(32f, 32f),
+                        )
+                    }
+
+                    // The revealed reward stays visible after the burst finishes.
+                    if (chest.status == RadiantChestStatus.Claimed) {
+                        val lift = rewardLift.value
+                        val orbY = bodyTop - chestH * (0.33f + lift * 0.47f)
+                        val orbRadius = chestW * (0.075f + rarityRank * 0.004f)
+
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Color.White.copy(alpha = 0.92f),
+                                    glow.copy(alpha = 0.76f),
+                                    glow.copy(alpha = 0.12f),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(cx, orbY),
+                                radius = orbRadius * 3.2f,
+                            ),
+                            radius = orbRadius * 3.2f,
+                            center = Offset(cx, orbY),
+                        )
+                        drawCircle(
+                            color = glow,
+                            radius = orbRadius,
+                            center = Offset(cx, orbY),
+                        )
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.86f),
+                            radius = orbRadius * 0.38f,
+                            center = Offset(cx - orbRadius * 0.24f, orbY - orbRadius * 0.24f),
+                        )
+                    }
+                }
+            }
+
+            when (chest.status) {
+                RadiantChestStatus.Claimed -> {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .graphicsLayer {
+                                translationY = (1f - rewardLift.value) * 22f
+                                alpha = 0.35f + rewardLift.value * 0.65f
+                                scaleX = 0.94f + rewardLift.value * 0.06f
+                                scaleY = 0.94f + rewardLift.value * 0.06f
+                            },
+                        shape = RoundedCornerShape(22.dp),
+                        color = revealColor.copy(alpha = 0.15f),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    horizontal = if (responsive.isTiny) 12.dp else 16.dp,
+                                    vertical = if (responsive.isTiny) 12.dp else 16.dp,
+                                ),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(7.dp),
+                        ) {
+                            Text(
+                                text = (chest.lastRewardRarity ?: "Reward").uppercase(),
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = revealColor,
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = chest.lastRewardTitle ?: "Daily Radiant Reward",
+                                modifier = Modifier.fillMaxWidth(),
+                                style = if (responsive.isTiny) {
+                                    MaterialTheme.typography.titleLarge
+                                } else {
+                                    MaterialTheme.typography.headlineSmall
+                                },
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = "+${chest.lastRewardXp} XP",
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.ExtraBold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Text(
+                                text = RadiantChestPresentationRules.revealTagline(chest.lastRewardRarity),
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+
+                            if (responsive.isCompact) {
+                                if (chest.lastRewardStandardTickets > 0) {
+                                    ChestRewardChip(
+                                        text = "+${chest.lastRewardStandardTickets} Rush Ticket${if (chest.lastRewardStandardTickets == 1) "" else "s"}",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                                if (chest.lastRewardSkrCasualTickets > 0) {
+                                    ChestRewardChip(
+                                        text = "+${chest.lastRewardSkrCasualTickets} SKR Casual Ticket${if (chest.lastRewardSkrCasualTickets == 1) "" else "s"}",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                                if (chest.lastRewardSkrBonusXp > 0) {
+                                    ChestRewardChip(
+                                        text = "SKR Boost +${chest.lastRewardSkrBonusXp} XP",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            } else {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    if (chest.lastRewardStandardTickets > 0) {
+                                        ChestRewardChip(
+                                            text = "+${chest.lastRewardStandardTickets} Rush Ticket${if (chest.lastRewardStandardTickets == 1) "" else "s"}",
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                    if (chest.lastRewardSkrCasualTickets > 0) {
+                                        ChestRewardChip(
+                                            text = "+${chest.lastRewardSkrCasualTickets} SKR Casual",
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                }
+                                if (chest.lastRewardSkrBonusXp > 0) {
+                                    ChestRewardChip(
+                                        text = "SKR Boost +${chest.lastRewardSkrBonusXp} XP",
+                                        modifier = Modifier.fillMaxWidth(),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                RadiantChestStatus.Opening -> {
+                    Text(
+                        text = if (charge.value < 0.66f) "RADIANCE BUILDING…" else "OPENING!",
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        text = "Your reward is being secured.",
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
                     )
                 }
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    Text(
-                        text = chest.title,
-                        style = if (responsive.isTiny) MaterialTheme.typography.titleMedium else MaterialTheme.typography.titleLarge,
-                        maxLines = 2,
-                        overflow = TextOverflow.Clip,
-                    )
+
+                else -> {
                     Text(
                         text = chest.subtitle,
+                        modifier = Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
                     )
+                    Text(
+                        text = chest.progressText,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    if (chest.status == RadiantChestStatus.Ready && chest.rewardText.isNotBlank()) {
+                        Text(
+                            text = chest.rewardText,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
                 }
             }
-
-            if (responsive.isCompact || responsive.hasLargeText) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusPill(chest.status.label)
-                    StatusPill(chest.progressText)
-                    StatusPill(chest.rewardText)
-                }
-            } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    StatusPill(chest.status.label)
-                    StatusPill(chest.progressText)
-                    StatusPill(chest.rewardText)
-                }
-            }
-
-            Text(
-                text = "No XP betting. No loss. No token transfer. The reveal only grants bonus XP after real daily proofs.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(min = responsive.buttonHeight),
                 enabled = actionEnabled,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(18.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     horizontal = responsive.buttonHorizontalPadding,
                     vertical = 8.dp,
@@ -567,6 +1127,28 @@ fun RadiantChestCard(
                 AdaptiveButtonText(chest.buttonLabel)
             }
         }
+    }
+}
+
+@Composable
+private fun ChestRewardChip(
+    text: String,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.74f),
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+        )
     }
 }
 
@@ -589,9 +1171,10 @@ fun StatusPill(
                 vertical = if (responsive.isTiny) 6.dp else 7.dp,
             ),
             text = text,
-            maxLines = 2,
+            maxLines = 3,
             softWrap = true,
             overflow = TextOverflow.Clip,
+            textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelMedium,
         )
     }
@@ -609,9 +1192,9 @@ fun SectionTitle(
     ) {
         Text(
             text = title,
+            modifier = Modifier.fillMaxWidth(),
             style = MaterialTheme.typography.headlineSmall,
-            maxLines = 2,
-            overflow = TextOverflow.Clip,
+            softWrap = true,
         )
         if (body != null) {
             Text(
@@ -643,45 +1226,85 @@ fun SyncStatusCard(
             },
         ),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(responsive.cardPadding),
-            horizontalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = status.icon,
-                contentDescription = null,
-                tint = when (status) {
-                    FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
-                    else -> MaterialTheme.colorScheme.primary
-                },
-            )
+        if (responsive.isCompact || responsive.hasLargeText) {
             Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        imageVector = status.icon,
+                        contentDescription = null,
+                        tint = when (status) {
+                            FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
+                            else -> MaterialTheme.colorScheme.primary
+                        },
+                    )
+                    Text(
+                        modifier = Modifier.weight(1f),
+                        text = status.label,
+                        style = MaterialTheme.typography.titleMedium,
+                        softWrap = true,
+                    )
+                }
                 Text(
-                    text = status.label,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
-                )
-                Text(
+                    modifier = Modifier.fillMaxWidth(),
                     text = message ?: status.detail,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    softWrap = true,
                 )
+                if (onRetry != null) {
+                    TextButton(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onRetry,
+                    ) {
+                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
+                        Spacer(modifier = Modifier.size(6.dp))
+                        AdaptiveButtonText("Retry")
+                    }
+                }
             }
-            if (onRetry != null) {
-                TextButton(onClick = onRetry) {
-                    Icon(
-                        imageVector = Icons.Filled.Refresh,
-                        contentDescription = null,
+        } else {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(responsive.cardPadding),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = status.icon,
+                    contentDescription = null,
+                    tint = when (status) {
+                        FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
+                        else -> MaterialTheme.colorScheme.primary
+                    },
+                )
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(text = status.label, style = MaterialTheme.typography.titleMedium, softWrap = true)
+                    Text(
+                        text = message ?: status.detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        softWrap = true,
                     )
-                    Spacer(modifier = Modifier.size(6.dp))
-                    AdaptiveButtonText("Retry")
+                }
+                if (onRetry != null) {
+                    TextButton(onClick = onRetry) {
+                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
+                        Spacer(modifier = Modifier.size(6.dp))
+                        AdaptiveButtonText("Retry")
+                    }
                 }
             }
         }
@@ -718,8 +1341,7 @@ fun ProgressCard(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Clip,
+                    softWrap = true,
                 )
             }
             LinearProgressIndicator(
@@ -748,7 +1370,7 @@ fun BadgeMedallion(
     val responsive = rememberResponsiveUiSpec()
 
     Card(
-        modifier = modifier,
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (unlocked) {
@@ -759,44 +1381,31 @@ fun BadgeMedallion(
         ),
     ) {
         Column(
-            modifier = Modifier.padding(if (responsive.isTiny) 12.dp else 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(if (responsive.isTiny) 12.dp else 16.dp),
             verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 8.dp else 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Surface(
-                modifier = Modifier.size(54.dp),
-                shape = CircleShape,
-                color = if (unlocked) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surface
-                },
-            ) {
-                Icon(
-                    modifier = Modifier.padding(14.dp),
-                    imageVector = if (unlocked) Icons.Filled.CheckCircle else Icons.Filled.Bolt,
-                    contentDescription = null,
-                    tint = if (unlocked) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
+            RadiantBadgeCrest(
+                glyph = RadiantBadgeGlyph.forTitle(title),
+                unlocked = unlocked,
+                modifier = Modifier.size(if (responsive.isTiny) 68.dp else 76.dp),
+            )
             Text(
                 text = title,
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.titleMedium,
                 textAlign = TextAlign.Center,
-                maxLines = 3,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
             Text(
                 text = description,
+                modifier = Modifier.fillMaxWidth(),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
-                maxLines = 5,
-                overflow = TextOverflow.Clip,
+                softWrap = true,
             )
         }
     }

@@ -13,7 +13,7 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 /**
- * Tiny runtime synth used by Radiant Run.
+ * Tiny runtime synth used by Radiant Rush.
  *
  * It intentionally ships no mp3/wav assets. A single AudioTrack mixes a lightweight
  * procedural background loop with short synthesized SFX voices on an audio thread.
@@ -32,6 +32,9 @@ class ProceduralGameAudioEngine {
         RunComplete,
         CapsuleOpen,
         RewardReveal,
+        ChestCharge,
+        ChestOpen,
+        ChestReveal,
     }
 
     private data class PendingCue(
@@ -384,6 +387,43 @@ class ProceduralGameAudioEngine {
                 }
                 musical + impact + glitter
             }
+
+            Cue.ChestCharge -> {
+                val f0 = 110.0
+                val f1 = 780.0
+                val sweep = f0 * t + ((f1 - f0) / (2.0 * cueDurationSeconds(voice.cue))) * t * t
+                val pulse = sin(TAU * 6.0 * t) * 0.25 + 0.75
+                (sin(TAU * sweep) + 0.22 * sin(TAU * sweep * 2.0)) * pulse * (0.45 + progress * 0.55) * 0.17
+            }
+
+            Cue.ChestOpen -> {
+                val impact = sin(TAU * (88.0 - 28.0 * progress) * t) * exp(-progress * 7.5) * 0.30
+                val crack = sin(TAU * 1_420.0 * t) * exp(-progress * 14.0) * 0.13
+                val whoosh = sin(TAU * (330.0 + 1_100.0 * progress) * t) * (1.0 - progress) * 0.16
+                impact + crack + whoosh
+            }
+
+            Cue.ChestReveal -> {
+                val rarity = voice.value.coerceIn(0, 5)
+                val base = 523.25 + rarity * 62.0
+                val chord = chordArpeggioSample(
+                    t = t,
+                    progress = progress,
+                    frequencies = if (rarity >= 4) {
+                        doubleArrayOf(base, base * 1.25, base * 1.5, base * 2.0, base * 2.5)
+                    } else {
+                        doubleArrayOf(base, base * 1.25, base * 1.5, base * 2.0)
+                    },
+                    gain = 0.20 + rarity * 0.012,
+                )
+                val impact = sin(TAU * (116.0 + rarity * 7.0) * t) *
+                    exp(-progress * 9.0) * (0.09 + rarity * 0.018)
+                val sparkle = sin(TAU * (1_860.0 + rarity * 190.0) * t) *
+                    exp(-progress * 4.2) * (0.045 + rarity * 0.008)
+                val halo = sin(TAU * (880.0 + rarity * 85.0) * t) *
+                    exp(-progress * 2.8) * if (rarity >= 3) 0.045 else 0.025
+                chord + impact + sparkle + halo
+            }
         }
     }
 
@@ -419,6 +459,9 @@ class ProceduralGameAudioEngine {
         Cue.RunComplete -> 0.62
         Cue.CapsuleOpen -> 0.72
         Cue.RewardReveal -> 0.82
+        Cue.ChestCharge -> 0.62
+        Cue.ChestOpen -> 0.44
+        Cue.ChestReveal -> 0.84
     }
 
     private companion object {

@@ -11,6 +11,8 @@ if (file("google-services.json").exists()) {
 }
 
 android {
+    // Product brand is Radiant Circle. Keep this legacy namespace/applicationId stable
+    // so installed-app upgrades, Firebase registration, MWA identity continuity, and persisted data are not broken.
     namespace = "com.thinkblox.radiantrush"
     compileSdk = 36
 
@@ -18,8 +20,8 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.0.2-phase10.1.1"
+        versionCode = 26
+        versionName = "1.2.1-phase11f4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -56,7 +58,7 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
-    // Phase 10.1 keeps MWA/SKR proof support and adds procedural game audio + Canvas VFX to Radiant Run.
+    // Phase 10.1 keeps MWA/SKR proof support and adds procedural game audio + Canvas VFX to the Radiant Rush game.
     // Exclude test/mock dependencies that older MWA KTX metadata can expose transitively.
     // Those libraries are not needed by the production app and can trigger noisy/failing
     // Android manifest/resource merges in newer Android Studio/AGP combinations.

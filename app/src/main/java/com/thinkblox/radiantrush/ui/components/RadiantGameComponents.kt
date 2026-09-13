@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -92,12 +93,12 @@ fun RadiantRunLauncherCard(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Radiant Run",
+                            text = "Radiant Rush",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.ExtraBold,
                         )
                         Text(
-                            text = "20 seconds. Hit energy. Avoid corruption. Build Fever combo.",
+                            text = "20 seconds. Hit green. Avoid red. Build FEVER.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -112,7 +113,7 @@ fun RadiantRunLauncherCard(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Filled.ConfirmationNumber,
                         label = "Tickets",
-                        value = run.rushTickets.toString(),
+                        value = run.totalPlayableTickets.toString(),
                     )
                     RunMiniMetric(
                         modifier = Modifier.weight(1f),
@@ -140,14 +141,18 @@ fun RadiantRunLauncherCard(
                     Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
                     Spacer(modifier = Modifier.size(8.dp))
                     AdaptiveButtonText(
-                        text = if (run.canPlay) "Play • 1 Rush Ticket" else "Earn a Rush Ticket",
+                        text = if (run.canPlay) "Play • 1 Ticket" else "Earn a Rush Ticket",
                         compactText = if (run.canPlay) "Play • 1 Ticket" else "Earn Ticket",
                         tinyText = if (run.canPlay) "Play • 1" else "No Ticket",
                     )
                 }
 
                 Text(
-                    text = "Rush Tickets are free in-app progression earned from quests/chests. No SOL or SKR is spent.",
+                    text = if (run.skrCasualRushTickets > 0) {
+                        "${run.rushTickets} Ranked-ready • ${run.skrCasualRushTickets} SKR Casual"
+                    } else {
+                        "Earn more Rush Tickets from quests and your Daily Chest."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -239,7 +244,9 @@ private fun CollectibleMiniCard(item: RadiantCollectiblePreview) {
         MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
     }
     Surface(
-        modifier = Modifier.size(width = 116.dp, height = 132.dp),
+        modifier = Modifier
+            .width(132.dp)
+            .heightIn(min = 154.dp),
         shape = RoundedCornerShape(20.dp),
         color = container,
     ) {
@@ -265,7 +272,7 @@ private fun CollectibleMiniCard(item: RadiantCollectiblePreview) {
                 text = if (item.discovered) item.title else "Unknown",
                 style = MaterialTheme.typography.labelLarge,
                 textAlign = TextAlign.Center,
-                maxLines = 2,
+                softWrap = true,
             )
             Text(
                 text = if (item.discovered) "${item.rarity} • x${item.count}" else item.rarity,

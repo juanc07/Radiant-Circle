@@ -1,64 +1,43 @@
-# Radiant Rush — Phase 10.1 Game Juice / Procedural Audio + VFX
+# Radiant Circle — Solana Mobile quests, competition, identity, and community foundation
 
-Radiant Rush is a native Android / Jetpack Compose Solana Mobile quest game.
+**Radiant Circle** is the product/app. **Radiant Rush** is the native 20-second skill game inside the app.
 
-Phase 10 proved the playable loop. Phase 10.1 makes each run feel more like an arcade game without adding external audio/image packs:
+Current product loop:
 
 ```text
-Solana/Firebase quest
+Open Radiant Circle
         ↓
-Earn free Rush Tickets
+Daily quests + streak goals
         ↓
-20-second Radiant Run
+Earn Rush Tickets
         ↓
-Procedural BGM + tap SFX + impact particles
+Play Radiant Rush
         ↓
-PERFECT / combo / FEVER feedback
+Weekly Radiant Cup + personal stats
         ↓
-Capsule + collectible reward
+Daily Radiant Chest + collection
+        ↓
+SKR Passport + public profile
 ```
 
-## No imported game media required
+## Naming contract
 
-Radiant Run still uses no PNG/JPG sprites and Phase 10.1 adds no MP3/WAV files. The field and hit effects are drawn with Jetpack Compose Canvas/animation APIs. Music and SFX are synthesized at runtime into PCM samples and mixed through Android `AudioTrack`.
+- User-facing app name: `Radiant Circle`
+- In-app game name: `Radiant Rush`
+- Weekly competition: `Weekly Radiant Cup`
+- SKR identity/status: `SKR Passport`
+- Android namespace/applicationId remains `com.thinkblox.radiantrush` intentionally for upgrade, Firebase, wallet, and persisted-data compatibility. Internal class/file names such as `RadiantRushApp`, `RadiantRunScreen`, and existing Firestore field names are legacy technical identifiers and are not user-facing branding.
+- The existing MWA identity URI and `radiant-rush:daily-memo-proof` protocol string remain unchanged for compatibility; wallet display identity is now `Radiant Circle`.
 
-## Phase 10.1 additions
+## Security boundary
 
-- Procedural synth background music during countdown/gameplay.
-- Runtime-generated SFX for countdown, GO, normal hit, PERFECT hit, corruption hit, miss, FEVER, final-five-second urgency, run complete, capsule open, and rarity reveal.
-- In-game mute/unmute button.
-- Pulsing targets and moving native Canvas grid.
-- Hit particle bursts for Radiant/PERFECT/Corruption impacts.
-- Corruption red impact flash and PERFECT white impact flash.
-- FEVER background rings and faster procedural music intensity.
-- Last-five-seconds music/tick intensity.
-- New center-hit PERFECT zone with a small +50 skill bonus.
-- AutoMirrored back icon cleanup on the game screen.
-- Restores the project README after the earlier test-only patch READMEs.
+Radiant Rush scores are client-reported prototype competition data and cannot authorize real SKR payouts. Wallets remain the signing authority. No treasury/private key is embedded in the APK. Sponsored SKR payouts remain deferred until trusted verification and server-side payout authority exist.
 
-## Safety / economy boundary
-
-Audio/VFX are presentation-only. Rush Tickets, collectibles, Radiant Shards, and XP remain app-only progression. Phase 10.1 does not add SOL/SKR spending, token transfers, paid random rewards, or wallet calls from the mini-game.
-
-## Test
+## Standard verification
 
 ```bash
-./gradlew --stop
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ./gradlew :app:connectedDebugAndroidTest
-```
-
-Then install on the connected phone:
-
-```bash
 ./gradlew :app:installDebug
 ```
-
-Physical QA should confirm sound is audible, mute works, no crackling/crash occurs, impact particles are visible, FEVER escalates correctly, the last-five-second urgency is noticeable, and game progression still persists.
-
-## Version
-
-`versionCode = 13`
-
-`versionName = 1.0.1-phase10.1`

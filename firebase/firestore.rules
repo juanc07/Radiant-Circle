@@ -9,6 +9,15 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    // Phase 11B.1 prototype fairness helper. A wallet/day ranked-attempt
+    // document may be updated by any authenticated installation whose own
+    // post-write profile carries that same public wallet address. This is not
+    // payout-grade wallet proof; real SKR payout authority remains server-side.
+    function profileWalletAfterIs(walletAddress) {
+      return signedIn()
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress == walletAddress;
+    }
+
     match /users/{userId} {
       allow read, create, update: if owns(userId);
       allow delete: if false;
@@ -23,6 +32,76 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if owns(userId);
       allow delete: if false;
+    }
+
+
+    // Phase 11 Radiant Run competition boards. These are prototype/client-reported
+    // rankings only. They are public-readable for competition display, but each
+    // anonymous Firebase session can write only its own row. payoutEligible must
+    // remain false; real SKR payout authority belongs in a future trusted backend.
+    match /runWeekly/{weekKey}/entries/{userId} {
+      allow read: if true;
+      allow create, update: if owns(userId)
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.payoutEligible == false;
+      allow delete: if false;
+    }
+
+    match /runAllTime/{userId} {
+      allow read: if true;
+      allow create, update: if owns(userId)
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.payoutEligible == false;
+      allow delete: if false;
+    }
+
+    // Shared competition budget by connected wallet + UTC day. Ranked attempts
+    // and capped gameplay XP follow the wallet across anonymous-auth UIDs/devices.
+    // This is prototype fairness state only, never SKR payout authority.
+    match /runWalletDaily/{dayKey}/wallets/{walletAddress} {
+      allow read: if true;
+
+      allow create: if profileWalletAfterIs(walletAddress)
+        && request.resource.data.walletAddress == walletAddress
+        && request.resource.data.utcDayKey == dayKey
+        && request.resource.data.attemptsUsed is int
+        && request.resource.data.attemptsUsed >= 0
+        && request.resource.data.attemptsUsed <= 3
+        && request.resource.data.gameplayXpEarnedToday is int
+        && request.resource.data.gameplayXpEarnedToday >= 0
+        && request.resource.data.gameplayXpEarnedToday <= 300
+        && request.resource.data.lastWriterUid == request.auth.uid
+        && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
+        && request.resource.data.payoutEligible == false;
+
+      allow update: if profileWalletAfterIs(walletAddress)
+        && request.resource.data.walletAddress == walletAddress
+        && request.resource.data.utcDayKey == dayKey
+        && request.resource.data.attemptsUsed is int
+        && request.resource.data.attemptsUsed >= resource.data.attemptsUsed
+        && request.resource.data.attemptsUsed <= resource.data.attemptsUsed + 1
+        && request.resource.data.attemptsUsed <= 3
+        && request.resource.data.gameplayXpEarnedToday is int
+        && request.resource.data.gameplayXpEarnedToday >= resource.data.get("gameplayXpEarnedToday", 0)
+        && request.resource.data.gameplayXpEarnedToday <= 300
+        && (
+          request.resource.data.attemptsUsed == resource.data.attemptsUsed + 1
+          || request.resource.data.gameplayXpEarnedToday > resource.data.get("gameplayXpEarnedToday", 0)
+        )
+        && request.resource.data.lastWriterUid == request.auth.uid
+        && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
+        && request.resource.data.payoutEligible == false;
+
+      allow delete: if false;
+    }
+
+    // Phase 11D sponsor-ready Weekly Radiant Cup metadata.
+    // Android clients may read a published weekly sponsor announcement but can
+    // never create/update it. Future sponsor funding, winner verification, and
+    // token payout authority must remain in trusted server/admin infrastructure.
+    match /weeklyCupConfigs/{weekKey} {
+      allow read: if true;
+      allow write: if false;
     }
 
     match /quests/{questId} {

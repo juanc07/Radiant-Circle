@@ -1,6 +1,45 @@
+## Rebrand compatibility boundary
+
+The product name is `Radiant Circle` and the in-app game is `Radiant Rush`. Rebranding must not silently change security/storage identifiers. `com.thinkblox.radiantrush`, the existing MWA identity URI, Firestore paths/fields, and the `radiant-rush:daily-memo-proof` protocol string remain stable unless a separately planned migration provides backward compatibility. Wallet display identity may show `Radiant Circle`.
+
+## Phase 11F public identity / future social boundary
+
+Public profile data is intentionally limited to a short display name and a bundled animal-avatar id. Do not store private keys, Seed Vault secrets, precise location, device fingerprints, or hidden contact data. Future chat/discovery must be opt-in and add block/report/rate-limit controls. Future SKR transfers must remain non-custodial and require explicit wallet approval; no treasury/user private key belongs in the APK.
+
+## Phase 11E — reward presentation is not economic authority
+
+Daily Chest VFX, rarity colors, audio, haptics, timing, and reward-summary fields are display only. The UI must wait for the repository result and must never invent a reward, SKR amount, token transfer, or payout confirmation. Phase 11E adds no Solana transaction, treasury key, sponsor payout, staking action, or Firestore rule change.
+
+## Phase 11D — Weekly Cup sponsor metadata is not payout authority
+
+- `weeklyCupConfigs/{ISO_WEEK}` is public-readable presentation metadata and is not proof of funding, winner validity, or payment.
+- Android clients cannot create or update sponsor config under Firestore rules.
+- `WeeklyRadiantCupRules.sponsorState()` never enables payout; `payoutEnabled` is always false.
+- Existing Radiant Rush weekly scores are client-reported prototype ranking data and must not authorize SOL/SKR transfer.
+- No sponsor, organizer, Solana Mobile, or hackathon payout is assumed.
+- No player entry fee or wagering exists.
+- No treasury/private key may be embedded in the APK.
+- Real Sponsored SKR Cup payout is deferred to Phase 12 and requires trusted score verification, final winner authority, funded prize custody, and server-side transfer execution.
+
+## Phase 11C SKR Passport v2 security boundary
+
+Passport v2 may use the existing read-only Mainnet liquid SKR balance observation to unlock **non-economic, off-chain app perks only**: casual-only tickets, fixed chest XP/casual-ticket additions, and cosmetic profile status. The scan must not open the wallet, request a signature, transfer SKR/SOL, or claim transaction confirmation.
+
+Liquid balance is not proof of staking. Phase 11C has no trusted staking integration, so staked SKR is explicitly marked not verified/not counted. Never infer staking state from liquid balance or invent a staked amount.
+
+SKR wealth must never change Radiant Rush ranked raw score, ranking tie-breaks, or the three-ranked-attempt UTC-daily limit. Holder bonus tickets live in `skrCasualRushTickets` and cannot fund Ranked mode. This split is a product-fairness boundary, not economic security: owner-writable Firestore/client state is still insufficient for real-value payout authorization.
+
+The legacy `skrXpMultiplier` profile field may remain for backward-compatible Phase 5 data, but Phase 11C does not apply it to ranked score, ranked attempts, or the controlled gameplay-XP formula. No treasury/private key, payout signer, staking transaction, or token-spend path is added.
+
+## Phase 11B.1 competition identity boundary
+
+The shared `runWalletDaily` counter uses a public Solana wallet address as prototype competition identity so one wallet does not gain extra ranked attempts by using multiple Firebase Anonymous UIDs/devices. Firestore rules require the authenticated user's post-write profile wallet to match the wallet document path and enforce a maximum of three attempts.
+
+This is an anti-abuse/prototype fairness measure only. The Android client and Firebase profile can still report client-controlled game state, so neither `runWalletDaily`, `runWeekly`, nor `runAllTime` is trusted evidence for a real SKR payout. No treasury key, payout signer, staking authority, or automatic token transfer is introduced.
+
 ## Phase 10 non-economic game progression
 
-Rush Tickets, Radiant Shards, capsule results, run scores, and collectibles are application progression only. They do not represent SOL, SKR, SPL tokens, NFTs, redeemable prizes, or a claim on value. Starting or completing Radiant Run must never invoke Mobile Wallet Adapter. XP is not wagered.
+Rush Tickets, Radiant Shards, capsule results, run scores, and collectibles are application progression only. They do not represent SOL, SKR, SPL tokens, NFTs, redeemable prizes, or a claim on value. Starting or completing Radiant Rush must never invoke Mobile Wallet Adapter. XP is not wagered.
 
 The Phase 10 score is client-generated and therefore not suitable as an authority for valuable rewards. A future competitive/rewarded mode must add trusted verification before assigning anything economically valuable. Existing Solana boundaries remain unchanged: devnet proof transaction/signing and mainnet read-only SKR lookup.
 
@@ -284,3 +323,45 @@ Do not implement paid chance mechanics, token staking, token burning, or gamblin
 ## Phase 9.1 public leaderboard identity
 
 The public Solana wallet address may be used as a leaderboard identity/deduplication key because it is public account data. Firebase Anonymous Auth UID remains the write-ownership boundary. Client code must not treat possession of a wallet address string as proof of ownership. This patch therefore does not move client-writable leaderboard documents to `leaderboard/{walletAddress}` and does not grant broader Firestore write permissions.
+
+
+## Phase 11A competition / future SKR payout boundary
+
+Phase 11A formalizes a non-economic competition data model before any prize-pool implementation:
+
+- Android-generated Radiant Rush scores are marked `ClientReportedPrototype`.
+- Client-produced run score may drive prototype ranking UI and capped app XP, but `payoutEligible` is always false.
+- No client score, Firebase owner write, cached SKR balance, or UI placement may directly authorize a real SKR payout.
+- A future real SKR Cup payout requires a trusted authority outside the APK (for example a verified backend and/or on-chain program) that independently validates eligibility/results.
+- No treasury private key, seed phrase, signing secret, or automatic prize-transfer authority may exist in the Android APK.
+- Players do not wager SKR to enter Radiant Rush competition.
+- SKR balance/tier must not multiply ranked score or increase the fixed ranked-attempt allowance.
+- Phase 11A does not modify MWA, Devnet Memo proof, Mainnet SKR read-only scanning, or wallet-secret handling.
+
+## Phase 11B competition security boundary
+
+Radiant Rush score is still produced by the Android client. Firestore rules provide ownership/isolation and force the prototype `payoutEligible` field to remain false, but they do not make the score cryptographically trustworthy. Weekly/All-Time ranks are suitable for hackathon prototype competition and non-cash progression only. Real SKR distribution must be authorized by a future trusted server/program/validator that independently validates eligible results. No treasury private key, payout signer, fake SKR balance, or fake transaction confirmation is added in Phase 11B.
+
+
+## Phase 11C.1 — staked SKR read-only rule
+
+- Staked SKR may be displayed/count toward Passport perks only when read from the official Mainnet SKR staking program/account layout.
+- The scan uses a public wallet address only. It must not request signing, staking, unstaking, transferring, or any secret material.
+- If staking account/config RPC data cannot be verified, show the staking read as unavailable/unverified; never infer a value from liquid balance, device type, prior screenshots, or cached assumptions.
+- Active staked SKR may count toward Passport tier. `unstaking_amount` must be shown separately and must not receive Guardian Stake Boost because it is no longer active stake.
+- Staking incentives are limited to casual/off-chain progression and cosmetic presentation. They cannot modify ranked raw score, ranked attempts, or client-side payout eligibility.
+- Current Android staking reads are not treasury/payout authority and do not justify real SKR prize distribution.
+
+
+## Phase 11C.2 presentation-only clarification
+
+The chest charge/open/reveal sequence, procedural chest audio, haptics, particles, and 1.8-second presentation delay are non-authoritative UI. They cannot mint, transfer, stake, claim SKR, authorize payout, or create progression independently. The repository transaction remains the only Daily Chest reward/progression write path.
+
+Radiant Rush target-color changes are presentation only and do not change ranked scoring rules, ranked-attempt limits, or SKR perk fairness.
+
+## Phase 11C.4 wallet/day competition state
+
+`runWalletDaily/{utcDay}/wallets/{walletAddress}` is prototype fairness state keyed by the connected public Solana wallet address. It now stores both ranked-attempt usage and capped gameplay XP so reinstalling or using a second phone does not create another daily allowance. Firebase rules require monotonic values and cap gameplay XP at 300. This does not prove wallet ownership to payout-grade standards and cannot authorize SKR transfers; `payoutEligible` remains false.
+
+Weekly/All-Time personal stats may be read across multiple anonymous-auth UIDs by matching the same connected public wallet address. This is a presentation/prototype competition identity rule, not a trusted reward authority.
+

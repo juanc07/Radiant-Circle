@@ -81,7 +81,7 @@ object RadiantGameRules {
             title = "Phantom Halo",
             rarity = "Epic",
             symbol = "◉",
-            description = "A violet halo inspired by the wallet handoff that powers your proof run.",
+            description = "A violet halo that shimmers with every high-energy run.",
             power = 8,
             duplicateShards = 20,
             rarityXp = 45,
@@ -91,7 +91,7 @@ object RadiantGameRules {
             title = "Radiant Crown",
             rarity = "Legendary",
             symbol = "♛",
-            description = "The rarest Phase 10 relic. Earn it by pushing a high-score run.",
+            description = "A legendary relic earned by pushing your best score higher.",
             power = 13,
             duplicateShards = 35,
             rarityXp = 70,
@@ -169,4 +169,5 @@ data class RadiantRunResult(
     val maxCombo: Int,
     val radiantHits: Int,
     val corruptedHits: Int,
+    val perfectHits: Int = 0,
 )

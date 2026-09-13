@@ -33,18 +33,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
-import com.thinkblox.radiantrush.ui.components.StatusPill
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
-import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
+import com.thinkblox.radiantrush.ui.testing.UiTestTags
 
 @Composable
 fun WelcomeScreen(
@@ -64,9 +61,7 @@ fun WelcomeScreen(
             .padding(horizontal = responsive.screenPadding, vertical = 18.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Column(
-            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 14.dp else 20.dp),
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 14.dp else 20.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -85,12 +80,9 @@ fun WelcomeScreen(
                     )
                 }
                 Column {
+                    Text("Radiant Circle", style = MaterialTheme.typography.titleLarge)
                     Text(
-                        text = "Radiant Rush",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        text = "Phase 10 Game Layer",
+                        "Daily quests • skill runs • SKR perks",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -98,8 +90,8 @@ fun WelcomeScreen(
             }
 
             GradientHeroCard(
-                title = "Connect. Quest. Prove.",
-                subtitle = "Real Solana proof quests now feed a native 20-second arcade run, capsule reveal, and persistent collectible Vault.",
+                title = "Quest. Run. Rise.",
+                subtitle = "Complete daily quests, earn Rush Tickets, climb the ranks, and grow your Radiant collection.",
                 trailing = {
                     Box(contentAlignment = Alignment.Center) {
                         Surface(
@@ -125,45 +117,29 @@ fun WelcomeScreen(
             )
 
             Card(
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(responsive.cardPadding),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(
-                        text = "What works in Phase 10",
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    PhaseBullet("Real proof quests earn XP plus free Rush Tickets")
-                    PhaseBullet("Radiant Run is a native 20-second Compose skill game")
-                    PhaseBullet("Combo + FEVER scoring turns proof progress into gameplay")
-                    PhaseBullet("Capsules reveal six persistent collectibles; duplicates become shards")
-                    PhaseBullet("MWA signing/memo and read-only mainnet SKR stay isolated and safe")
-                    PhaseBullet("Demo tab gives a 3-minute judge walkthrough")
-                    if (responsive.isTiny || responsive.hasLargeText) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusPill("Firebase")
-                            StatusPill("MWA")
-                        }
-                    } else {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            StatusPill("Firebase: live")
-                            StatusPill("MWA: proof")
-                            StatusPill("Native game")
-                        }
-                    }
+                    Text("Today’s loop", style = MaterialTheme.typography.titleLarge)
+                    WelcomeBullet("Finish daily quests")
+                    WelcomeBullet("Earn Rush Tickets")
+                    WelcomeBullet("Play a 20-second Radiant Rush")
+                    WelcomeBullet("Open your Daily Radiant Chest")
+                    WelcomeBullet("Grow your SKR Passport and collection")
                 }
             }
         }
 
         Spacer(modifier = Modifier.height(28.dp))
 
-        Column(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Button(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -173,7 +149,7 @@ fun WelcomeScreen(
                 contentPadding = PaddingValues(horizontal = responsive.buttonHorizontalPadding, vertical = 8.dp),
                 onClick = onEnterDemoShell,
             ) {
-                AdaptiveButtonText("Open Radiant Rush")
+                AdaptiveButtonText("Open Radiant Circle", compactText = "Open Circle", tinyText = "Open")
             }
             OutlinedButton(
                 modifier = Modifier
@@ -184,31 +160,22 @@ fun WelcomeScreen(
                 enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && !uiState.isWalletConnected,
                 onClick = onConnectWallet,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.AccountBalanceWallet,
-                    contentDescription = null,
-                )
+                Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null)
                 Spacer(modifier = Modifier.size(8.dp))
                 AdaptiveButtonText(
-                    text = when {
+                    when {
                         uiState.walletActionInProgress -> "Opening Wallet…"
                         uiState.isWalletConnected -> "Wallet Connected"
                         else -> "Connect Wallet"
                     },
                 )
             }
-            Text(
-                text = "Use Phantom Devnet for signing and memo. SKR scan is read-only mainnet. Rush Tickets/capsules are free app progression and never spend XP, SKR, or SOL.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-            )
         }
     }
 }
 
 @Composable
-private fun PhaseBullet(text: String) {
+private fun WelcomeBullet(text: String) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,

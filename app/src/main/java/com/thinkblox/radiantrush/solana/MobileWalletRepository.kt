@@ -23,7 +23,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Solana Mobile Wallet Adapter boundary for Radiant Rush.
+ * Solana Mobile Wallet Adapter boundary for Radiant Circle.
  *
  * The repository owns wallet authorization, message signing, and Phase 4 devnet
  * memo proof submission. It never asks for or stores seed phrases/private keys.
@@ -45,7 +45,7 @@ class MobileWalletRepository(
         connectionIdentity = ConnectionIdentity(
             identityUri = Uri.parse("https://thinkbloxph.dev/radiant-rush"),
             iconUri = Uri.parse("favicon.ico"),
-            identityName = "Radiant Rush",
+            identityName = "Radiant Circle",
         ),
     ).apply {
         // Phase 4 is a devnet-only proof flow. Without this, MWA can default to
@@ -188,7 +188,7 @@ class MobileWalletRepository(
         Log.i(TAG, "Starting devnet memo proof on $MWA_CHAIN_LABEL for date=$todayKey attempt=$attemptLabel")
 
         // Fetch the blockhash before opening Phantom. If devnet RPC/DNS is down,
-        // fail in Radiant Rush instead of bouncing the user into Phantom and then
+        // fail in Radiant Circle instead of bouncing the user into Phantom and then
         // silently returning with no transaction prompt.
         val chainContext = fetchLatestDevnetChainContext()
         Log.i(
@@ -254,7 +254,7 @@ class MobileWalletRepository(
     }.getOrElse { error ->
         Log.e(TAG, "Memo proof crashed before MWA returned a result attempt=$attemptLabel", error)
         val message = when (error) {
-            is java.net.UnknownHostException -> "Radiant Rush could not reach devnet RPC. Check phone internet/DNS, then try Send Memo again."
+            is java.net.UnknownHostException -> "Radiant Circle could not reach devnet RPC. Check phone internet/DNS, then try Send Memo again."
             is java.net.SocketTimeoutException -> "Devnet RPC timed out before Phantom opened. Try again in a moment."
             else -> error.message ?: error::class.java.simpleName
         }
@@ -343,7 +343,7 @@ class MobileWalletRepository(
     }
 
     private fun buildDailyProofMessage(todayKey: String, walletAddress: String): String = buildString {
-        appendLine("Radiant Rush Daily Proof")
+        appendLine("Radiant Circle Daily Proof")
         appendLine("Wallet: $walletAddress")
         appendLine("Date: $todayKey")
         appendLine("Quest: sign-daily-proof")

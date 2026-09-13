@@ -17,6 +17,7 @@ data class LeaderboardCandidate(
     val xp: Int,
     val streak: Int,
     val tier: String,
+    val avatarId: String = "fox",
     val updatedAtMs: Long = 0L,
 )
 
@@ -50,18 +51,25 @@ object LeaderboardRules {
             .groupBy(keySelector = { it.first }, valueTransform = { it.second })
             .mapValues { (_, wallets) -> wallets.distinct().singleOrNull() }
 
-        val ranked = eligible.sortedWith(candidateComparator)
-        val bestByIdentity = linkedMapOf<String, LeaderboardCandidate>()
-
-        ranked.forEach { candidate ->
+        val groupedByIdentity = linkedMapOf<String, MutableList<LeaderboardCandidate>>()
+        eligible.forEach { candidate ->
             val identity = identityKey(candidate, fullWalletsByFingerprint) ?: return@forEach
-            val current = bestByIdentity[identity]
-            if (current == null || candidateComparator.compare(candidate, current) < 0) {
-                bestByIdentity[identity] = candidate
-            }
+            groupedByIdentity.getOrPut(identity) { mutableListOf() }.add(candidate)
         }
 
-        return bestByIdentity.values
+        val mergedRows = groupedByIdentity.values.mapNotNull { rows ->
+            val bestRanked = rows.minWithOrNull(candidateComparator) ?: return@mapNotNull null
+            val freshestIdentity = rows.maxWithOrNull(
+                compareBy<LeaderboardCandidate> { it.updatedAtMs }
+                    .thenBy { it.sourceId },
+            ) ?: bestRanked
+            bestRanked.copy(
+                displayName = freshestIdentity.displayName,
+                avatarId = freshestIdentity.avatarId,
+            )
+        }
+
+        return mergedRows
             .sortedWith(candidateComparator)
             .take(limit)
     }

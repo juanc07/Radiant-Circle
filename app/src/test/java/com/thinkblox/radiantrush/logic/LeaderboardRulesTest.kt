@@ -98,6 +98,25 @@ class LeaderboardRulesTest {
         )
     }
 
+    @Test
+    fun newestProfileIdentityIsUsedWithoutChangingBestXp() {
+        val oldBest = candidate("uid-old", walletA, "9xQe…PABC", xp = 900, updatedAtMs = 10).copy(
+            displayName = "Old Name",
+            avatarId = "fox",
+        )
+        val freshProfile = candidate("uid-new", walletA, "9xQe…PABC", xp = 120, updatedAtMs = 50).copy(
+            displayName = "New Name",
+            avatarId = "ghost",
+        )
+
+        val result = LeaderboardRules.collapseByWallet(listOf(oldBest, freshProfile)).single()
+
+        assertEquals(900, result.xp)
+        assertEquals("uid-old", result.sourceId)
+        assertEquals("New Name", result.displayName)
+        assertEquals("ghost", result.avatarId)
+    }
+
     private fun candidate(
         sourceId: String,
         walletAddress: String?,

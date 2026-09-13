@@ -31,12 +31,12 @@ object QuestInteractionRules {
     fun spendsUserXp(questId: String): Boolean = false
 
     fun expectedUserInteraction(questId: String): String = when (questId) {
-        DAILY_CHECK_IN -> "Runs inside Radiant Rush and saves Firebase progress."
-        WALLET_CONNECT -> "Opens an MWA-compatible wallet for authorization."
-        SIGN_DAILY_PROOF -> "Opens an MWA-compatible wallet for message signing."
-        ON_CHAIN_PROOF -> "Opens an MWA-compatible wallet for devnet memo approval."
-        SKR_HOLDER -> "Runs inside Radiant Rush with read-only mainnet RPC; no wallet popup."
-        DAILY_RADIANT_CHEST -> "Runs inside Radiant Rush as a no-loss XP reward reveal after all daily proofs."
+        DAILY_CHECK_IN -> "Checks in for today."
+        WALLET_CONNECT -> "Opens your Solana wallet to connect."
+        SIGN_DAILY_PROOF -> "Opens your wallet to sign today’s challenge."
+        ON_CHAIN_PROOF -> "Opens your wallet to approve today’s memo quest."
+        SKR_HOLDER -> "Refreshes your SKR Passport and staking status."
+        DAILY_RADIANT_CHEST -> "Opens your Daily Radiant Chest after all quests are complete."
         else -> "Unknown quest interaction."
     }
 }
