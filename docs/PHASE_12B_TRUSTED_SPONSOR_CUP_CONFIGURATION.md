@@ -42,7 +42,7 @@ Phase 12C may later promote funding state after independent on-chain verificatio
 
 The Weekly Cup UI may show sponsor/prize configuration, but client-facing copy must stay product-facing and concise. Internal implementation language such as `trusted config`, `client scores`, `payout authority`, `Android payout`, schema/authority markers, or verification architecture belongs in logs/admin tools/docs, not in normal player UI.
 
-Public Cup copy should use consumer labels such as `Weekly prize`, `Presented by …`, `Funding pending`, `Funding confirmed`, and `Prize unavailable`. A DRAFT Cup is not publicly presented as a sponsor/prize card. `sponsorNote` is treated as admin/internal metadata in Phase 12B and is not rendered to players. Android still keeps payout disabled internally and client-reported competition receipts remain unverified.
+Public Cup copy should use consumer labels such as `Weekly prize`, `Presented by …`, `Funding pending`, `Funding verified`, and `Prize unavailable`. A DRAFT Cup is not publicly presented as a sponsor/prize card. `sponsorNote` is treated as admin/internal metadata in Phase 12B and is not rendered to players. Android still keeps payout disabled internally and client-reported competition receipts remain unverified.
 
 ## Admin workflow
 
@@ -72,7 +72,7 @@ After review, apply with the same arguments plus:
   --confirm-project radiant-rush-10a9c
 ```
 
-The tool refuses to overwrite a future config whose funding is already `VERIFIED`, whose payout has been enabled, or whose schema is newer than Phase 12B.
+When Phase 12C funding evidence exists, the tool preserves that evidence for safe status/sponsor presentation updates, but refuses prize-amount/mint or funding-wallet changes that would invalidate the verification. It still refuses payout-enabled or newer-schema state.
 
 ## Explicit non-goals
 

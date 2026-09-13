@@ -57,9 +57,54 @@ test("funding wallet is configuration only and starts NOT_VERIFIED", () => {
   assert.equal(config.payoutEnabled, false);
 });
 
-test("Phase 12B refuses to overwrite future verified funding state", () => {
+test("Phase 12B refuses ambiguous VERIFIED state without Phase 12C evidence", () => {
   assert.throws(
-    () => assertSafeExistingConfig({ schemaVersion: 2, fundingVerificationStatus: "VERIFIED" }),
-    /VERIFIED funding/,
+    () => assertSafeExistingConfig({ schemaVersion: 2, fundingVerificationStatus: "VERIFIED" }, {
+      prizeMint: OFFICIAL_SKR_MINT,
+      prizeDecimals: 6,
+      prizeAmountAtomic: "1000000000",
+      fundingWalletAddress: null,
+    }),
+    /VERIFIED without Phase 12C evidence/,
+  );
+});
+
+test("Phase 12B may update status while preserving matching Phase 12C evidence", () => {
+  const result = assertSafeExistingConfig({
+    schemaVersion: 2,
+    prizeMint: OFFICIAL_SKR_MINT,
+    prizeDecimals: 6,
+    prizeAmountAtomic: "1000000000",
+    fundingWalletAddress: "J86vtTs7twTUuS4xfo8H8zaUeFyMNHWPPeEXyL5DscPg",
+    fundingVerificationStatus: "VERIFIED",
+    fundingVerificationAuthority: "trusted-admin-phase12c",
+    fundingObservedAmountAtomic: "1200000000",
+  }, {
+    prizeMint: OFFICIAL_SKR_MINT,
+    prizeDecimals: 6,
+    prizeAmountAtomic: "1000000000",
+    fundingWalletAddress: null,
+  });
+  assert.equal(result.preservePhase12cEvidence, true);
+});
+
+test("Phase 12B refuses prize changes after Phase 12C evidence exists", () => {
+  assert.throws(
+    () => assertSafeExistingConfig({
+      schemaVersion: 2,
+      prizeMint: OFFICIAL_SKR_MINT,
+      prizeDecimals: 6,
+      prizeAmountAtomic: "1000000000",
+      fundingWalletAddress: "J86vtTs7twTUuS4xfo8H8zaUeFyMNHWPPeEXyL5DscPg",
+      fundingVerificationStatus: "NOT_VERIFIED",
+      fundingVerificationAuthority: "trusted-admin-phase12c",
+      fundingObservedAmountAtomic: "500000000",
+    }, {
+      prizeMint: OFFICIAL_SKR_MINT,
+      prizeDecimals: 6,
+      prizeAmountAtomic: "2000000000",
+      fundingWalletAddress: null,
+    }),
+    /tied to the existing prize/,
   );
 });

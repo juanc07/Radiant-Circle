@@ -5,16 +5,19 @@ import java.math.BigInteger
 import java.math.RoundingMode
 
 /**
- * Phase 12B trusted Weekly Radiant Cup configuration rules.
+ * Trusted Weekly Radiant Cup presentation rules.
  *
- * Android is a read-only presentation client for these values. A config may
- * describe a sponsor and an intended SKR prize, but it can never enable payout
- * or make client-reported scores trusted. Funding verification is a separate
- * Phase 12C trusted-server concern.
+ * Phase 12B owns sponsor/prize configuration. Phase 12C adds trusted Mainnet
+ * funding evidence. Android remains read-only and will display VERIFIED only
+ * when the complete Phase 12C evidence shape is internally consistent.
  */
 object Phase12WeeklyCupConfigRules {
     const val SCHEMA_VERSION = 2
     const val CONFIGURATION_AUTHORITY = "trusted-admin-phase12b"
+    const val FUNDING_VERIFICATION_AUTHORITY = "trusted-admin-phase12c"
+    const val FUNDING_VERIFICATION_SCHEMA_VERSION = 1
+    const val FUNDING_NETWORK = "mainnet-beta"
+    const val FUNDING_COMMITMENT = "finalized"
 
     const val STATUS_DRAFT = "DRAFT"
     const val STATUS_ANNOUNCED = "ANNOUNCED"
@@ -43,6 +46,16 @@ object Phase12WeeklyCupConfigRules {
         endsAtEpochMillis: Long?,
         fundingWalletAddress: String?,
         fundingVerificationStatus: String?,
+        fundingRequiredAmountAtomic: String? = null,
+        fundingObservedAmountAtomic: String? = null,
+        fundingVerificationSlot: Long? = null,
+        fundingVerificationNetwork: String? = null,
+        fundingVerificationMint: String? = null,
+        fundingVerificationCommitment: String? = null,
+        fundingVerificationAuthority: String? = null,
+        fundingVerificationSchemaVersion: Int? = null,
+        fundingCheckedAtEpochMillis: Long? = null,
+        fundingVerifiedAtEpochMillis: Long? = null,
         configurationAuthority: String?,
         trustedResultsRequired: Boolean?,
     ): TrustedWeeklyCupConfigState {
@@ -75,11 +88,7 @@ object Phase12WeeklyCupConfigRules {
             startsAtEpochMillis > 0L &&
             endsAtEpochMillis > startsAtEpochMillis
 
-        val amountAtomic = prizeAmountAtomic
-            ?.trim()
-            ?.takeIf { it.matches(Regex("^[0-9]{1,30}$")) }
-            ?.let { runCatching { BigInteger(it) }.getOrNull() }
-            ?.takeIf { it > BigInteger.ZERO }
+        val amountAtomic = parseAtomic(prizeAmountAtomic)?.takeIf { it > BigInteger.ZERO }
 
         val allocationsValid = placementAllocationsBps.isNotEmpty() &&
             placementAllocationsBps.keys.all { it in 1..10 } &&
@@ -99,8 +108,27 @@ object Phase12WeeklyCupConfigRules {
             )
         }
 
-        val fundingCode = when (fundingVerificationStatus?.trim()?.uppercase()) {
-            FUNDING_VERIFIED -> FUNDING_VERIFIED
+        val requiredAtomic = parseAtomic(fundingRequiredAmountAtomic)
+        val observedAtomic = parseAtomic(fundingObservedAmountAtomic)
+        val fundingEvidenceValid = safeFundingWallet != null &&
+            fundingVerificationSchemaVersion == FUNDING_VERIFICATION_SCHEMA_VERSION &&
+            fundingVerificationAuthority?.trim() == FUNDING_VERIFICATION_AUTHORITY &&
+            fundingVerificationNetwork?.trim() == FUNDING_NETWORK &&
+            fundingVerificationMint?.trim() == SkrTierRules.OFFICIAL_SKR_MINT &&
+            fundingVerificationCommitment?.trim()?.lowercase() == FUNDING_COMMITMENT &&
+            requiredAtomic == amountAtomic &&
+            observedAtomic != null &&
+            observedAtomic >= amountAtomic &&
+            fundingVerificationSlot != null &&
+            fundingVerificationSlot > 0L &&
+            fundingCheckedAtEpochMillis != null &&
+            fundingCheckedAtEpochMillis > 0L &&
+            fundingVerifiedAtEpochMillis != null &&
+            fundingVerifiedAtEpochMillis > 0L
+
+        val requestedFundingCode = fundingVerificationStatus?.trim()?.uppercase()
+        val fundingCode = when (requestedFundingCode) {
+            FUNDING_VERIFIED -> if (fundingEvidenceValid) FUNDING_VERIFIED else FUNDING_NOT_VERIFIED
             FUNDING_REJECTED -> FUNDING_REJECTED
             FUNDING_NOT_VERIFIED -> FUNDING_NOT_VERIFIED
             FUNDING_NOT_CONFIGURED -> FUNDING_NOT_CONFIGURED
@@ -141,6 +169,11 @@ object Phase12WeeklyCupConfigRules {
             payoutEnabled = false,
         )
     }
+
+    private fun parseAtomic(value: String?): BigInteger? = value
+        ?.trim()
+        ?.takeIf { it.matches(Regex("^[0-9]{1,30}$")) }
+        ?.let { runCatching { BigInteger(it) }.getOrNull() }
 
     private fun formatSkrAmount(amountAtomic: BigInteger, decimals: Int): String {
         val amount = BigDecimal(amountAtomic, decimals)

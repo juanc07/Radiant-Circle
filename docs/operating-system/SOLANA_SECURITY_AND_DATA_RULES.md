@@ -387,3 +387,15 @@ Weekly/All-Time personal stats may be read across multiple anonymous-auth UIDs b
 - `trustedResultsRequired` remains true and Android hard-codes `payoutEnabled=false` in presentation regardless of remote fields. Client-reported Ranked scores remain UNVERIFIED receipts until a trusted verifier says otherwise.
 - No service-account JSON, treasury key, private key, seed phrase, payout signer, or automatic SKR transfer may be shipped in the APK or committed to the repository.
 - No player wagering or paid entry is introduced.
+
+## Phase 12C trusted SKR funding verification
+
+- Funding verification runs only in trusted Firebase Admin tooling, never inside the Android APK.
+- The verifier reads Solana `mainnet-beta` with `finalized` commitment and filters by the official SKR mint.
+- Prize coverage uses exact raw integer token amounts; no floating-point token arithmetic is used.
+- Only liquid, non-frozen SKR token accounts count toward prize funding. Active staked/unstaking SKR is not funding evidence because it is not immediately transferable prize liquidity.
+- RPC/network failures fail without writing a new funding result. Insufficient balance records `NOT_VERIFIED`, not fake `VERIFIED`.
+- Each applied check creates an immutable Admin-only receipt under `weeklyCupFundingChecks/{weekKey}/checks/{checkId}`. Client Firestore access is explicitly denied.
+- Android treats a remote `VERIFIED` string as insufficient by itself. It requires the Phase 12C authority/version, official mint, mainnet network, finalized commitment, exact required amount, sufficient observed amount, positive slot, and trusted timestamps.
+- `payoutEnabled` stays false. Phase 12C does not sign or transfer tokens and is not escrow. A future payout phase must re-check funding immediately before transfer and keep signing authority outside Android.
+- Service-account JSON, RPC API secrets, treasury keys, seed phrases, and private keys must never be committed. Custom RPC URLs containing API keys should be supplied through `SOLANA_MAINNET_RPC_URL`, not copied into source.

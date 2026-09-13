@@ -338,7 +338,7 @@ private fun WeeklyCupSponsorCard(cup: WeeklyCupPreview) {
                     }
                     if (cup.trustedSponsorConfig) {
                         val publicFundingLabel = when (cup.fundingVerificationStatus) {
-                            "VERIFIED" -> "Funding confirmed"
+                            "VERIFIED" -> "Funding verified"
                             "REJECTED" -> "Prize unavailable"
                             else -> "Funding pending"
                         }

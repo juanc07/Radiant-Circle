@@ -1950,6 +1950,7 @@ class FirebaseRadiantRepository(
                 .addOnSuccessListener { sponsorDocument ->
                     fun stringField(name: String): String? = sponsorDocument.get(name) as? String
                     fun intField(name: String): Int? = (sponsorDocument.get(name) as? Number)?.toInt()
+                    fun longField(name: String): Long? = (sponsorDocument.get(name) as? Number)?.toLong()
                     fun booleanField(name: String): Boolean? = sponsorDocument.get(name) as? Boolean
                     fun timestampMillis(name: String): Long? =
                         (sponsorDocument.get(name) as? Timestamp)?.toDate()?.time
@@ -1980,6 +1981,16 @@ class FirebaseRadiantRepository(
                             endsAtEpochMillis = timestampMillis("endsAt"),
                             fundingWalletAddress = stringField("fundingWalletAddress"),
                             fundingVerificationStatus = stringField("fundingVerificationStatus"),
+                            fundingRequiredAmountAtomic = stringField("fundingRequiredAmountAtomic"),
+                            fundingObservedAmountAtomic = stringField("fundingObservedAmountAtomic"),
+                            fundingVerificationSlot = longField("fundingVerificationSlot"),
+                            fundingVerificationNetwork = stringField("fundingVerificationNetwork"),
+                            fundingVerificationMint = stringField("fundingVerificationMint"),
+                            fundingVerificationCommitment = stringField("fundingVerificationCommitment"),
+                            fundingVerificationAuthority = stringField("fundingVerificationAuthority"),
+                            fundingVerificationSchemaVersion = intField("fundingVerificationSchemaVersion"),
+                            fundingCheckedAtEpochMillis = timestampMillis("fundingCheckedAt"),
+                            fundingVerifiedAtEpochMillis = timestampMillis("fundingVerifiedAt"),
                             configurationAuthority = stringField("configurationAuthority"),
                             trustedResultsRequired = booleanField("trustedResultsRequired"),
                         )

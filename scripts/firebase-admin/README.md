@@ -1,6 +1,6 @@
 # Radiant Circle Firebase Admin Tools
 
-Developer-only Firebase Admin utilities for safe development-data cleanup and trusted Phase 12 Weekly Radiant Cup configuration. Android never receives Admin credentials.
+Developer-only Firebase Admin utilities for safe development-data cleanup, trusted Weekly Radiant Cup configuration, and trusted Phase 12C SKR funding verification. Android never receives Admin credentials.
 
 ## Protected collections
 
@@ -115,5 +115,46 @@ Safety behavior:
 - prize amounts are stored as exact atomic-unit strings, not floating-point values,
 - placement allocations must total 100%,
 - `trustedResultsRequired=true` and `payoutEnabled=false` are forced,
-- the tool refuses to overwrite a config whose funding is already `VERIFIED`, whose payout is already enabled, or whose schema is newer than Phase 12B,
+- after Phase 12C evidence exists, safe status/presentation updates preserve it; prize/funding-wallet changes that would invalidate it are refused,
 - `weeklyCupConfigs/*` remains `allow write: if false` for Android clients.
+
+## Phase 12C trusted SKR funding verification
+
+`verify-weekly-cup-funding.mjs` reads the current Cup configuration, queries Solana Mainnet for **liquid** SKR held by the public funding wallet, and compares the exact raw amount against the configured prize requirement. It is dry-run by default.
+
+Before running it, create temporary Firebase Admin credentials outside the repository and set `GOOGLE_APPLICATION_CREDENTIALS`. The funding wallet is a public Solana address; never provide or store its seed phrase/private key.
+
+Dry-run first:
+
+```bash
+node verify-weekly-cup-funding.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W37 \
+  --funding-wallet "PUBLIC_SOLANA_ADDRESS"
+```
+
+By default the tool uses Solana's public Mainnet RPC. If a custom provider is needed, prefer an environment variable so API keys do not enter shell history or source:
+
+```bash
+export SOLANA_MAINNET_RPC_URL="https://your-provider.example/..."
+```
+
+After reviewing required SKR, observed transferable liquid SKR, token-account counts, slot, and result, apply with the exact same arguments plus:
+
+```bash
+  --apply \
+  --confirm-project radiant-rush-10a9c
+```
+
+Applied verification:
+
+- writes the current funding snapshot into `weeklyCupConfigs/{weekKey}`,
+- creates an immutable Admin-only receipt at `weeklyCupFundingChecks/{weekKey}/checks/{checkId}`,
+- writes `VERIFIED` only when observed non-frozen liquid SKR is greater than or equal to the configured prize,
+- writes `NOT_VERIFIED` when the wallet is short,
+- writes nothing when the RPC read itself fails,
+- never enables payout and never transfers SKR.
+
+The verifier refuses to silently switch an already configured funding wallet. To intentionally verify a replacement wallet, add `--replace-funding-wallet` and review the dry run carefully.
+
+After Phase 12C evidence exists, `manage-weekly-cup.mjs` may still update safe presentation/status fields, but it preserves the evidence and refuses prize or funding-wallet changes that would invalidate the trusted check.

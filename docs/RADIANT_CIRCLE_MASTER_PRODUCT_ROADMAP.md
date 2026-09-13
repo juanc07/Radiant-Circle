@@ -507,7 +507,7 @@ Do not collapse this into one document per UID.
 
 ## 13. Current Phase Roadmap
 
-### Phase 12B — NEXT
+### Phase 12B — COMPLETE
 ## Trusted Sponsor / Cup Configuration
 
 Goal:
@@ -547,7 +547,7 @@ Android must not be able to:
 - set winners
 - enable payout
 
-### Phase 12C
+### Phase 12C — CURRENT
 ## SKR Funding Verification
 
 Goal:
@@ -560,7 +560,10 @@ Requirements:
 - record verification timestamp
 - record observed on-chain amount
 - record verification status
-- Android only displays trusted verification result
+- record an immutable admin-only funding-check receipt
+- count only transferable liquid SKR; staked/frozen SKR is not prize funding
+- Android only displays `VERIFIED` when the complete trusted evidence shape is valid
+- RPC failures write nothing and never fabricate verification
 
 Possible states:
 - NOT_CONFIGURED
@@ -866,7 +869,7 @@ Player-facing copy should communicate only the useful product state in natural l
 - `Weekly prize`
 - `Presented by ThinkBloxPH`
 - `Funding pending`
-- `Funding confirmed`
+- `Funding verified`
 - `Prize unavailable`
 - `Cup open`
 - `Cup closed`
@@ -929,8 +932,8 @@ The hierarchy is:
 At the time of this document:
 
 1. Phase 12A — complete.
-2. Phase 12B — implement/test trusted Sponsor/Cup configuration.
-3. Phase 12C — trusted SKR funding verification.
+2. Phase 12B — complete: trusted Sponsor/Cup configuration.
+3. Phase 12C — current: trusted SKR funding verification.
 4. Phase 12D — trusted season close + winners.
 5. Stop and assess.
 6. Phase 13A — Daily Radiance.

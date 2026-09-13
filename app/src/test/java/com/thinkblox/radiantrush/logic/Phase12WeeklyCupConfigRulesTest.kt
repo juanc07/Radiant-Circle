@@ -9,13 +9,16 @@ class Phase12WeeklyCupConfigRulesTest {
     private fun validState(
         status: String = "OPEN",
         fundingStatus: String = "NOT_VERIFIED",
+        withVerifiedFundingEvidence: Boolean = false,
+        observedAmountAtomic: String = "1000000000",
+        verificationAuthority: String = Phase12WeeklyCupConfigRules.FUNDING_VERIFICATION_AUTHORITY,
     ) = Phase12WeeklyCupConfigRules.presentation(
         expectedWeekKey = "2026-W37",
         schemaVersion = 2,
         weekKey = "2026-W37",
         status = status,
         sponsorName = "ThinkBloxPH",
-        sponsorNote = "Trusted results only after Cup close.",
+        sponsorNote = "Internal sponsor note",
         prizeAssetSymbol = "SKR",
         prizeMint = SkrTierRules.OFFICIAL_SKR_MINT,
         prizeDecimals = SkrTierRules.DEFAULT_SKR_DECIMALS,
@@ -25,6 +28,16 @@ class Phase12WeeklyCupConfigRulesTest {
         endsAtEpochMillis = 1_789_948_800_000L,
         fundingWalletAddress = "J86vtTs7twTUuS4xfo8H8zaUeFyMNHWPPeEXyL5DscPg",
         fundingVerificationStatus = fundingStatus,
+        fundingRequiredAmountAtomic = if (withVerifiedFundingEvidence) "1000000000" else null,
+        fundingObservedAmountAtomic = if (withVerifiedFundingEvidence) observedAmountAtomic else null,
+        fundingVerificationSlot = if (withVerifiedFundingEvidence) 123_456_789L else null,
+        fundingVerificationNetwork = if (withVerifiedFundingEvidence) Phase12WeeklyCupConfigRules.FUNDING_NETWORK else null,
+        fundingVerificationMint = if (withVerifiedFundingEvidence) SkrTierRules.OFFICIAL_SKR_MINT else null,
+        fundingVerificationCommitment = if (withVerifiedFundingEvidence) Phase12WeeklyCupConfigRules.FUNDING_COMMITMENT else null,
+        fundingVerificationAuthority = if (withVerifiedFundingEvidence) verificationAuthority else null,
+        fundingVerificationSchemaVersion = if (withVerifiedFundingEvidence) Phase12WeeklyCupConfigRules.FUNDING_VERIFICATION_SCHEMA_VERSION else null,
+        fundingCheckedAtEpochMillis = if (withVerifiedFundingEvidence) 1_789_400_000_000L else null,
+        fundingVerifiedAtEpochMillis = if (withVerifiedFundingEvidence) 1_789_400_000_000L else null,
         configurationAuthority = Phase12WeeklyCupConfigRules.CONFIGURATION_AUTHORITY,
         trustedResultsRequired = true,
     )
@@ -105,11 +118,33 @@ class Phase12WeeklyCupConfigRulesTest {
     }
 
     @Test
-    fun futureVerifiedFundingStillCannotEnableAndroidPayout() {
-        val state = validState(fundingStatus = "VERIFIED")
+    fun verifiedLabelRequiresCompletePhase12cEvidence() {
+        val bareStatus = validState(fundingStatus = "VERIFIED")
+        assertEquals(Phase12WeeklyCupConfigRules.FUNDING_NOT_VERIFIED, bareStatus.fundingStatusCode)
 
-        assertTrue(state.recognized)
-        assertEquals("Funding verified on-chain", state.fundingStatusLabel)
-        assertFalse(state.payoutEnabled)
+        val verified = validState(
+            fundingStatus = "VERIFIED",
+            withVerifiedFundingEvidence = true,
+        )
+        assertEquals(Phase12WeeklyCupConfigRules.FUNDING_VERIFIED, verified.fundingStatusCode)
+        assertEquals("Funding verified on-chain", verified.fundingStatusLabel)
+        assertFalse(verified.payoutEnabled)
+    }
+
+    @Test
+    fun insufficientOrWrongAuthorityEvidenceCannotDisplayVerified() {
+        val insufficient = validState(
+            fundingStatus = "VERIFIED",
+            withVerifiedFundingEvidence = true,
+            observedAmountAtomic = "999999999",
+        )
+        assertEquals(Phase12WeeklyCupConfigRules.FUNDING_NOT_VERIFIED, insufficient.fundingStatusCode)
+
+        val wrongAuthority = validState(
+            fundingStatus = "VERIFIED",
+            withVerifiedFundingEvidence = true,
+            verificationAuthority = "client",
+        )
+        assertEquals(Phase12WeeklyCupConfigRules.FUNDING_NOT_VERIFIED, wrongAuthority.fundingStatusCode)
     }
 }

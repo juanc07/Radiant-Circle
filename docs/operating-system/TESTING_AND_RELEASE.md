@@ -764,3 +764,45 @@ Manual QA on Seeker:
 8. Verify Firestore client rules still deny writes to `weeklyCupConfigs/*`; Admin SDK tooling is the only configuration write path.
 
 Version: `27 / 1.2.2-phase12b`.
+
+## Phase 12C test gate — trusted SKR funding verification
+
+Run Firebase Admin tests first:
+
+```bash
+cd scripts/firebase-admin
+npm test
+```
+
+Run the Android gate:
+
+```bash
+cd /c/2026/SolanaHackaton/RadiantRushPhase1Android
+./gradlew --stop
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Because Phase 12C adds an explicit deny rule for funding-check audit receipts, redeploy Firestore rules:
+
+```bash
+npx.cmd firebase-tools deploy --only firestore:rules --project radiant-rush-10a9c
+```
+
+Live verification procedure:
+
+1. Generate temporary Firebase Admin credentials outside the repository and set `GOOGLE_APPLICATION_CREDENTIALS`.
+2. Keep/create a Phase 12B Cup in `DRAFT`, `ANNOUNCED`, or `OPEN` with `payoutEnabled=false`.
+3. Run `verify-weekly-cup-funding.mjs` **without** `--apply` and review wallet, required SKR, observed liquid SKR, frozen-account count, RPC slot, and result.
+4. If the wallet has less than the configured prize, expect `NOT_VERIFIED`; no fake success.
+5. If the wallet holds at least the required transferable liquid SKR, expect `VERIFIED`.
+6. Apply only with the exact same arguments plus `--apply --confirm-project radiant-rush-10a9c`.
+7. Confirm `weeklyCupConfigs/{weekKey}` contains the Phase 12C evidence fields and `payoutEnabled=false`.
+8. Confirm a new `weeklyCupFundingChecks/{weekKey}/checks/{checkId}` audit receipt exists.
+9. For an `ANNOUNCED`/`OPEN` Cup, verify the Seeker UI shows only concise product copy: `Funding pending` or `Funding verified`; no RPC slot, authority, schema, or payout-boundary narration.
+10. Tamper-test in a development project if needed: a bare `fundingVerificationStatus=VERIFIED` without valid evidence must display as pending.
+11. Regression-check MWA, signed proof, Devnet Memo, SKR Passport, Daily Chest, Radiant Rush, Weekly/All-Time/My Stats, and Phase 12A receipt creation.
+
+Version: `28 / 1.2.3-phase12c`.

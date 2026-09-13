@@ -9,7 +9,8 @@
   "scripts": {
     "cleanup:dry-run": "node cleanup-stale-dev-data.mjs --project radiant-rush-10a9c",
     "cup:dry-run": "node manage-weekly-cup.mjs --project radiant-rush-10a9c",
-    "test": "node --test *.test.mjs"
+    "test": "node --test *.test.mjs",
+    "funding:dry-run": "node verify-weekly-cup-funding.mjs --project radiant-rush-10a9c"
   },
   "dependencies": {
     "firebase-admin": "14.4.0"

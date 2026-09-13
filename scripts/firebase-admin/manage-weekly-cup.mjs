@@ -85,10 +85,17 @@ async function main() {
   const ref = db.collection("weeklyCupConfigs").doc(config.weekKey);
   const existingSnapshot = await ref.get();
   const existing = existingSnapshot.exists ? existingSnapshot.data() : null;
-  assertSafeExistingConfig(existing);
+  const safety = assertSafeExistingConfig(existing, config);
+  const effectiveConfig = safety.preservePhase12cEvidence
+    ? {
+        ...config,
+        fundingWalletAddress: existing.fundingWalletAddress ?? null,
+        fundingVerificationStatus: existing.fundingVerificationStatus ?? "NOT_VERIFIED",
+      }
+    : config;
 
   const review = {
-    ...config,
+    ...effectiveConfig,
     startsAt: new Date(config.startsAtEpochMillis).toISOString(),
     endsAt: new Date(config.endsAtEpochMillis).toISOString(),
   };
@@ -100,6 +107,9 @@ async function main() {
   console.log(`\nExisting document: ${existingSnapshot.exists ? "YES" : "NO"}`);
   console.log("Android write access: NONE (Firestore rules keep weeklyCupConfigs read-only)." );
   console.log("Funding verification: NOT performed by Phase 12B.");
+  if (safety.preservePhase12cEvidence) {
+    console.log("Phase 12C funding evidence: PRESERVED.");
+  }
   console.log("Payout enabled: false.");
 
   if (!apply) {
@@ -108,20 +118,20 @@ async function main() {
   }
 
   const firestoreData = {
-    schemaVersion: config.schemaVersion,
-    weekKey: config.weekKey,
-    status: config.status,
-    sponsorName: config.sponsorName,
-    sponsorNote: config.sponsorNote,
-    prizeAssetSymbol: config.prizeAssetSymbol,
-    prizeMint: config.prizeMint,
-    prizeDecimals: config.prizeDecimals,
-    prizeAmountAtomic: config.prizeAmountAtomic,
-    placementAllocationsBps: config.placementAllocationsBps,
-    startsAt: Timestamp.fromMillis(config.startsAtEpochMillis),
-    endsAt: Timestamp.fromMillis(config.endsAtEpochMillis),
-    fundingWalletAddress: config.fundingWalletAddress,
-    fundingVerificationStatus: config.fundingVerificationStatus,
+    schemaVersion: effectiveConfig.schemaVersion,
+    weekKey: effectiveConfig.weekKey,
+    status: effectiveConfig.status,
+    sponsorName: effectiveConfig.sponsorName,
+    sponsorNote: effectiveConfig.sponsorNote,
+    prizeAssetSymbol: effectiveConfig.prizeAssetSymbol,
+    prizeMint: effectiveConfig.prizeMint,
+    prizeDecimals: effectiveConfig.prizeDecimals,
+    prizeAmountAtomic: effectiveConfig.prizeAmountAtomic,
+    placementAllocationsBps: effectiveConfig.placementAllocationsBps,
+    startsAt: Timestamp.fromMillis(effectiveConfig.startsAtEpochMillis),
+    endsAt: Timestamp.fromMillis(effectiveConfig.endsAtEpochMillis),
+    fundingWalletAddress: effectiveConfig.fundingWalletAddress,
+    fundingVerificationStatus: effectiveConfig.fundingVerificationStatus,
     trustedResultsRequired: true,
     payoutEnabled: false,
     configurationAuthority: config.configurationAuthority,
@@ -129,9 +139,17 @@ async function main() {
     updatedAt: FieldValue.serverTimestamp(),
   };
 
-  await ref.set(firestoreData);
+  if (safety.preservePhase12cEvidence) {
+    await ref.set(firestoreData, { merge: true });
+  } else {
+    await ref.set(firestoreData);
+  }
   console.log(`\nAPPLY COMPLETE — weeklyCupConfigs/${config.weekKey} written.`);
-  console.log("Funding remains unverified and Android payout remains disabled.");
+  console.log(
+    safety.preservePhase12cEvidence
+      ? "Existing Phase 12C funding evidence was preserved; payout remains disabled."
+      : "Funding remains unverified and Android payout remains disabled.",
+  );
 }
 
 main().catch((error) => {

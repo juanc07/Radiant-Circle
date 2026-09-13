@@ -1,3 +1,13 @@
+## Phase 12C — trusted SKR funding-verification boundary
+
+`verify-weekly-cup-funding.mjs` is a developer/admin-side trust boundary. It reads `weeklyCupConfigs/{weekKey}`, queries Solana Mainnet for liquid accounts of the official SKR mint, sums exact raw token amounts, excludes frozen accounts, and writes a funding snapshot only through Firebase Admin after an explicit reviewed `--apply`. Android never performs the trusted promotion.
+
+Applied checks also create immutable admin-only audit receipts at `weeklyCupFundingChecks/{weekKey}/checks/{checkId}`. Client Firestore rules deny direct access to that audit collection. `weeklyCupConfigs/*` remains public-readable/client-write-denied so the app can present only the resulting product state.
+
+Android accepts `VERIFIED` only when the complete Phase 12C evidence shape matches the configured prize: mainnet-beta, official SKR mint, finalized commitment, Phase 12C authority/version, exact required amount, sufficient observed amount, positive RPC slot, and trusted timestamps. A bare `VERIFIED` string fails closed to pending. `payoutEnabled` remains false.
+
+Phase 12C is a balance snapshot, not escrow. It moves no SKR and does not guarantee the funding wallet cannot later change. Real transfer/escrow remains a later trusted phase.
+
 ## Phase 12A — trusted competition-verification boundary
 
 `RadiantRunResult` now carries a stable client UUID receipt identity. `FirebaseRadiantRepository` keeps the existing Phase 11 gameplay/progression transaction unchanged as the prototype source for Weekly, All-Time, XP, rewards, and profile state. After a successful Ranked run, it separately attempts to create `competitionRunSubmissions/{receiptId}`. Receipt persistence is intentionally non-blocking so trusted-Cup infrastructure cannot make the game unusable.

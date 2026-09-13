@@ -177,6 +177,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Phase 12C trusted funding-verification audit receipts. These records are
+    // written only by Firebase Admin tooling after a live Solana Mainnet read.
+    // Android clients do not need direct access; Admin SDK bypasses client rules.
+    match /weeklyCupFundingChecks/{weekKey}/checks/{checkId} {
+      allow read, write: if false;
+    }
+
     match /quests/{questId} {
       allow read: if true;
       allow write: if false;

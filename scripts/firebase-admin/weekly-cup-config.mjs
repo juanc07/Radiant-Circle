@@ -122,8 +122,8 @@ export function buildWeeklyCupConfig({
   };
 }
 
-export function assertSafeExistingConfig(existing) {
-  if (!existing) return;
+export function assertSafeExistingConfig(existing, proposed = null) {
+  if (!existing) return { preservePhase12cEvidence: false };
 
   const schemaVersion = Number(existing.schemaVersion ?? 0);
   if (schemaVersion > SCHEMA_VERSION) {
@@ -131,12 +131,44 @@ export function assertSafeExistingConfig(existing) {
       `Existing config uses newer schemaVersion=${schemaVersion}. Refusing to overwrite it with Phase 12B tooling.`,
     );
   }
-  if (String(existing.fundingVerificationStatus ?? "").toUpperCase() === "VERIFIED") {
-    throw new Error("Existing config has VERIFIED funding. Refusing to reset trusted Phase 12C+ state.");
-  }
   if (existing.payoutEnabled === true) {
     throw new Error("Existing config has payoutEnabled=true. Refusing to overwrite trusted payout state.");
   }
+
+  const hasPhase12cEvidence =
+    String(existing.fundingVerificationAuthority ?? "").trim() === "trusted-admin-phase12c" ||
+    existing.fundingCheckedAt != null ||
+    existing.fundingRequiredAmountAtomic != null ||
+    existing.fundingObservedAmountAtomic != null;
+
+  if (hasPhase12cEvidence) {
+    if (!proposed) {
+      throw new Error(
+        "Existing config contains Phase 12C funding evidence. A proposed config is required to prove the update preserves it.",
+      );
+    }
+    if (String(existing.prizeMint ?? "") !== String(proposed.prizeMint ?? "") ||
+        Number(existing.prizeDecimals) !== Number(proposed.prizeDecimals) ||
+        String(existing.prizeAmountAtomic ?? "") !== String(proposed.prizeAmountAtomic ?? "")) {
+      throw new Error(
+        "Phase 12C funding evidence is tied to the existing prize amount/mint. Re-verify funding before changing the prize.",
+      );
+    }
+    const existingWallet = String(existing.fundingWalletAddress ?? "").trim();
+    const proposedWallet = String(proposed.fundingWalletAddress ?? "").trim();
+    if (proposedWallet && proposedWallet !== existingWallet) {
+      throw new Error(
+        "Phase 12C funding evidence is tied to the existing funding wallet. Use the Phase 12C verifier to replace/re-verify the wallet.",
+      );
+    }
+    return { preservePhase12cEvidence: true };
+  }
+
+  if (String(existing.fundingVerificationStatus ?? "").toUpperCase() === "VERIFIED") {
+    throw new Error("Existing config says VERIFIED without Phase 12C evidence. Refusing to overwrite ambiguous trusted state.");
+  }
+
+  return { preservePhase12cEvidence: false };
 }
 
 function isoWeekKeyFromDate(date) {

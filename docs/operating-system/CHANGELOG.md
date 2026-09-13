@@ -1,3 +1,14 @@
+## 2026-09-13 — Phase 12C trusted SKR funding verification
+
+- Added trusted Firebase Admin `verify-weekly-cup-funding.mjs` with dry-run-by-default Mainnet verification.
+- Added exact integer SKR balance aggregation from `getTokenAccountsByOwner` for the official SKR mint; frozen token accounts are excluded from transferable funding.
+- Added Phase 12C funding evidence to `weeklyCupConfigs/{weekKey}` plus immutable admin-only receipts under `weeklyCupFundingChecks/{weekKey}/checks/{checkId}`.
+- Android now refuses to display `VERIFIED` from a bare status string; complete Phase 12C Mainnet evidence is required.
+- Player-facing Weekly Cup copy remains concise: `Funding pending`, `Funding verified`, or `Prize unavailable`; RPC/security implementation details stay out of normal UI.
+- Hardened Phase 12B admin configuration tooling so safe status/presentation updates preserve Phase 12C evidence while prize/funding-wallet changes that would invalidate it are rejected.
+- Payout remains disabled and no SKR transfer/escrow is introduced.
+- Bumped Android version to `1.2.3-phase12c` (`versionCode 28`).
+
 # 2026-09-13 — Phase 12B trusted sponsor / Weekly Cup configuration
 
 - Added a schema-v2 trusted `weeklyCupConfigs/{weekKey}` contract for sponsor identity, exact SKR prize amount, ISO-week bounds, placement split, optional public funding wallet, and explicit funding-verification state.
