@@ -222,7 +222,7 @@ private fun DailyProgressCard(uiState: RushUiState) {
 }
 
 private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String? {
-    if (uiState.activeQuestId == quest.id || quest.status == QuestStatus.Syncing) {
+    if (uiState.activeQuestId == quest.id) {
         return when (quest.id) {
             QuestIds.DAILY_CHECK_IN -> "Saving Check-In…"
             QuestIds.WALLET_CONNECT -> "Opening Wallet…"
@@ -231,6 +231,13 @@ private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String?
             QuestIds.SKR_HOLDER -> "Scanning SKR + stake…"
             else -> "Working…"
         }
+    }
+
+    // Profile-first bootstrap intentionally arrives before the slower completion-history read.
+    // During that short window an unknown daily action is disabled and described as a status
+    // check, never as if the player had just pressed it.
+    if (quest.status == QuestStatus.Syncing) {
+        return "Checking status…"
     }
 
     return when (quest.id) {

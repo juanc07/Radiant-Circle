@@ -133,6 +133,9 @@ class FirebaseRadiantRepository(
             ),
             loadingMessage = "Saving today’s check-in…",
             successMessage = "Checked in for today.",
+            userExtraFields = mapOf(
+                "lastDailyCheckInDate" to todayKey(),
+            ),
             onState = onState,
         )
     }
@@ -1591,6 +1594,9 @@ class FirebaseRadiantRepository(
         )
 
         fun profileFallbackCompletedIds(): MutableSet<String> = mutableSetOf<String>().apply {
+            if (userSnapshot.getString("lastDailyCheckInDate") == today) {
+                add(QuestIds.DAILY_CHECK_IN)
+            }
             if (userSnapshot.getString("lastSignedProofDate") == today) {
                 add(QuestIds.SIGN_DAILY_PROOF)
             }
@@ -1605,22 +1611,25 @@ class FirebaseRadiantRepository(
             }
         }
 
-        fun questState(completedIds: Set<String>): List<QuestPreview> =
-            PreviewContent.quests.map { quest ->
-                when {
-                    completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
-                    quest.id == QuestIds.WALLET_CONNECT && walletConnected -> quest.copy(status = QuestStatus.Completed)
-                    quest.id == QuestIds.DAILY_CHECK_IN -> quest.copy(status = QuestStatus.Ready)
-                    quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
-                    quest.id == QuestIds.SIGN_DAILY_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                    quest.id == QuestIds.ON_CHAIN_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                    quest.id == QuestIds.SKR_HOLDER && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                    quest.id == QuestIds.SIGN_DAILY_PROOF -> quest.copy(status = QuestStatus.Blocked)
-                    quest.id == QuestIds.ON_CHAIN_PROOF -> quest.copy(status = QuestStatus.Blocked)
-                    quest.id == QuestIds.SKR_HOLDER -> quest.copy(status = QuestStatus.Blocked)
-                    else -> quest.copy(status = QuestStatus.Locked)
-                }
+        fun questState(
+            completedIds: Set<String>,
+            completionHistoryLoaded: Boolean,
+        ): List<QuestPreview> = PreviewContent.quests.map { quest ->
+            when {
+                completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
+                quest.id == QuestIds.WALLET_CONNECT && walletConnected -> quest.copy(status = QuestStatus.Completed)
+                quest.id == QuestIds.DAILY_CHECK_IN && !completionHistoryLoaded -> quest.copy(status = QuestStatus.Syncing)
+                quest.id == QuestIds.DAILY_CHECK_IN -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.SIGN_DAILY_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.ON_CHAIN_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.SKR_HOLDER && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.SIGN_DAILY_PROOF -> quest.copy(status = QuestStatus.Blocked)
+                quest.id == QuestIds.ON_CHAIN_PROOF -> quest.copy(status = QuestStatus.Blocked)
+                quest.id == QuestIds.SKR_HOLDER -> quest.copy(status = QuestStatus.Blocked)
+                else -> quest.copy(status = QuestStatus.Locked)
             }
+        }
 
         fun chestState(completedIds: Set<String>, quests: List<QuestPreview>): RadiantChestPreview {
             val chestClaimedToday = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)
@@ -1643,7 +1652,10 @@ class FirebaseRadiantRepository(
         // ranks and Cup data are enrichment and may hydrate afterward without blocking
         // the whole product shell.
         val fallbackCompletedIds = profileFallbackCompletedIds()
-        val fallbackQuests = questState(fallbackCompletedIds)
+        val fallbackQuests = questState(
+            completedIds = fallbackCompletedIds,
+            completionHistoryLoaded = false,
+        )
         onState(
             RushUiState(
                 firebaseStatus = FirebaseStatus.Ready,
@@ -1670,7 +1682,10 @@ class FirebaseRadiantRepository(
             completedIds: Set<String>,
             questWarning: String? = null,
         ) {
-            val quests = questState(completedIds)
+            val quests = questState(
+                completedIds = completedIds,
+                completionHistoryLoaded = true,
+            )
             val radiantChest = chestState(completedIds, quests)
             val badges = badgeState(user, completedIds)
 
@@ -1786,6 +1801,25 @@ class FirebaseRadiantRepository(
                 val completedIds = profileFallbackCompletedIds().apply {
                     addAll(completedQuery.documents.mapNotNull { it.getString("questId") })
                 }
+
+                // Older profiles created before the stable-refresh fix may have a valid daily
+                // check-in receipt but no profile-level fallback marker. Backfill the marker once
+                // so later profile-first refreshes can render Done immediately without a CTA flash.
+                if (
+                    completedIds.contains(QuestIds.DAILY_CHECK_IN) &&
+                    userSnapshot.getString("lastDailyCheckInDate") != today
+                ) {
+                    db.collection(USERS)
+                        .document(uid)
+                        .set(
+                            mapOf(
+                                "lastDailyCheckInDate" to today,
+                                "updatedAt" to FieldValue.serverTimestamp(),
+                            ),
+                            SetOptions.merge(),
+                        )
+                }
+
                 continueBackgroundHydration(completedIds)
             }
             .addOnFailureListener { error ->

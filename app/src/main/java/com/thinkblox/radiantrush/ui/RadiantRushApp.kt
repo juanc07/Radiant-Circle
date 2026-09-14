@@ -42,6 +42,7 @@ import com.thinkblox.radiantrush.solana.WalletConnectResult
 import com.thinkblox.radiantrush.solana.WalletDisconnectResult
 import com.thinkblox.radiantrush.solana.WalletMemoProofResult
 import com.thinkblox.radiantrush.solana.WalletSignedProofResult
+import com.thinkblox.radiantrush.logic.DailyPlanRefreshRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveNavLabel
@@ -155,18 +156,36 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
 
     fun applyRepositoryState(nextState: RushUiState, activeQuestId: String? = null) {
-        val keepActionLocked = nextState.firebaseStatus == FirebaseStatus.Loading
-        appState = if (keepActionLocked && activeQuestId != null) {
-            appState.copy(
-                firebaseStatus = nextState.firebaseStatus,
+        // Repository operations can emit a lightweight Loading state before the real profile.
+        // Never replace an already-usable screen with preview/default data during that step.
+        if (
+            nextState.firebaseStatus == FirebaseStatus.Loading &&
+            appState.firebaseStatus == FirebaseStatus.Ready
+        ) {
+            appState = appState.copy(
+                firebaseStatus = FirebaseStatus.Ready,
+                backgroundSyncInProgress = true,
                 lastMessage = nextState.lastMessage,
-                walletActionInProgress = true,
-                activeQuestId = activeQuestId,
-                quests = questsWithStatus(activeQuestId, QuestStatus.Syncing),
+                walletActionInProgress = activeQuestId != null || appState.walletActionInProgress,
+                activeQuestId = activeQuestId ?: appState.activeQuestId,
+                quests = if (activeQuestId != null) {
+                    questsWithStatus(activeQuestId, QuestStatus.Syncing)
+                } else {
+                    appState.quests
+                },
             )
-        } else {
-            nextState.copy(walletActionInProgress = false, activeQuestId = null)
+            return
         }
+
+        val stabilized = DailyPlanRefreshRules.stabilize(appState, nextState)
+        val activeQuestStillSyncing = activeQuestId != null &&
+            stabilized.quests.firstOrNull { it.id == activeQuestId }?.status == QuestStatus.Syncing
+        val keepActionLocked = activeQuestStillSyncing && stabilized.backgroundSyncInProgress
+
+        appState = stabilized.copy(
+            walletActionInProgress = keepActionLocked,
+            activeQuestId = activeQuestId.takeIf { keepActionLocked },
+        )
     }
 
     fun refreshFirebase() {
@@ -181,17 +200,17 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
         repository.bootstrap { nextState ->
             if (requestGeneration == firebaseRefreshGeneration) {
-                appState = if (
+                if (
                     nextState.firebaseStatus == FirebaseStatus.Loading &&
                     stateBeforeRefresh.firebaseStatus == FirebaseStatus.Ready
                 ) {
-                    stateBeforeRefresh.copy(
+                    appState = DailyPlanRefreshRules.stabilize(appState, stateBeforeRefresh).copy(
                         firebaseStatus = FirebaseStatus.Ready,
                         backgroundSyncInProgress = true,
                         lastMessage = "Refreshing in background…",
                     )
                 } else {
-                    nextState.copy(walletActionInProgress = false, activeQuestId = null)
+                    applyRepositoryState(nextState)
                 }
             }
         }
@@ -271,15 +290,13 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             when (val result = walletRepository.disconnectWallet()) {
                 WalletDisconnectResult.Disconnected -> {
                     repository.clearWalletConnection { nextState ->
-                        appState = nextState.copy(walletActionInProgress = false, activeQuestId = null)
+                        applyRepositoryState(nextState)
                     }
                 }
                 WalletDisconnectResult.NoWalletFound -> {
                     repository.clearWalletConnection { nextState ->
-                        appState = nextState.copy(
-                            walletActionInProgress = false,
-                            activeQuestId = null,
-                            lastMessage = "Wallet disconnected from Radiant Circle.",
+                        applyRepositoryState(
+                            nextState.copy(lastMessage = "Wallet disconnected from Radiant Circle."),
                         )
                     }
                 }
