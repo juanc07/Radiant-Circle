@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.ConfirmationNumber
 import androidx.compose.material.icons.filled.PlayArrow
@@ -27,6 +28,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,6 +50,9 @@ import androidx.compose.ui.platform.testTag
 fun RadiantRunLauncherCard(
     run: RadiantRunPreview,
     enabled: Boolean,
+    walletConnected: Boolean,
+    cupRunning: Boolean,
+    onConnectWallet: () -> Unit,
     onPlay: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
@@ -129,31 +134,125 @@ fun RadiantRunLauncherCard(
                     )
                 }
 
-                Button(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = responsive.buttonHeight)
-                        .testTag(UiTestTags.RADIANT_RUN_PLAY),
-                    enabled = enabled && run.canPlay,
-                    shape = RoundedCornerShape(18.dp),
-                    onClick = onPlay,
-                ) {
-                    Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.size(8.dp))
-                    AdaptiveButtonText(
-                        text = if (run.canPlay) "Play • 1 Ticket" else "Earn a Rush Ticket",
-                        compactText = if (run.canPlay) "Play • 1 Ticket" else "Earn Ticket",
-                        tinyText = if (run.canPlay) "Play • 1" else "No Ticket",
-                    )
+                if (cupRunning && !walletConnected) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.82f),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Surface(
+                                modifier = Modifier.size(34.dp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Filled.AccountBalanceWallet,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    )
+                                }
+                            }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(1.dp),
+                            ) {
+                                Text(
+                                    text = "Cup live • wallet needed for Ranked",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                                Text(
+                                    text = "You can still play Casual, but it won’t count in the Cup.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight),
+                        enabled = enabled,
+                        shape = RoundedCornerShape(18.dp),
+                        onClick = onConnectWallet,
+                    ) {
+                        Icon(imageVector = Icons.Filled.AccountBalanceWallet, contentDescription = null)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        AdaptiveButtonText(
+                            text = "Connect Wallet for Cup",
+                            compactText = "Connect Wallet",
+                            tinyText = "Connect",
+                        )
+                    }
+
+                    OutlinedButton(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight)
+                            .testTag(UiTestTags.RADIANT_RUN_PLAY),
+                        enabled = enabled && run.canPlay,
+                        shape = RoundedCornerShape(18.dp),
+                        onClick = onPlay,
+                    ) {
+                        Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        AdaptiveButtonText(
+                            text = if (run.canPlay) "Play Casual • Won’t Count" else "Earn a Rush Ticket",
+                            compactText = if (run.canPlay) "Play Casual" else "Earn Ticket",
+                            tinyText = if (run.canPlay) "Casual" else "No Ticket",
+                        )
+                    }
+                } else {
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight)
+                            .testTag(UiTestTags.RADIANT_RUN_PLAY),
+                        enabled = enabled && run.canPlay,
+                        shape = RoundedCornerShape(18.dp),
+                        onClick = onPlay,
+                    ) {
+                        Icon(imageVector = Icons.Filled.PlayArrow, contentDescription = null)
+                        Spacer(modifier = Modifier.size(8.dp))
+                        AdaptiveButtonText(
+                            text = when {
+                                !run.canPlay -> "Earn a Rush Ticket"
+                                !walletConnected -> "Play Casual • 1 Ticket"
+                                else -> "Play • 1 Ticket"
+                            },
+                            compactText = when {
+                                !run.canPlay -> "Earn Ticket"
+                                !walletConnected -> "Play Casual"
+                                else -> "Play • 1 Ticket"
+                            },
+                            tinyText = when {
+                                !run.canPlay -> "No Ticket"
+                                !walletConnected -> "Casual"
+                                else -> "Play • 1"
+                            },
+                        )
+                    }
                 }
 
                 Text(
-                    text = if (run.skrCasualRushTickets > 0) {
-                        "${run.rushTickets} Ranked-ready • ${run.skrCasualRushTickets} SKR Casual"
-                    } else {
-                        "Earn more Rush Tickets from quests and your Daily Chest."
+                    text = when {
+                        !walletConnected && !cupRunning ->
+                            "Casual now • connect a wallet anytime to unlock Ranked"
+                        run.skrCasualRushTickets > 0 ->
+                            "${run.rushTickets} standard • ${run.skrCasualRushTickets} SKR Casual"
+                        else ->
+                            "Rush Tickets come from quests and the Daily Chest"
                     },
-                    style = MaterialTheme.typography.bodySmall,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }

@@ -108,3 +108,22 @@ test("Phase 12B refuses prize changes after Phase 12C evidence exists", () => {
     /tied to the existing prize/,
   );
 });
+
+
+test("Phase 12B cannot reopen or mutate a Phase 12D finalized Cup", () => {
+  assert.throws(
+    () => assertSafeExistingConfig({
+      schemaVersion: 2,
+      finalizationStatus: "FINALIZED",
+      trustedResultAuthority: "trusted-admin-phase12d",
+      trustedResultRef: "weeklyCupResults/2026-W37",
+      payoutEnabled: false,
+    }, {
+      prizeMint: OFFICIAL_SKR_MINT,
+      prizeDecimals: 6,
+      prizeAmountAtomic: "1000000000",
+      fundingWalletAddress: null,
+    }),
+    /finalized results are immutable/,
+  );
+});

@@ -14,7 +14,13 @@ import {
 } from './cleanup-classification.mjs';
 
 const DEFAULT_PROJECT = 'radiant-rush-10a9c';
-const PROTECTED_ROOT_COLLECTIONS = new Set(['competitionRunSubmissions', 'weeklyCupConfigs']);
+const PROTECTED_ROOT_COLLECTIONS = new Set([
+  'competitionRunSubmissions',
+  'competitionRunVerifications',
+  'weeklyCupConfigs',
+  'weeklyCupFundingChecks',
+  'weeklyCupResults',
+]);
 
 function parseArgs(argv) {
   const options = {
@@ -345,7 +351,7 @@ async function main() {
 
   console.log(`\nCleanup complete: ${firestoreCompleted} Firestore paths recursively deleted.`);
   console.log(`Firebase Auth deleted: ${authResult.successCount}; failed: ${authResult.failureCount}.`);
-  console.log('Protected competitionRunSubmissions and weeklyCupConfigs were not touched.');
+  console.log('Protected Phase 12 competition/config/funding/result collections were not touched.');
   if (authResult.failureCount > 0) process.exitCode = 1;
 }
 

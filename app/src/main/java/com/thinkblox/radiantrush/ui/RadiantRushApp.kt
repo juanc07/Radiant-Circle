@@ -74,6 +74,11 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     // across Activity recreation/process restoration; restoring only the route can reopen a
     // half-reset run and also makes device tests depend on whatever screen was previously open.
     var showRadiantRun by remember { mutableStateOf(false) }
+    // Keep shell navigation outside RadiantRushShell so entering the full-screen game
+    // does not dispose and recreate the selected tab as Home on return.
+    var shellDestination by rememberSaveable { mutableStateOf(AppDestination.Home) }
+    var todayReturnToRushRequest by rememberSaveable { mutableStateOf(0) }
+    var firebaseRefreshGeneration by remember { mutableStateOf(0) }
 
     fun questsWithStatus(questId: String, status: QuestStatus): List<QuestPreview> =
         appState.quests.map { quest ->
@@ -105,6 +110,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             return false
         }
 
+        firebaseRefreshGeneration += 1
         appState = appState.copy(
             walletActionInProgress = true,
             activeQuestId = QuestIds.DAILY_RADIANT_CHEST,
@@ -125,6 +131,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             return false
         }
 
+        firebaseRefreshGeneration += 1
         appState = appState.copy(
             walletActionInProgress = true,
             activeQuestId = questId,
@@ -167,9 +174,33 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             appState = appState.copy(lastMessage = "Please wait for the current action to finish.")
             return
         }
+
+        val requestGeneration = firebaseRefreshGeneration + 1
+        firebaseRefreshGeneration = requestGeneration
+        val stateBeforeRefresh = appState
+
         repository.bootstrap { nextState ->
-            appState = nextState.copy(walletActionInProgress = false, activeQuestId = null)
+            if (requestGeneration == firebaseRefreshGeneration) {
+                appState = if (
+                    nextState.firebaseStatus == FirebaseStatus.Loading &&
+                    stateBeforeRefresh.firebaseStatus == FirebaseStatus.Ready
+                ) {
+                    stateBeforeRefresh.copy(
+                        firebaseStatus = FirebaseStatus.Ready,
+                        backgroundSyncInProgress = true,
+                        lastMessage = "Refreshing in background…",
+                    )
+                } else {
+                    nextState.copy(walletActionInProgress = false, activeQuestId = null)
+                }
+            }
         }
+
+        // Do not manufacture a sync failure from a local timer. Firestore/Auth already
+        // report real failures through their listeners. The previous watchdog could fire
+        // while a legitimate read was still in flight, which made Home show a false error
+        // and disabled wallet entry. Core profile readiness is now emitted as soon as the
+        // profile document loads; secondary quest/rank/Cup hydration continues quietly.
     }
 
     fun savePublicProfile(displayName: String, avatarId: String) {
@@ -177,6 +208,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             appState = appState.copy(lastMessage = "Please wait for the current action to finish.")
             return
         }
+        firebaseRefreshGeneration += 1
         appState = appState.copy(
             walletActionInProgress = true,
             lastMessage = "Saving your public profile…",
@@ -228,6 +260,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             appState = appState.copy(lastMessage = "Please wait for the current action to finish.")
             return
         }
+        firebaseRefreshGeneration += 1
         appState = appState.copy(
             walletActionInProgress = true,
             activeQuestId = null,
@@ -396,6 +429,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             return
         }
 
+        firebaseRefreshGeneration += 1
         appState = appState.copy(
             walletActionInProgress = true,
             activeQuestId = QuestIds.RADIANT_RUN,
@@ -452,10 +486,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
     if (!enteredShell) {
         WelcomeScreen(
-            uiState = appState,
             onEnterDemoShell = { enteredShell = true },
-            onRetryFirebase = ::refreshFirebase,
-            onConnectWallet = ::connectWallet,
         )
         return
     }
@@ -466,6 +497,10 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             onSubmitResult = ::completeRadiantRun,
             onExit = {
                 if (!appState.walletActionInProgress) {
+                    // Radiant Rush is launched from Today. Return the player to the
+                    // Rush section instead of dropping them at Home and breaking replay flow.
+                    shellDestination = AppDestination.Quests
+                    todayReturnToRushRequest += 1
                     showRadiantRun = false
                 }
             },
@@ -475,6 +510,10 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
     RadiantRushShell(
         uiState = appState,
+        destination = shellDestination,
+        onDestinationChange = { shellDestination = it },
+        todayReturnToRushRequest = todayReturnToRushRequest,
+        onTodayReturnToRushHandled = { todayReturnToRushRequest = 0 },
         onRetryFirebase = ::refreshFirebase,
         onCompleteQuest = ::completeQuest,
         onConnectWallet = ::connectWallet,
@@ -495,6 +534,10 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 @Composable
 private fun RadiantRushShell(
     uiState: RushUiState,
+    destination: AppDestination,
+    onDestinationChange: (AppDestination) -> Unit,
+    todayReturnToRushRequest: Int,
+    onTodayReturnToRushHandled: () -> Unit,
     onRetryFirebase: () -> Unit,
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
@@ -503,7 +546,6 @@ private fun RadiantRushShell(
     onClaimRadiantChest: () -> Unit,
     onPlayRadiantRun: () -> Unit,
 ) {
-    var destination by rememberSaveable { mutableStateOf(AppDestination.Home) }
     val responsive = rememberResponsiveUiSpec()
 
     Scaffold(
@@ -513,7 +555,7 @@ private fun RadiantRushShell(
                     Text(
                         text = when (destination) {
                             AppDestination.Home -> "Radiant Circle"
-                            AppDestination.Quests -> "Quests"
+                            AppDestination.Quests -> "Daily Plan"
                             AppDestination.Badges -> "Badges"
                             AppDestination.Leaderboard -> "Ranks"
                             AppDestination.Profile -> "Profile"
@@ -545,7 +587,7 @@ private fun RadiantRushShell(
                             },
                         ),
                         selected = destination == item,
-                        onClick = { destination = item },
+                        onClick = { onDestinationChange(item) },
                         alwaysShowLabel = !responsive.isCompact && !responsive.hasLargeText,
                         icon = {
                             Icon(
@@ -557,8 +599,8 @@ private fun RadiantRushShell(
                             AdaptiveNavLabel(
                                 text = item.label,
                                 compactText = when (item) {
-                                    AppDestination.Home -> "Today"
-                                    AppDestination.Quests -> "Quest"
+                                    AppDestination.Home -> "Home"
+                                    AppDestination.Quests -> "Today"
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Ranks"
                                     AppDestination.Profile -> "Me"
@@ -566,7 +608,7 @@ private fun RadiantRushShell(
                                 },
                                 tinyText = when (item) {
                                     AppDestination.Home -> "Home"
-                                    AppDestination.Quests -> "Quest"
+                                    AppDestination.Quests -> "Today"
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Rank"
                                     AppDestination.Profile -> "Me"
@@ -601,6 +643,9 @@ private fun RadiantRushShell(
                 onSavePublicProfile = onSavePublicProfile,
                 onClaimRadiantChest = onClaimRadiantChest,
                 onPlayRadiantRun = onPlayRadiantRun,
+                returnToRushRequest = todayReturnToRushRequest,
+                onReturnToRushHandled = onTodayReturnToRushHandled,
+                onNavigate = onDestinationChange,
             )
         }
     }
@@ -618,17 +663,29 @@ private fun ScreenContent(
     onSavePublicProfile: (String, String) -> Unit,
     onClaimRadiantChest: () -> Unit,
     onPlayRadiantRun: () -> Unit,
+    returnToRushRequest: Int,
+    onReturnToRushHandled: () -> Unit,
+    onNavigate: (AppDestination) -> Unit,
 ) {
     when (destination) {
         AppDestination.Home -> HomeScreen(
             contentPadding = contentPadding,
             uiState = uiState,
+            onRetryFirebase = onRetryFirebase,
+            onConnectWallet = onConnectWallet,
+            onOpenToday = { onNavigate(AppDestination.Quests) },
+        )
+        AppDestination.Quests -> QuestsScreen(
+            contentPadding = contentPadding,
+            uiState = uiState,
+            onRetryFirebase = onRetryFirebase,
             onCompleteQuest = onCompleteQuest,
             onConnectWallet = onConnectWallet,
             onClaimRadiantChest = onClaimRadiantChest,
             onPlayRadiantRun = onPlayRadiantRun,
+            returnToRushRequest = returnToRushRequest,
+            onReturnToRushHandled = onReturnToRushHandled,
         )
-        AppDestination.Quests -> QuestsScreen(contentPadding, uiState, onCompleteQuest)
         AppDestination.Badges -> BadgesScreen(contentPadding, uiState.badges)
         AppDestination.Leaderboard -> LeaderboardScreen(contentPadding, uiState)
         AppDestination.Profile -> ProfileScreen(

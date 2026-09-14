@@ -1,196 +1,217 @@
 package com.thinkblox.radiantrush.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBalanceWallet
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.R
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
-import com.thinkblox.radiantrush.ui.components.GradientHeroCard
-import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 
+/**
+ * Quiet launch foyer for Radiant Circle.
+ *
+ * Keep the first impression deliberately sparse: brand, one short promise,
+ * and one clear action. Product/dashboard information belongs behind Enter.
+ */
 @Composable
 fun WelcomeScreen(
-    uiState: RushUiState,
     onEnterDemoShell: () -> Unit,
-    onRetryFirebase: () -> Unit,
-    onConnectWallet: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val logoSize = when {
+        responsive.isTiny -> 152.dp
+        responsive.isCompact -> 176.dp
+        else -> 196.dp
+    }
 
-    Column(
+    val entranceAlpha = remember { Animatable(0f) }
+    val entranceOffset = remember { Animatable(18f) }
+    val infiniteTransition = rememberInfiniteTransition(label = "radiantEntrance")
+    val glowPulse by infiniteTransition.animateFloat(
+        initialValue = 0.72f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2600, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "logoGlowPulse",
+    )
+    val logoBreath by infiniteTransition.animateFloat(
+        initialValue = 0.992f,
+        targetValue = 1.018f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 3200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "logoBreath",
+    )
+    val buttonBreath by infiniteTransition.animateFloat(
+        initialValue = 0.985f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 2200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "buttonBreath",
+    )
+
+    LaunchedEffect(Unit) {
+        entranceAlpha.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+        )
+        entranceOffset.animateTo(
+            targetValue = 0f,
+            animationSpec = tween(durationMillis = 650, easing = FastOutSlowInEasing),
+        )
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        MaterialTheme.colorScheme.background,
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.055f),
+                        MaterialTheme.colorScheme.background,
+                    ),
+                ),
+            )
             .statusBarsPadding()
             .navigationBarsPadding()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = responsive.screenPadding, vertical = 18.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+            .padding(
+                horizontal = responsive.screenPadding,
+                vertical = if (responsive.isTiny) 18.dp else 28.dp,
+            ),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 14.dp else 20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Surface(
-                    modifier = Modifier.size(46.dp),
+        // Soft ambient radiance behind the logo. It deliberately stays subtle
+        // so the transparent artwork remains the visual focus.
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .offset(y = if (responsive.isTiny) (-18).dp else (-28).dp)
+                .size(logoSize * 1.55f)
+                .scale(glowPulse)
+                .alpha(0.30f * glowPulse)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.58f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                            MaterialTheme.colorScheme.background.copy(alpha = 0f),
+                        ),
+                    ),
                     shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primary,
-                ) {
-                    Icon(
-                        modifier = Modifier.padding(11.dp),
-                        imageVector = Icons.Filled.Bolt,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                    )
-                }
-                Column {
-                    Text("Radiant Circle", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        "Daily quests • skill runs • SKR perks",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
+                ),
+        )
 
-            GradientHeroCard(
-                title = "Quest. Run. Rise.",
-                subtitle = "Complete daily quests, earn Rush Tickets, climb the ranks, and grow your Radiant collection.",
-                trailing = {
-                    Box(contentAlignment = Alignment.Center) {
-                        Surface(
-                            modifier = Modifier.size(78.dp),
-                            shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondary,
-                        ) {
-                            Icon(
-                                modifier = Modifier.padding(18.dp),
-                                imageVector = Icons.Filled.PhoneAndroid,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSecondary,
-                            )
-                        }
-                    }
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .graphicsLayer {
+                    alpha = entranceAlpha.value
+                    translationY = entranceOffset.value
                 },
-            )
-
-            SyncStatusCard(
-                status = uiState.firebaseStatus,
-                message = uiState.lastMessage,
-                onRetry = onRetryFirebase,
-            )
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
             ) {
-                Column(
+                Image(
+                    painter = painterResource(R.drawable.radiant_circle),
+                    contentDescription = "Radiant Circle logo",
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(responsive.cardPadding),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Text("Today’s loop", style = MaterialTheme.typography.titleLarge)
-                    WelcomeBullet("Finish daily quests")
-                    WelcomeBullet("Earn Rush Tickets")
-                    WelcomeBullet("Play a 20-second Radiant Rush")
-                    WelcomeBullet("Open your Daily Radiant Chest")
-                    WelcomeBullet("Grow your SKR Passport and collection")
-                }
-            }
-        }
+                        .size(logoSize)
+                        .scale(logoBreath),
+                )
 
-        Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.size(if (responsive.isTiny) 18.dp else 24.dp))
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = responsive.buttonHeight)
-                    .testTag(UiTestTags.WELCOME_OPEN_RUSH),
-                shape = RoundedCornerShape(18.dp),
-                contentPadding = PaddingValues(horizontal = responsive.buttonHorizontalPadding, vertical = 8.dp),
-                onClick = onEnterDemoShell,
-            ) {
-                AdaptiveButtonText("Open Radiant Circle", compactText = "Open Circle", tinyText = "Open")
-            }
-            OutlinedButton(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = responsive.buttonHeight)
-                    .testTag(UiTestTags.WELCOME_CONNECT_WALLET),
-                shape = RoundedCornerShape(18.dp),
-                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && !uiState.isWalletConnected,
-                onClick = onConnectWallet,
-            ) {
-                Icon(Icons.Filled.AccountBalanceWallet, contentDescription = null)
-                Spacer(modifier = Modifier.size(8.dp))
-                AdaptiveButtonText(
-                    when {
-                        uiState.walletActionInProgress -> "Opening Wallet…"
-                        uiState.isWalletConnected -> "Wallet Connected"
-                        else -> "Connect Wallet"
+                Text(
+                    text = "Radiant Circle",
+                    style = if (responsive.isTiny) {
+                        MaterialTheme.typography.headlineMedium
+                    } else {
+                        MaterialTheme.typography.displaySmall
                     },
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+
+                Spacer(modifier = Modifier.size(8.dp))
+
+                Text(
+                    text = "Connect. Play. Radiate.",
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
-    }
-}
 
-@Composable
-private fun WelcomeBullet(text: String) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        Text(
-            text = "•",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            modifier = Modifier.weight(1f),
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        Button(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .heightIn(min = responsive.buttonHeight)
+                .scale(buttonBreath)
+                .testTag(UiTestTags.WELCOME_OPEN_RUSH),
+            shape = RoundedCornerShape(22.dp),
+            contentPadding = PaddingValues(
+                horizontal = responsive.buttonHorizontalPadding,
+                vertical = 10.dp,
+            ),
+            onClick = onEnterDemoShell,
+        ) {
+            AdaptiveButtonText(
+                text = "Enter Radiant Circle",
+                compactText = "Enter Circle",
+                tinyText = "Enter",
+            )
+        }
     }
 }

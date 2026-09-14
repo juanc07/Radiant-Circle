@@ -547,7 +547,7 @@ Android must not be able to:
 - set winners
 - enable payout
 
-### Phase 12C — CURRENT
+### Phase 12C — COMPLETE
 ## SKR Funding Verification
 
 Goal:
@@ -571,31 +571,29 @@ Possible states:
 - VERIFIED
 - REJECTED
 
-### Phase 12D
+### Phase 12D — IMPLEMENTED, LIVE PROOF PENDING
 ## Trusted Season Close + Winners
 
 Goal:
 Close the Weekly Cup using trusted logic.
 
-Requirements:
-- Cup transitions to CLOSED
-- collect eligible receipts
-- only VERIFIED receipts can become trusted placement candidates
-- deterministic winner ranking
-- immutable winner snapshot
-- preserve evidence used to select winners
-- Android cannot close the season
-- Android cannot select winners
+Implemented contract:
+- Phase 12C audit confirmed no existing trusted run-promotion mechanism, so raw client `UNVERIFIED` receipts are never treated as trusted winners
+- explicit Admin-only manual independent-evidence attestation prerequisite for each receipt
+- immutable `competitionRunVerifications/{receiptId}` decision required in addition to promoted receipt fields
+- Cup closes only from `OPEN` and only after configured `endsAt`
+- only exact Phase 12D `VERIFIED` + `trustedPlacementEligible=true` receipts with matching audit evidence can rank
+- exact full-wallet dedupe using the best eligible run
+- deterministic existing tiebreak order: score, max combo, PERFECT hits, earlier completion, receipt id
+- exact integer placement allocation
+- immutable/frozen eligible snapshot and winner records under `weeklyCupResults/{weekKey}`
+- duplicate finalization refused; Phase 12B cannot reopen/mutate a finalized Cup
+- transactional input re-read + snapshot digest comparison before write
+- Android reads validated winner records only and cannot close/select/write winners
+- Phase 12C funding state is snapshotted independently; `NOT_VERIFIED` may freeze competition results but never becomes payout-ready
+- `payoutEnabled=false`, `payoutReady=false`, no SKR transfer
 
-Output concept:
-`weeklyCupResults/{weekKey}`
-
-Fields:
-- winner snapshot
-- ranked verified receipt references
-- close timestamp
-- close authority
-- payout readiness state
+Live Firestore/admin/device proof is still required before commit/tag.
 
 ### STOP AND ASSESS
 After 12D:

@@ -134,6 +134,11 @@ export function assertSafeExistingConfig(existing, proposed = null) {
   if (existing.payoutEnabled === true) {
     throw new Error("Existing config has payoutEnabled=true. Refusing to overwrite trusted payout state.");
   }
+  if (String(existing.finalizationStatus ?? "").toUpperCase() === "FINALIZED" ||
+      String(existing.trustedResultAuthority ?? "").trim() === "trusted-admin-phase12d" ||
+      String(existing.trustedResultRef ?? "").trim()) {
+    throw new Error("Cup has Phase 12D finalization evidence. Trusted finalized results are immutable.");
+  }
 
   const hasPhase12cEvidence =
     String(existing.fundingVerificationAuthority ?? "").trim() === "trusted-admin-phase12c" ||

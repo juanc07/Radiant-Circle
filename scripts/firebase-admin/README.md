@@ -1,13 +1,16 @@
 # Radiant Circle Firebase Admin Tools
 
-Developer-only Firebase Admin utilities for safe development-data cleanup, trusted Weekly Radiant Cup configuration, and trusted Phase 12C SKR funding verification. Android never receives Admin credentials.
+Developer-only Firebase Admin utilities for safe development-data cleanup, trusted Weekly Radiant Cup configuration, Phase 12C SKR funding verification, and Phase 12D trusted run attestation / Cup finalization. Android never receives Admin credentials.
 
 ## Protected collections
 
 The tool never scans or deletes:
 
 - `competitionRunSubmissions/*`
+- `competitionRunVerifications/*`
 - `weeklyCupConfigs/*`
+- `weeklyCupFundingChecks/*`
+- `weeklyCupResults/*`
 
 ## Install and test
 
@@ -158,3 +161,86 @@ Applied verification:
 The verifier refuses to silently switch an already configured funding wallet. To intentionally verify a replacement wallet, add `--replace-funding-wallet` and review the dry run carefully.
 
 After Phase 12C evidence exists, `manage-weekly-cup.mjs` may still update safe presentation/status fields, but it preserves the evidence and refuses prize or funding-wallet changes that would invalidate the trusted check.
+
+
+## Phase 12D trusted run attestation prerequisite
+
+Phase 12C does **not** contain a trusted game-run verifier. Android receipts start `UNVERIFIED` and are not winner authority. Phase 12D therefore fails closed unless an operator has independently checked a run and attested the exact receipt facts through `verify-competition-run.mjs`.
+
+Live W37 proof (2026-09-14): five receipts resolved to only two distinct wallets and none had a trusted Phase 12D verification. After Cup end, `finalize-weekly-cup.mjs` correctly refused to invent winners. That refusal is expected and must not be bypassed.
+
+The verifier is dry-run by default and requires an evidence reference plus the independently checked wallet, score, combo, hit counts, and completion time. A VERIFIED apply updates the receipt to `trustedPlacementEligible=true` while keeping payout disabled, and creates the matching immutable Admin-only `competitionRunVerifications/{receiptId}` decision. Finalization requires **both** records to match.
+
+Dry-run example:
+
+```bash
+node verify-competition-run.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W37 \
+  --receipt "RECEIPT_ID" \
+  --decision VERIFIED \
+  --evidence-ref "device-capture-2026-w37-run-001" \
+  --wallet "PUBLIC_WALLET" \
+  --score 1234 \
+  --max-combo 20 \
+  --perfect-hits 10 \
+  --radiant-hits 30 \
+  --corrupted-hits 2 \
+  --completed-at-ms 1780000000000
+```
+
+Only after reviewing the exact dry-run result, repeat the same command with:
+
+```bash
+  --apply \
+  --confirm-project radiant-rush-10a9c
+```
+
+A rejected receipt uses `--decision REJECTED --evidence-ref ... --reason ...`; it can never become placement eligible. Trusted decisions are immutable through this tool.
+
+## Phase 12D trusted Weekly Cup finalization
+
+`finalize-weekly-cup.mjs` closes one OPEN Cup after its configured end. It loads the Cup, all same-week run receipts, and matching immutable verification decisions; accepts only the exact Phase 12D VERIFIED attestation contract; keeps the best eligible result per full wallet; applies the existing deterministic competition tiebreak order (`score`, `maxCombo`, `perfectHits`, earlier completion, receipt id); calculates the exact configured SKR split; and freezes the result.
+
+Dry-run:
+
+```bash
+node finalize-weekly-cup.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W37
+```
+
+Apply only after the dry run shows the intended trusted eligible set and winners:
+
+```bash
+node finalize-weekly-cup.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W37 \
+  --apply \
+  --confirm-project radiant-rush-10a9c
+```
+
+Applied finalization:
+
+- creates `weeklyCupResults/{weekKey}`,
+- freezes all trusted-eligible receipts under `weeklyCupResults/{weekKey}/eligibleReceipts/{receiptId}`,
+- creates public read-only `weeklyCupResults/{weekKey}/winners/{placement}` records,
+- marks the Cup `CLOSED` with the trusted result reference,
+- refuses duplicate finalization,
+- refuses to invent missing configured placements,
+- re-reads authoritative inputs inside the Firestore transaction and aborts if snapshot digests changed,
+- snapshots Phase 12C funding status honestly,
+- always keeps `payoutEnabled=false` / `payoutReady=false`,
+- never transfers SKR.
+
+`NOT_VERIFIED` funding does not prevent competitive result freeze, but it never becomes payout-ready.
+
+## Phase 12 operator runbook
+
+For the complete end-to-end command sequence used during live Phase 12 verification—including Git Bash credential setup, Cup inspection, receipt listing, independent run attestation, finalization, duplicate-close proof, and cleanup—see:
+
+```text
+docs/PHASE_12_ADMIN_OPERATOR_RUNBOOK.md
+```
+
+The runbook also documents the `stdin is not a tty` heredoc issue seen on some Git Bash setups and provides `node --input-type=module -e` read-only alternatives.

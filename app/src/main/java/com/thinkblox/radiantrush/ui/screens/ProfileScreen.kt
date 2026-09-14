@@ -1,6 +1,7 @@
 package com.thinkblox.radiantrush.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.padding
@@ -133,8 +135,8 @@ fun ProfileScreen(
 
         item {
             SectionTitle(
-                title = "Player profile",
-                body = "Your progress, Radiant Rush records, wallet, and SKR Passport.",
+                title = "Your Circle identity",
+                body = "Your public profile, wallet, Passport, progress, and game activity in one place.",
             )
         }
 
@@ -278,11 +280,14 @@ fun ProfileScreen(
             )
         }
         item {
-            ProfileInfoRow(
-                title = "Passport Cosmetics",
-                value = "${user.skrFrameLabel} • ${user.skrAuraLabel}",
-                helper = "Badge: ${user.skrHolderCollectibleLabel}",
-                icon = Icons.Filled.EmojiEvents,
+            PassportCosmeticPreviewCard(
+                avatarSymbol = profileAvatar.symbol,
+                tier = user.skrTier,
+                frameLabel = user.skrFrameLabel,
+                auraLabel = user.skrAuraLabel,
+                collectibleLabel = user.skrHolderCollectibleLabel,
+                hasHolderPerks = user.hasSkr,
+                stakeBoostActive = user.skrStakeBoostActive,
             )
         }
         item {
@@ -667,6 +672,165 @@ private fun AvatarPickerDialog(
                     onClick = onDismiss,
                 ) {
                     AdaptiveButtonText("Close")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PassportCosmeticPreviewCard(
+    avatarSymbol: String,
+    tier: String,
+    frameLabel: String,
+    auraLabel: String,
+    collectibleLabel: String,
+    hasHolderPerks: Boolean,
+    stakeBoostActive: Boolean,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    val auraColor = if (hasHolderPerks) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outlineVariant
+    val frameColor = if (hasHolderPerks) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.EmojiEvents,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Passport look",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "A visual preview of the cosmetics styling your Circle identity.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (responsive.isTiny) 190.dp else 220.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(if (responsive.isTiny) 156.dp else 180.dp)
+                        .background(auraColor.copy(alpha = if (hasHolderPerks) 0.16f else 0.06f), CircleShape)
+                        .border(
+                            width = if (hasHolderPerks) 3.dp else 1.dp,
+                            color = auraColor.copy(alpha = if (hasHolderPerks) 0.48f else 0.28f),
+                            shape = CircleShape,
+                        ),
+                )
+
+                Box(
+                    modifier = Modifier
+                        .size(if (responsive.isTiny) 128.dp else 146.dp)
+                        .border(
+                            width = if (hasHolderPerks) 5.dp else 2.dp,
+                            color = frameColor,
+                            shape = CircleShape,
+                        )
+                        .padding(8.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = avatarSymbol,
+                                style = MaterialTheme.typography.displaySmall,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+
+                if (frameLabel.contains("Crown", ignoreCase = true)) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = 4.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                    ) {
+                        Text(
+                            text = "♛",
+                            modifier = Modifier.padding(horizontal = 13.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    }
+                }
+
+                if (stakeBoostActive || auraLabel.contains("Guardian", ignoreCase = true)) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = if (responsive.isTiny) 30.dp else 52.dp, bottom = 12.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Security,
+                            contentDescription = "Guardian Glow",
+                            modifier = Modifier.padding(9.dp),
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                }
+            }
+
+            Text(
+                text = tier,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = "$frameLabel • $auraLabel",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+                softWrap = true,
+            )
+            if (hasHolderPerks && !collectibleLabel.startsWith("No ", ignoreCase = true)) {
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Text(
+                        text = collectibleLabel,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
                 }
             }
         }

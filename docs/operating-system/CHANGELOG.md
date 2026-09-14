@@ -1,3 +1,15 @@
+## 2026-09-13 — Phase 12D trusted season close + winners (implementation; live proof pending)
+
+- Audited Phase 12A–12C trust boundaries and confirmed there was no trusted run verifier/promotion path; raw Android `UNVERIFIED` receipts remain non-authoritative.
+- Added dry-run-by-default Admin-only run attestation requiring exact independently checked run facts and an evidence reference; writes an immutable `competitionRunVerifications/{receiptId}` decision while payout stays disabled.
+- Added trusted Cup finalization that requires matching verified receipt + immutable verification audit, dedupes by exact wallet, reuses the existing score/combo/PERFECT/earlier-completion/receipt-id tiebreak order, and calculates exact configured SKR allocations.
+- Added frozen `weeklyCupResults/{weekKey}` parent, Admin-only eligible-receipt snapshots, public read-only winner records, snapshot digests, duplicate-finalization refusal, and transactional input re-read.
+- Phase 12B tooling now refuses to reopen/mutate Phase 12D-finalized Cups; cleanup protection includes all Phase 12 trusted collections.
+- Android validates finalized result/winner schema read-only, labels the prototype board `Live standings`, and displays clean final-winner copy without trust/security jargon.
+- Phase 12C funding remains independent: `NOT_VERIFIED` can coexist with frozen competitive results but never means payout-ready. `payoutEnabled=false`; no SKR transfer exists.
+- Firebase Admin pure tests: 40/40 pass in patch environment. Full Gradle/device/rules/live Firestore proof still required before commit/tag.
+- Bumped Android version to `1.2.4-phase12d` (`versionCode 29`).
+
 ## 2026-09-13 — Phase 12C trusted SKR funding verification
 
 - Added trusted Firebase Admin `verify-weekly-cup-funding.mjs` with dry-run-by-default Mainnet verification.

@@ -70,6 +70,7 @@ import com.thinkblox.radiantrush.audio.ProceduralGameAudioEngine.Cue
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.logic.RadiantGameRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
+import com.thinkblox.radiantrush.logic.WalletFeatureAccessRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import kotlinx.coroutines.delay
@@ -471,10 +472,34 @@ private fun BriefingPanel(
     onExit: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val walletAccess = WalletFeatureAccessRules.radiantRushAccess(
+        walletConnected = uiState.isWalletConnected,
+        cupStatusCode = uiState.runCompetition.weeklyCup.cupStatusCode,
+        startsAtEpochMillis = uiState.runCompetition.weeklyCup.seasonStartsAtEpochMillis,
+        endsAtEpochMillis = uiState.runCompetition.weeklyCup.seasonEndsAtEpochMillis,
+    )
     val rankedWithStandardTicket = uiState.isWalletConnected &&
         uiState.runCompetition.rankedAttemptsRemaining > 0 &&
         uiState.radiantRun.rushTickets > 0
     val usesSkrCasualTicket = !rankedWithStandardTicket && uiState.radiantRun.skrCasualRushTickets > 0
+    val modeTitle = when {
+        !uiState.isWalletConnected -> "Casual"
+        rankedWithStandardTicket -> "Ranked"
+        else -> "Casual"
+    }
+    val modeDetail = when {
+        !uiState.isWalletConnected && walletAccess.cupRunning ->
+            "Cup live • this run won’t count without a wallet"
+        !uiState.isWalletConnected ->
+            "Connect a wallet from Home to unlock Ranked"
+        rankedWithStandardTicket ->
+            "1 standard ticket • ${uiState.runCompetition.rankedAttemptsRemaining}/3 attempts left"
+        uiState.runCompetition.rankedAttemptsRemaining > 0 && usesSkrCasualTicket ->
+            "SKR bonus ticket • Casual only"
+        else ->
+            "Daily Ranked attempts used • Casual only"
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -482,50 +507,55 @@ private fun BriefingPanel(
     ) {
         Column(
             modifier = Modifier.padding(responsive.cardPadding),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("20-second skill run", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "20-second skill run",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                )
+                Text(
+                    text = "Tap Radiant targets • avoid red • chain 5 for FEVER",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            RunModeSummary(
+                title = modeTitle,
+                detail = modeDetail,
+                cupRunning = walletAccess.cupRunning,
+                ranked = rankedWithStandardTicket,
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                RunQuickMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Best",
+                    value = uiState.radiantRun.bestScore.toString(),
+                )
+                RunQuickMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "Tickets",
+                    value = uiState.radiantRun.totalPlayableTickets.toString(),
+                )
+                RunQuickMetric(
+                    modifier = Modifier.weight(1f),
+                    label = "XP today",
+                    value = "${uiState.runCompetition.dailyGameplayXpEarned}/${uiState.runCompetition.dailyGameplayXpCap}",
+                )
+            }
+
             Text(
-                "Tap glowing Radiant targets. Aim for the center for PERFECT. Avoid red Corruption. Chain 5 hits for FEVER.",
-                style = MaterialTheme.typography.bodyLarge,
-            )
-            RunStatRow("Best score", uiState.radiantRun.bestScore.toString())
-            RunStatRow("Runs finished", uiState.radiantRun.totalRuns.toString())
-            RunStatRow("Collection", "${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal}")
-            RunStatRow(
-                "Tickets",
-                "${uiState.radiantRun.rushTickets} standard • ${uiState.radiantRun.skrCasualRushTickets} SKR casual",
-            )
-            RunStatRow(
-                "Entry",
-                when {
-                    rankedWithStandardTicket -> "1 standard Rush Ticket"
-                    usesSkrCasualTicket -> "1 SKR casual ticket"
-                    else -> "1 standard Rush Ticket"
-                },
-            )
-            RunStatRow(
-                "Competition",
-                when {
-                    !uiState.isWalletConnected ->
-                        "CASUAL • connect wallet to publish ranked score"
-                    rankedWithStandardTicket ->
-                        "RANKED • ${uiState.runCompetition.rankedAttemptsRemaining}/3 wallet attempts left"
-                    uiState.runCompetition.rankedAttemptsRemaining > 0 && usesSkrCasualTicket ->
-                        "CASUAL • SKR bonus tickets cannot fund ranked attempts"
-                    else ->
-                        "CASUAL • 3/3 ranked wallet attempts used today"
-                },
-            )
-            RunStatRow(
-                "Gameplay XP",
-                "${uiState.runCompetition.dailyGameplayXpEarned}/${uiState.runCompetition.dailyGameplayXpCap} today",
-            )
-            Text(
-                "SKR bonus tickets are Casual-only. Ranked runs stay skill-based.",
+                text = "Vault ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} • ${uiState.radiantRun.totalRuns} runs finished",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
             Button(
                 modifier = Modifier.fillMaxWidth().heightIn(min = responsive.buttonHeight),
                 enabled = uiState.isFirebaseReady && uiState.radiantRun.canPlay && !uiState.walletActionInProgress,
@@ -535,9 +565,22 @@ private fun BriefingPanel(
                 Icon(Icons.Filled.PlayArrow, contentDescription = null)
                 Spacer(Modifier.size(8.dp))
                 AdaptiveButtonText(
-                    if (uiState.radiantRun.canPlay) "Start Radiant Rush" else "Earn a Rush Ticket",
-                    compactText = if (uiState.radiantRun.canPlay) "Start Run" else "Earn Ticket",
-                    tinyText = if (uiState.radiantRun.canPlay) "Start" else "No Ticket",
+                    text = when {
+                        !uiState.radiantRun.canPlay -> "Earn a Rush Ticket"
+                        rankedWithStandardTicket -> "Start Ranked Run"
+                        !uiState.isWalletConnected -> "Start Casual Run"
+                        else -> "Start Casual Run"
+                    },
+                    compactText = when {
+                        !uiState.radiantRun.canPlay -> "Earn Ticket"
+                        rankedWithStandardTicket -> "Start Ranked"
+                        else -> "Start Casual"
+                    },
+                    tinyText = when {
+                        !uiState.radiantRun.canPlay -> "No Ticket"
+                        rankedWithStandardTicket -> "Ranked"
+                        else -> "Casual"
+                    },
                 )
             }
             OutlinedButton(
@@ -547,6 +590,97 @@ private fun BriefingPanel(
             ) {
                 AdaptiveButtonText("Back to Today", compactText = "Back", tinyText = "Back")
             }
+        }
+    }
+}
+
+@Composable
+private fun RunModeSummary(
+    title: String,
+    detail: String,
+    cupRunning: Boolean,
+    ranked: Boolean,
+) {
+    val container = when {
+        ranked -> MaterialTheme.colorScheme.primaryContainer
+        cupRunning -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
+    val content = when {
+        ranked -> MaterialTheme.colorScheme.onPrimaryContainer
+        cupRunning -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        color = container,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = content.copy(alpha = 0.12f),
+            ) {
+                Icon(
+                    imageVector = if (ranked) Icons.Filled.Bolt else Icons.Filled.ConfirmationNumber,
+                    contentDescription = null,
+                    tint = content,
+                    modifier = Modifier.padding(8.dp).size(18.dp),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = content,
+                )
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = content.copy(alpha = 0.82f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RunQuickMetric(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.ExtraBold,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
         }
     }
 }

@@ -184,6 +184,28 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Phase 12D manual-evidence run-verification audit records. Android cannot
+    // read or write these internal attestations; Admin SDK is the only writer.
+    match /competitionRunVerifications/{receiptId} {
+      allow read, write: if false;
+    }
+
+    // Phase 12D finalized Cup result summary and winner records are public read-only
+    // product data. The complete frozen eligible-receipt snapshot stays admin-only.
+    match /weeklyCupResults/{weekKey} {
+      allow read: if true;
+      allow write: if false;
+
+      match /winners/{placementId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      match /eligibleReceipts/{receiptId} {
+        allow read, write: if false;
+      }
+    }
+
     match /quests/{questId} {
       allow read: if true;
       allow write: if false;

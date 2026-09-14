@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import org.junit.Rule
@@ -43,7 +42,6 @@ class RadiantRushSmokeTest {
         if (hasTag(UiTestTags.WELCOME_OPEN_RUSH)) {
             composeRule
                 .onNodeWithTag(UiTestTags.WELCOME_OPEN_RUSH)
-                .performScrollTo()
                 .assertIsDisplayed()
                 .performClick()
         }
@@ -72,6 +70,6 @@ class RadiantRushSmokeTest {
 
         composeRule.onNodeWithTag(UiTestTags.NAV_DEMO).performClick()
         composeRule.onNodeWithTag(UiTestTags.DEMO_SCREEN).assertIsDisplayed()
-        composeRule.onNodeWithText("How to play", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Welcome to Radiant Circle", substring = true).assertIsDisplayed()
     }
 }

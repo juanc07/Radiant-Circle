@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -31,7 +32,12 @@ fun BadgesScreen(
         else -> 2
     }
 
-    val gridGap = if (responsive.isTiny) 8.dp else 12.dp
+    val gridGap = if (responsive.isTiny) 8.dp else 10.dp
+    val badgeHeight = when {
+        responsive.hasLargeText -> 242.dp
+        responsive.isTiny -> 214.dp
+        else -> 218.dp
+    }
 
     LazyVerticalGrid(
         modifier = Modifier.fillMaxSize(),
@@ -50,7 +56,9 @@ fun BadgesScreen(
             key = { badge -> badge.title },
         ) { badge ->
             BadgeMedallion(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(badgeHeight),
                 title = badge.title,
                 description = badge.description,
                 unlocked = badge.unlocked,

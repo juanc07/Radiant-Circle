@@ -24,6 +24,7 @@ import com.thinkblox.radiantrush.data.RetentionPreview
 import com.thinkblox.radiantrush.data.RunCompetitionPreview
 import com.thinkblox.radiantrush.data.RunLeaderboardPreview
 import com.thinkblox.radiantrush.data.WeeklyCupPreview
+import com.thinkblox.radiantrush.data.WeeklyCupWinnerPreview
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
@@ -34,6 +35,9 @@ import com.thinkblox.radiantrush.logic.GameplayXpAward
 import com.thinkblox.radiantrush.logic.Phase11CompetitionRules
 import com.thinkblox.radiantrush.logic.Phase12CompetitionVerificationRules
 import com.thinkblox.radiantrush.logic.Phase12WeeklyCupConfigRules
+import com.thinkblox.radiantrush.logic.Phase12WeeklyCupResultRules
+import com.thinkblox.radiantrush.logic.TrustedWeeklyCupResultState
+import com.thinkblox.radiantrush.logic.TrustedWeeklyCupWinnerInput
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.logic.RetentionRules
 import com.thinkblox.radiantrush.logic.RunCompetitionMode
@@ -1564,168 +1568,234 @@ class FirebaseRadiantRepository(
         message: String?,
     ) {
         val today = todayKey()
+        val currentWalletAddress = userSnapshot.getString("walletAddress")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+        val walletConnected = currentWalletAddress != null
+        val user = profileToUser(userSnapshot)
+        val collection = RadiantGameRules.collectionPreview(collectionCounts(userSnapshot))
+        val radiantRun = RadiantRunPreview(
+            rushTickets = user.rushTickets,
+            skrCasualRushTickets = user.skrCasualRushTickets,
+            bestScore = user.bestRunScore,
+            totalRuns = user.totalRuns,
+            lastScore = user.lastRunScore,
+            lastMaxCombo = user.lastRunMaxCombo,
+            lastRewardTitle = user.lastRunRewardTitle,
+            lastRewardRarity = user.lastRunRewardRarity,
+            lastRewardXp = user.lastRunRewardXp,
+            lastRewardShards = user.lastRunRewardShards,
+            radiantShards = user.radiantShards,
+            collectionOwned = collection.count { it.discovered },
+            collectionTotal = collection.size,
+        )
+
+        fun profileFallbackCompletedIds(): MutableSet<String> = mutableSetOf<String>().apply {
+            if (userSnapshot.getString("lastSignedProofDate") == today) {
+                add(QuestIds.SIGN_DAILY_PROOF)
+            }
+            if (userSnapshot.getString("lastOnChainProofDate") == today) {
+                add(QuestIds.ON_CHAIN_PROOF)
+            }
+            if (userSnapshot.getString("lastSkrCheckDate") == today) {
+                add(QuestIds.SKR_HOLDER)
+            }
+            if (userSnapshot.getString("lastChestClaimDate") == today) {
+                add(QuestIds.DAILY_RADIANT_CHEST)
+            }
+        }
+
+        fun questState(completedIds: Set<String>): List<QuestPreview> =
+            PreviewContent.quests.map { quest ->
+                when {
+                    completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
+                    quest.id == QuestIds.WALLET_CONNECT && walletConnected -> quest.copy(status = QuestStatus.Completed)
+                    quest.id == QuestIds.DAILY_CHECK_IN -> quest.copy(status = QuestStatus.Ready)
+                    quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
+                    quest.id == QuestIds.SIGN_DAILY_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                    quest.id == QuestIds.ON_CHAIN_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                    quest.id == QuestIds.SKR_HOLDER && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                    quest.id == QuestIds.SIGN_DAILY_PROOF -> quest.copy(status = QuestStatus.Blocked)
+                    quest.id == QuestIds.ON_CHAIN_PROOF -> quest.copy(status = QuestStatus.Blocked)
+                    quest.id == QuestIds.SKR_HOLDER -> quest.copy(status = QuestStatus.Blocked)
+                    else -> quest.copy(status = QuestStatus.Locked)
+                }
+            }
+
+        fun chestState(completedIds: Set<String>, quests: List<QuestPreview>): RadiantChestPreview {
+            val chestClaimedToday = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)
+            val questStatuses = quests.associate { it.id to it.status }
+            val chestReady = RewardLoopRules.canClaimDailyChest(
+                questStatuses = questStatuses,
+                alreadyClaimedToday = chestClaimedToday,
+            )
+            return radiantChestState(
+                user = user,
+                completedQuestCount = quests.count { it.status == QuestStatus.Completed },
+                totalQuestCount = quests.size,
+                chestReady = chestReady,
+                chestClaimedToday = chestClaimedToday,
+            )
+        }
+
+        // Phase 12D UX rule: the profile document is the critical bootstrap boundary.
+        // Once it is available the app, Home and MWA are usable. Daily quest history,
+        // ranks and Cup data are enrichment and may hydrate afterward without blocking
+        // the whole product shell.
+        val fallbackCompletedIds = profileFallbackCompletedIds()
+        val fallbackQuests = questState(fallbackCompletedIds)
+        onState(
+            RushUiState(
+                firebaseStatus = FirebaseStatus.Ready,
+                user = user,
+                quests = fallbackQuests,
+                radiantChest = chestState(fallbackCompletedIds, fallbackQuests),
+                radiantRun = radiantRun,
+                collection = collection,
+                badges = badgeState(user, fallbackCompletedIds),
+                leaderboard = emptyList(),
+                runCompetition = RunCompetitionPreview(),
+                retention = retentionState(
+                    user = user,
+                    radiantRun = radiantRun,
+                    competition = RunCompetitionPreview(),
+                ),
+                todayKey = today,
+                lastMessage = message,
+                backgroundSyncInProgress = true,
+            ),
+        )
+
+        fun continueBackgroundHydration(
+            completedIds: Set<String>,
+            questWarning: String? = null,
+        ) {
+            val quests = questState(completedIds)
+            val radiantChest = chestState(completedIds, quests)
+            val badges = badgeState(user, completedIds)
+
+            fun finishBackgroundHydration(
+                leaderboard: List<LeaderboardPreview>,
+                leaderboardWarning: String? = null,
+            ) {
+                loadRunCompetition(
+                    db = db,
+                    userSnapshot = userSnapshot,
+                    walletConnected = walletConnected,
+                ) { runCompetition, competitionWarning ->
+                    val retention = retentionState(
+                        user = user,
+                        radiantRun = radiantRun,
+                        competition = runCompetition,
+                    )
+                    val mergedMessage = listOfNotNull(
+                        message,
+                        questWarning,
+                        leaderboardWarning,
+                        competitionWarning,
+                    )
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ")
+                        .takeIf { it.isNotBlank() }
+                    onState(
+                        RushUiState(
+                            firebaseStatus = FirebaseStatus.Ready,
+                            user = user,
+                            quests = quests,
+                            radiantChest = radiantChest,
+                            radiantRun = radiantRun,
+                            collection = collection,
+                            badges = badges,
+                            leaderboard = leaderboard,
+                            runCompetition = runCompetition,
+                            retention = retention,
+                            todayKey = today,
+                            lastMessage = mergedMessage,
+                            backgroundSyncInProgress = false,
+                        ),
+                    )
+                }
+            }
+
+            db.collection(LEADERBOARD)
+                .orderBy("xp", Query.Direction.DESCENDING)
+                // Read more than the visible Top 20 so legacy duplicate anonymous
+                // UIDs cannot crowd unique wallets out of the ranking.
+                .limit(100)
+                .get()
+                .addOnSuccessListener { leaderboardQuery ->
+                    val uniqueWalletRows = LeaderboardRules.collapseByWallet(
+                        candidates = leaderboardQuery.documents.map { document ->
+                            LeaderboardCandidate(
+                                sourceId = document.id,
+                                displayName = document.getString("displayName") ?: "Radiant Rookie",
+                                walletAddress = document.getString("walletAddress"),
+                                walletAddressShort = document.getString("walletAddressShort"),
+                                xp = (document.getLong("xp") ?: 0L).toInt(),
+                                streak = (document.getLong("currentStreak") ?: 0L).toInt(),
+                                tier = document.getString("skrTier") ?: "Explorer",
+                                avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
+                                updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
+                            )
+                        },
+                        limit = 20,
+                    )
+                    val currentDisplayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+                    val currentAvatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
+                    val leaderboard = uniqueWalletRows.mapIndexed { index, row ->
+                        val isCurrentUser = currentWalletAddress != null &&
+                            row.walletAddress?.trim() == currentWalletAddress
+                        LeaderboardPreview(
+                            rank = index + 1,
+                            name = if (isCurrentUser) currentDisplayName else row.displayName,
+                            xp = row.xp,
+                            streak = row.streak,
+                            tier = row.tier,
+                            walletLabel = LeaderboardRules.walletLabel(row),
+                            avatarId = if (isCurrentUser) {
+                                currentAvatarId
+                            } else {
+                                PublicProfileRules.normalizeAvatarId(row.avatarId)
+                            },
+                            isCurrentUser = isCurrentUser,
+                        )
+                    }.ifEmpty {
+                        if (walletConnected) listOf(profileToLeaderboardRow(userSnapshot)) else emptyList()
+                    }
+                    finishBackgroundHydration(leaderboard)
+                }
+                .addOnFailureListener { error ->
+                    // Ranking is enrichment, not an app availability gate.
+                    finishBackgroundHydration(
+                        leaderboard = if (walletConnected) {
+                            listOf(profileToLeaderboardRow(userSnapshot))
+                        } else {
+                            emptyList()
+                        },
+                        leaderboardWarning = "Ranks are temporarily unavailable: ${safeMessage(error)}",
+                    )
+                }
+        }
+
         db.collection(USERS)
             .document(uid)
             .collection(COMPLETED_QUESTS)
             .whereEqualTo("date", today)
             .get()
             .addOnSuccessListener { completedQuery ->
-                val completedIds = completedQuery.documents
-                    .mapNotNull { it.getString("questId") }
-                    .toMutableSet()
-
-                // Defensive fallback: use profile-level proof dates as a second
-                // source of truth. If the app was backgrounded during the wallet
-                // handoff or the subcollection query is delayed, the UI should
-                // still show today's signed/memo proof as completed once the
-                // profile fields were saved.
-                if (userSnapshot.getString("lastSignedProofDate") == today) {
-                    completedIds.add(QuestIds.SIGN_DAILY_PROOF)
+                val completedIds = profileFallbackCompletedIds().apply {
+                    addAll(completedQuery.documents.mapNotNull { it.getString("questId") })
                 }
-                if (userSnapshot.getString("lastOnChainProofDate") == today) {
-                    completedIds.add(QuestIds.ON_CHAIN_PROOF)
-                }
-                if (userSnapshot.getString("lastSkrCheckDate") == today) {
-                    completedIds.add(QuestIds.SKR_HOLDER)
-                }
-
-                val currentWalletAddress = userSnapshot.getString("walletAddress")?.trim()?.takeIf { it.isNotBlank() }
-                val walletConnected = currentWalletAddress != null
-                if (userSnapshot.getString("lastChestClaimDate") == today) {
-                    completedIds.add(QuestIds.DAILY_RADIANT_CHEST)
-                }
-
-                db.collection(LEADERBOARD)
-                    .orderBy("xp", Query.Direction.DESCENDING)
-                    // Read more than the visible Top 20 so legacy duplicate anonymous
-                    // UIDs cannot crowd unique wallets out of the ranking.
-                    .limit(100)
-                    .get()
-                    .addOnSuccessListener { leaderboardQuery ->
-                        val uniqueWalletRows = LeaderboardRules.collapseByWallet(
-                            candidates = leaderboardQuery.documents.map { document ->
-                                LeaderboardCandidate(
-                                    sourceId = document.id,
-                                    displayName = document.getString("displayName") ?: "Radiant Rookie",
-                                    walletAddress = document.getString("walletAddress"),
-                                    walletAddressShort = document.getString("walletAddressShort"),
-                                    xp = (document.getLong("xp") ?: 0L).toInt(),
-                                    streak = (document.getLong("currentStreak") ?: 0L).toInt(),
-                                    tier = document.getString("skrTier") ?: "Explorer",
-                                    avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
-                                    updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
-                                )
-                            },
-                            limit = 20,
-                        )
-                        val currentDisplayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
-                        val currentAvatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
-                        val leaderboard = uniqueWalletRows.mapIndexed { index, row ->
-                            val isCurrentUser = currentWalletAddress != null &&
-                                row.walletAddress?.trim() == currentWalletAddress
-                            LeaderboardPreview(
-                                rank = index + 1,
-                                name = if (isCurrentUser) currentDisplayName else row.displayName,
-                                xp = row.xp,
-                                streak = row.streak,
-                                tier = row.tier,
-                                walletLabel = LeaderboardRules.walletLabel(row),
-                                avatarId = if (isCurrentUser) {
-                                    currentAvatarId
-                                } else {
-                                    PublicProfileRules.normalizeAvatarId(row.avatarId)
-                                },
-                                isCurrentUser = isCurrentUser,
-                            )
-                        }.ifEmpty {
-                            if (walletConnected) listOf(profileToLeaderboardRow(userSnapshot)) else emptyList()
-                        }
-
-                        val user = profileToUser(userSnapshot)
-                        val collection = RadiantGameRules.collectionPreview(collectionCounts(userSnapshot))
-                        val radiantRun = RadiantRunPreview(
-                            rushTickets = user.rushTickets,
-                            skrCasualRushTickets = user.skrCasualRushTickets,
-                            bestScore = user.bestRunScore,
-                            totalRuns = user.totalRuns,
-                            lastScore = user.lastRunScore,
-                            lastMaxCombo = user.lastRunMaxCombo,
-                            lastRewardTitle = user.lastRunRewardTitle,
-                            lastRewardRarity = user.lastRunRewardRarity,
-                            lastRewardXp = user.lastRunRewardXp,
-                            lastRewardShards = user.lastRunRewardShards,
-                            radiantShards = user.radiantShards,
-                            collectionOwned = collection.count { it.discovered },
-                            collectionTotal = collection.size,
-                        )
-                        val quests = PreviewContent.quests.map { quest ->
-                            when {
-                                completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
-                                quest.id == QuestIds.WALLET_CONNECT && walletConnected -> quest.copy(status = QuestStatus.Completed)
-                                quest.id == QuestIds.DAILY_CHECK_IN -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.SIGN_DAILY_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.ON_CHAIN_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.SKR_HOLDER && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.SIGN_DAILY_PROOF -> quest.copy(status = QuestStatus.Blocked)
-                                quest.id == QuestIds.ON_CHAIN_PROOF -> quest.copy(status = QuestStatus.Blocked)
-                                quest.id == QuestIds.SKR_HOLDER -> quest.copy(status = QuestStatus.Blocked)
-                                else -> quest.copy(status = QuestStatus.Locked)
-                            }
-                        }
-                        val chestClaimedToday = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)
-                        val questStatuses = quests.associate { it.id to it.status }
-                        val chestReady = RewardLoopRules.canClaimDailyChest(
-                            questStatuses = questStatuses,
-                            alreadyClaimedToday = chestClaimedToday,
-                        )
-                        val radiantChest = radiantChestState(
-                            user = user,
-                            completedQuestCount = quests.count { it.status == QuestStatus.Completed },
-                            totalQuestCount = quests.size,
-                            chestReady = chestReady,
-                            chestClaimedToday = chestClaimedToday,
-                        )
-                        val badges = badgeState(user, completedIds)
-
-                        loadRunCompetition(
-                            db = db,
-                            userSnapshot = userSnapshot,
-                            walletConnected = walletConnected,
-                        ) { runCompetition, competitionWarning ->
-                            val retention = retentionState(
-                                user = user,
-                                radiantRun = radiantRun,
-                                competition = runCompetition,
-                            )
-                            val mergedMessage = listOfNotNull(message, competitionWarning)
-                                .filter { it.isNotBlank() }
-                                .joinToString(" ")
-                                .takeIf { it.isNotBlank() }
-                            onState(
-                                RushUiState(
-                                    firebaseStatus = FirebaseStatus.Ready,
-                                    user = user,
-                                    quests = quests,
-                                    radiantChest = radiantChest,
-                                    radiantRun = radiantRun,
-                                    collection = collection,
-                                    badges = badges,
-                                    leaderboard = leaderboard,
-                                    runCompetition = runCompetition,
-                                    retention = retention,
-                                    todayKey = today,
-                                    lastMessage = mergedMessage,
-                                ),
-                            )
-                        }
-                    }
-                    .addOnFailureListener { error ->
-                        onState(errorState("Could not read leaderboard: ${safeMessage(error)}"))
-                    }
+                continueBackgroundHydration(completedIds)
             }
             .addOnFailureListener { error ->
-                onState(errorState("Could not read completed quests: ${safeMessage(error)}"))
+                // Quest-history availability must not turn a valid profile/session into
+                // a global sync failure. Profile proof-date fallbacks keep wallet-bound
+                // tasks honest until the next successful refresh.
+                continueBackgroundHydration(
+                    completedIds = fallbackCompletedIds,
+                    questWarning = "Daily progress is still catching up: ${safeMessage(error)}",
+                )
             }
     }
 
@@ -1884,64 +1954,165 @@ class FirebaseRadiantRepository(
                 sponsor: CupSponsorPresentation,
                 previousRank: Int? = null,
                 previousRewardTitle: String? = null,
-            ) = WeeklyCupPreview(
-                seasonKey = currentWeek,
-                seasonStartsAtEpochMillis = sponsor.startsAtEpochMillis ?: 0L,
-                seasonEndsAtEpochMillis = sponsor.endsAtEpochMillis ?: seasonEndsAt,
-                participantCount = participantCount,
-                personalRank = personalRank,
-                personalBestScore = personal.weeklyBestScore,
-                projectedRewardTitle = projectedReward.title,
-                projectedRewardDetail = projectedReward.detail,
-                previousSeasonKey = previousWeek,
-                previousSeasonRank = previousRank,
-                previousRewardTitle = previousRewardTitle,
-                sponsorName = sponsor.sponsorName,
-                sponsoredPrizeLabel = sponsor.prizeLabel,
-                sponsoredPrizeStatus = sponsor.sponsorStatus,
-                sponsorNote = sponsor.sponsorNote,
-                sponsoredPrizeActive = sponsor.sponsorActive,
-                trustedSponsorConfig = sponsor.trustedConfig,
-                cupStatusCode = sponsor.cupStatusCode,
-                cupStatusLabel = sponsor.cupStatusLabel,
-                fundingVerificationStatus = sponsor.fundingStatus,
-                fundingVerificationLabel = sponsor.fundingLabel,
-                placementAllocationLabel = sponsor.placementAllocationLabel,
-                trustedResultsRequired = sponsor.trustedResultsRequired,
-                payoutEnabled = false,
-            )
+                finalResult: TrustedWeeklyCupResultState? = null,
+            ): WeeklyCupPreview {
+                val trustedWinnerRank = finalResult?.winners
+                    ?.firstOrNull { winner -> walletAddress != null && winner.walletAddress == walletAddress }
+                    ?.placement
+                val trustedWinnerReward = trustedWinnerRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
+                return WeeklyCupPreview(
+                    seasonKey = currentWeek,
+                    seasonStartsAtEpochMillis = sponsor.startsAtEpochMillis ?: 0L,
+                    seasonEndsAtEpochMillis = sponsor.endsAtEpochMillis ?: seasonEndsAt,
+                    participantCount = participantCount,
+                    personalRank = personalRank,
+                    personalBestScore = personal.weeklyBestScore,
+                    projectedRewardTitle = projectedReward.title,
+                    projectedRewardDetail = projectedReward.detail,
+                    previousSeasonKey = previousWeek,
+                    previousSeasonRank = if (finalResult != null) trustedWinnerRank else previousRank,
+                    previousRewardTitle = if (finalResult != null) trustedWinnerReward?.title else previousRewardTitle,
+                    sponsorName = sponsor.sponsorName,
+                    sponsoredPrizeLabel = sponsor.prizeLabel,
+                    sponsoredPrizeStatus = sponsor.sponsorStatus,
+                    sponsorNote = sponsor.sponsorNote,
+                    sponsoredPrizeActive = sponsor.sponsorActive,
+                    trustedSponsorConfig = sponsor.trustedConfig,
+                    cupStatusCode = sponsor.cupStatusCode,
+                    cupStatusLabel = sponsor.cupStatusLabel,
+                    fundingVerificationStatus = sponsor.fundingStatus,
+                    fundingVerificationLabel = sponsor.fundingLabel,
+                    placementAllocationLabel = sponsor.placementAllocationLabel,
+                    trustedResultsRequired = sponsor.trustedResultsRequired,
+                    payoutEnabled = false,
+                    finalResultWeekKey = finalResult?.weekKey,
+                    finalResultFundingStatus = finalResult?.fundingStatusCode,
+                    finalResultFundingLabel = finalResult?.fundingStatusLabel,
+                    finalWinners = finalResult?.winners.orEmpty().map { winner ->
+                        WeeklyCupWinnerPreview(
+                            placement = winner.placement,
+                            walletLabel = winner.walletLabel,
+                            score = winner.score,
+                            prizeLabel = winner.prizeLabel,
+                        )
+                    },
+                )
+            }
+
+            fun loadTrustedFinalResult(
+                resultWeekKey: String,
+                onResult: (TrustedWeeklyCupResultState?) -> Unit,
+            ) {
+                val resultRef = db.collection(WEEKLY_CUP_RESULTS).document(resultWeekKey)
+                resultRef.get()
+                    .addOnSuccessListener { resultDocument ->
+                        if (!resultDocument.exists()) {
+                            onResult(null)
+                            return@addOnSuccessListener
+                        }
+
+                        resultRef.collection(WEEKLY_CUP_WINNERS)
+                            .orderBy("placement", Query.Direction.ASCENDING)
+                            .get()
+                            .addOnSuccessListener { winnerQuery ->
+                                fun stringField(name: String): String? = resultDocument.get(name) as? String
+                                fun intField(name: String): Int? = (resultDocument.get(name) as? Number)?.toInt()
+                                fun booleanField(name: String): Boolean? = resultDocument.get(name) as? Boolean
+                                fun timestampMillis(name: String): Long? =
+                                    (resultDocument.get(name) as? Timestamp)?.toDate()?.time
+
+                                val allocations = (resultDocument.get("placementAllocationsBps") as? Map<*, *>)
+                                    .orEmpty()
+                                    .mapNotNull { (rawRank, rawBps) ->
+                                        val rank = rawRank?.toString()?.toIntOrNull()
+                                        val bps = (rawBps as? Number)?.toInt()
+                                        if (rank != null && bps != null) rank to bps else null
+                                    }
+                                    .toMap()
+                                val winnerInputs = winnerQuery.documents.map { winnerDocument ->
+                                    TrustedWeeklyCupWinnerInput(
+                                        schemaVersion = (winnerDocument.get("schemaVersion") as? Number)?.toInt(),
+                                        resultVersion = (winnerDocument.get("resultVersion") as? Number)?.toInt(),
+                                        weekKey = winnerDocument.getString("weekKey"),
+                                        placement = (winnerDocument.getLong("placement") ?: 0L).toInt(),
+                                        walletAddress = winnerDocument.getString("walletAddress"),
+                                        receiptId = winnerDocument.getString("receiptId"),
+                                        score = (winnerDocument.get("score") as? Number)?.toInt(),
+                                        maxCombo = (winnerDocument.get("maxCombo") as? Number)?.toInt(),
+                                        perfectHits = (winnerDocument.get("perfectHits") as? Number)?.toInt(),
+                                        prizeAmountAtomic = winnerDocument.getString("prizeAmountAtomic"),
+                                        prizeAssetSymbol = winnerDocument.getString("prizeAssetSymbol"),
+                                        payoutStatus = winnerDocument.getString("payoutStatus"),
+                                        fundingVerificationStatusAtClose = winnerDocument.getString("fundingVerificationStatusAtClose"),
+                                        resultAuthority = winnerDocument.getString("resultAuthority"),
+                                        payoutEnabled = winnerDocument.get("payoutEnabled") as? Boolean,
+                                        payoutReady = winnerDocument.get("payoutReady") as? Boolean,
+                                    )
+                                }
+
+                                val result = Phase12WeeklyCupResultRules.presentation(
+                                    expectedWeekKey = resultWeekKey,
+                                    schemaVersion = intField("schemaVersion"),
+                                    resultVersion = intField("resultVersion"),
+                                    weekKey = stringField("weekKey"),
+                                    finalizationStatus = stringField("finalizationStatus"),
+                                    finalizationAuthority = stringField("finalizationAuthority"),
+                                    finalizedAtEpochMillis = timestampMillis("finalizedAt"),
+                                    prizeAssetSymbol = stringField("prizeAssetSymbol"),
+                                    prizeMint = stringField("prizeMint"),
+                                    prizeDecimals = intField("prizeDecimals"),
+                                    prizeAmountAtomic = stringField("prizeAmountAtomic"),
+                                    placementAllocationsBps = allocations,
+                                    fundingVerificationStatusAtClose = stringField("fundingVerificationStatusAtClose"),
+                                    payoutEnabled = booleanField("payoutEnabled"),
+                                    payoutReady = booleanField("payoutReady"),
+                                    winnerCount = intField("winnerCount"),
+                                    winners = winnerInputs,
+                                )
+                                onResult(result.takeIf { it.recognized })
+                            }
+                            .addOnFailureListener { onResult(null) }
+                    }
+                    .addOnFailureListener { onResult(null) }
+            }
 
             fun loadPreviousSeason(sponsor: CupSponsorPresentation) {
-                if (!walletConnected || walletAddress == null) {
-                    onDone(buildCup(sponsor))
-                    return
-                }
-
-                db.collection(RUN_WEEKLY)
-                    .document(previousWeek)
-                    .collection(RUN_ENTRIES)
-                    .orderBy("score", Query.Direction.DESCENDING)
-                    .limit(100)
-                    .get()
-                    .addOnSuccessListener { previousQuery ->
-                        val previousCandidates = previousQuery.documents.map(::runCandidateFromDocument)
-                        val previousRank = Phase11CompetitionRules.walletRank(
-                            walletAddress = walletAddress,
-                            candidates = previousCandidates,
-                            limit = 100,
-                        )
-                        val previousReward = previousRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
-                        onDone(
-                            buildCup(
-                                sponsor = sponsor,
-                                previousRank = previousRank,
-                                previousRewardTitle = previousReward?.title,
-                            ),
-                        )
+                loadTrustedFinalResult(previousWeek) { finalResult ->
+                    if (finalResult != null) {
+                        onDone(buildCup(sponsor = sponsor, finalResult = finalResult))
+                        return@loadTrustedFinalResult
                     }
-                    .addOnFailureListener {
+                    if (!walletConnected || walletAddress == null) {
                         onDone(buildCup(sponsor))
+                        return@loadTrustedFinalResult
                     }
+
+                    db.collection(RUN_WEEKLY)
+                        .document(previousWeek)
+                        .collection(RUN_ENTRIES)
+                        .orderBy("score", Query.Direction.DESCENDING)
+                        .limit(100)
+                        .get()
+                        .addOnSuccessListener { previousQuery ->
+                            val previousCandidates = previousQuery.documents.map(::runCandidateFromDocument)
+                            val previousRank = Phase11CompetitionRules.walletRank(
+                                walletAddress = walletAddress,
+                                candidates = previousCandidates,
+                                limit = 100,
+                            )
+                            val previousReward = previousRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
+                            onDone(
+                                buildCup(
+                                    sponsor = sponsor,
+                                    previousRank = previousRank,
+                                    previousRewardTitle = previousReward?.title,
+                                ),
+                            )
+                        }
+                        .addOnFailureListener {
+                            onDone(buildCup(sponsor))
+                        }
+                }
             }
 
             db.collection(WEEKLY_CUP_CONFIGS)
@@ -2539,6 +2710,8 @@ class FirebaseRadiantRepository(
         const val RUN_WALLETS = "wallets"
         const val COMPETITION_RUN_SUBMISSIONS = "competitionRunSubmissions"
         const val WEEKLY_CUP_CONFIGS = "weeklyCupConfigs"
+        const val WEEKLY_CUP_RESULTS = "weeklyCupResults"
+        const val WEEKLY_CUP_WINNERS = "winners"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100
         const val SKR_SCAN_XP = 50

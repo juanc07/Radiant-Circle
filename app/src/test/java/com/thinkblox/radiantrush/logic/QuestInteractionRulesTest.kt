@@ -10,6 +10,9 @@ class QuestInteractionRulesTest {
         assertTrue(QuestInteractionRules.opensExternalWallet(QuestInteractionRules.WALLET_CONNECT))
         assertTrue(QuestInteractionRules.opensExternalWallet(QuestInteractionRules.SIGN_DAILY_PROOF))
         assertTrue(QuestInteractionRules.opensExternalWallet(QuestInteractionRules.ON_CHAIN_PROOF))
+        assertFalse(QuestInteractionRules.requiresConnectedWallet(QuestInteractionRules.WALLET_CONNECT))
+        assertTrue(QuestInteractionRules.requiresConnectedWallet(QuestInteractionRules.SIGN_DAILY_PROOF))
+        assertTrue(QuestInteractionRules.requiresConnectedWallet(QuestInteractionRules.ON_CHAIN_PROOF))
     }
 
     @Test

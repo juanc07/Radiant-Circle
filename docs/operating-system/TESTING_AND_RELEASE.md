@@ -806,3 +806,36 @@ Live verification procedure:
 11. Regression-check MWA, signed proof, Devnet Memo, SKR Passport, Daily Chest, Radiant Rush, Weekly/All-Time/My Stats, and Phase 12A receipt creation.
 
 Version: `28 / 1.2.3-phase12c`.
+
+
+## Phase 12D trusted close + winners gate
+
+Before any Phase 12D commit/tag, run the Firebase Admin suite (`cd scripts/firebase-admin && npm test`) and the normal Android gate (`./gradlew --stop`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:connectedDebugAndroidTest`, `:app:installDebug`). Deploy the changed Firestore rules explicitly.
+
+Live Admin proof must use temporary credentials outside the repository, dry-run every operation first, and keep W37's existing Phase 12C `NOT_VERIFIED` funding truth intact. The Cup must be `OPEN` for trusted run attestation and finalization must refuse to run before `endsAt`. Attest only runs backed by independently checked evidence. Finalization must show the intended exact-wallet dedupe, deterministic tiebreak order, exact SKR split, `payoutEnabled=false`, and `payoutReady=false`; then apply once and prove the second close is rejected.
+
+On a Seeker, confirm the current board says `Live standings`; only validated finalized Phase 12D records appear under `Final winners`; W37 with `NOT_VERIFIED` funding uses clean `Funding pending` copy and never claims payout readiness. Android client writes to verification/result/winner/snapshot collections must be denied.
+
+Version: `29 / 1.2.4-phase12d` (implementation; live proof pending).
+
+### Phase 12 Admin command reference
+
+Use `docs/PHASE_12_ADMIN_OPERATOR_RUNBOOK.md` for the exact dry-run/apply operator sequence, Git Bash-safe Firestore inspection commands, trusted run-attestation workflow, fail-closed finalization checks, duplicate-close proof, and temporary credential cleanup. Do not substitute copied client receipt fields for independent run evidence.
+
+Live W37 Phase 12D proof on 2026-09-14: 5 source receipts / 2 distinct wallets / 0 trusted-placement-eligible VERIFIED receipts. After the configured end boundary, `finalize-weekly-cup.mjs` correctly refused with `No trusted-placement-eligible VERIFIED receipts exist for this Cup. Refusing to invent winners.` Treat that refusal as a PASS for the fail-closed gate.
+
+
+### Phase 12D wallet-gating regression
+
+Before the Phase 12D commit/tag, test these states on Seeker:
+
+1. Disconnect the wallet while W38 (or another trusted Cup) is `OPEN` and inside its configured window.
+2. Confirm signed proof, on-chain memo proof, and SKR Passport actions remain blocked/disabled until wallet connection.
+3. Confirm Daily Check-In remains available without a wallet.
+4. On the Radiant Rush launcher, confirm the live-Cup warning clearly says a walletless run is Casual and will not count.
+5. Tap `Connect Wallet` and confirm the normal MWA connection flow opens.
+6. Repeat while disconnected, choose `Play Casual`, and confirm the game briefing again labels the run Casual/not in the Cup.
+7. Finish that walletless run and confirm it does not create a Ranked trusted competition entry.
+8. Connect a wallet, play with a standard ticket and available Ranked attempt, and confirm the normal Ranked path still works.
+9. Change/test a Cup outside its configured time window and confirm an expired `OPEN` document does not falsely claim a live tournament warning.
+10. Re-run `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:connectedDebugAndroidTest`, and `:app:installDebug`.

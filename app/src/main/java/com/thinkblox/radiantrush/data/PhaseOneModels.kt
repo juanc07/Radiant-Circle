@@ -129,6 +129,13 @@ data class RunLeaderboardPreview(
     val isCurrentUser: Boolean = false,
 )
 
+data class WeeklyCupWinnerPreview(
+    val placement: Int,
+    val walletLabel: String,
+    val score: Int,
+    val prizeLabel: String,
+)
+
 data class WeeklyCupPreview(
     val title: String = "Weekly Radiant Cup",
     val seasonKey: String = "",
@@ -155,6 +162,10 @@ data class WeeklyCupPreview(
     val placementAllocationLabel: String? = null,
     val trustedResultsRequired: Boolean = true,
     val payoutEnabled: Boolean = false,
+    val finalResultWeekKey: String? = null,
+    val finalResultFundingStatus: String? = null,
+    val finalResultFundingLabel: String? = null,
+    val finalWinners: List<WeeklyCupWinnerPreview> = emptyList(),
 )
 
 
@@ -286,6 +297,7 @@ data class RushUiState(
     val lastMessage: String? = null,
     val walletActionInProgress: Boolean = false,
     val activeQuestId: String? = null,
+    val backgroundSyncInProgress: Boolean = false,
 ) {
     val isFirebaseReady: Boolean
         get() = firebaseStatus == FirebaseStatus.Ready
@@ -331,8 +343,8 @@ enum class AppDestination(
     val label: String,
     val icon: ImageVector,
 ) {
-    Home("Today", Icons.Filled.Home),
-    Quests("Quests", Icons.Filled.Route),
+    Home("Home", Icons.Filled.Home),
+    Quests("Today", Icons.Filled.Route),
     Badges("Badges", Icons.Filled.MilitaryTech),
     Leaderboard("Ranks", Icons.Filled.EmojiEvents),
     Profile("Profile", Icons.Filled.AccountCircle),

@@ -9,8 +9,10 @@
   "scripts": {
     "cleanup:dry-run": "node cleanup-stale-dev-data.mjs --project radiant-rush-10a9c",
     "cup:dry-run": "node manage-weekly-cup.mjs --project radiant-rush-10a9c",
-    "test": "node --test *.test.mjs",
-    "funding:dry-run": "node verify-weekly-cup-funding.mjs --project radiant-rush-10a9c"
+    "funding:dry-run": "node verify-weekly-cup-funding.mjs --project radiant-rush-10a9c",
+    "run:verify:dry-run": "node verify-competition-run.mjs --project radiant-rush-10a9c",
+    "cup:finalize:dry-run": "node finalize-weekly-cup.mjs --project radiant-rush-10a9c",
+    "test": "node --test *.test.mjs"
   },
   "dependencies": {
     "firebase-admin": "14.4.0"
