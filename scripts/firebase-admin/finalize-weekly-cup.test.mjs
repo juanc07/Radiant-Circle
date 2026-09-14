@@ -223,3 +223,59 @@ test("finalization refuses to invent missing configured winners", () => {
   const receipts = [verifiedReceipt("a", walletA, 3000), verifiedReceipt("b", walletB, 2000)];
   assert.throws(() => planFor(receipts), /requires 3 configured placements/);
 });
+
+test("admin early close requires an explicit audit reason", () => {
+  const earlyNow = startMs + 3 * 86_400_000;
+  const receipts = [
+    verifiedReceipt("a", walletA, 3000, { trustedVerifiedAt: ts(earlyNow - 1000) }),
+    verifiedReceipt("b", walletB, 2000, { trustedVerifiedAt: ts(earlyNow - 1000) }),
+    verifiedReceipt("c", walletC, 1000, { trustedVerifiedAt: ts(earlyNow - 1000) }),
+  ];
+  const verificationDocuments = receipts.map((receipt) => verificationFor(receipt, { decidedAt: ts(earlyNow - 500) }));
+  assert.throws(() => buildFinalizationPlan({
+    cup: cup(),
+    weekKey: "2026-W37",
+    receiptDocuments: receipts,
+    verificationDocuments,
+    nowEpochMillis: earlyNow,
+    allowEarlyClose: true,
+  }), /audit reason/);
+});
+
+test("admin early close freezes only trusted runs at or before the forced cutoff", () => {
+  const earlyNow = startMs + 3 * 86_400_000;
+  const common = {
+    clientCompletedAtEpochMillis: earlyNow - 10_000,
+    submittedAt: ts(earlyNow - 8_000),
+    trustedVerifiedAt: ts(earlyNow - 1_000),
+  };
+  const receipts = [
+    verifiedReceipt("a", walletA, 3000, common),
+    verifiedReceipt("b", walletB, 2000, common),
+    verifiedReceipt("c", walletC, 1000, common),
+    verifiedReceipt("future", walletD, 9999, {
+      clientCompletedAtEpochMillis: earlyNow + 1_000,
+      submittedAt: ts(earlyNow + 2_000),
+      trustedVerifiedAt: ts(earlyNow - 1_000),
+    }),
+  ];
+  const verificationDocuments = receipts.map((receipt) => verificationFor(receipt, { decidedAt: ts(earlyNow - 500) }));
+  const plan = buildFinalizationPlan({
+    cup: cup(),
+    weekKey: "2026-W37",
+    receiptDocuments: receipts,
+    verificationDocuments,
+    nowEpochMillis: earlyNow,
+    allowEarlyClose: true,
+    earlyCloseReason: "Operator-authorized live payout test",
+  });
+  assert.equal(plan.closedEarly, true);
+  assert.equal(plan.scheduledEndsAtEpochMillis, endMs);
+  assert.equal(plan.effectiveEndsAtEpochMillis, earlyNow);
+  assert.equal(plan.earlyCloseReason, "Operator-authorized live payout test");
+  assert.equal(plan.sourceReceiptCount, 4);
+  assert.equal(plan.eligibleReceiptCount, 3);
+  assert.equal(plan.winners[0].receiptId, "a");
+  assert.equal(plan.result.closedEarly, true);
+  assert.equal(plan.result.effectiveEndsAtEpochMillis, earlyNow);
+});

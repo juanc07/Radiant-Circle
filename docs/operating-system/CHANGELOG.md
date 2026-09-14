@@ -1,4 +1,13 @@
 ## 2026-09-14 — Phase 12E trusted payout lifecycle (implementation; live proof pending)
+## 2026-09-14 — Phase 12D admin early-close override
+
+- Added an explicit Admin-only `--force-close-early` path to trusted Weekly Cup finalization.
+- Early close requires an audit reason and, on apply, exact week plus reviewed ranking-digest confirmation.
+- Early finalization uses the invocation time as the effective competition cutoff, excluding runs completed/submitted after that cutoff while preserving the originally configured `endsAt` for audit.
+- The Cup records `competitionEndedAt`, `earlyClosed`, reason, and trusted authority; the frozen result records scheduled/effective end metadata.
+- Prize configuration, trusted-run requirements, funding verification, payout approval, and SKR transfer safeguards remain unchanged.
+- Admin test suite expanded from 58 to 60 passing tests.
+
 
 - Added Admin-only `weeklyCupPayouts/{weekKey}` payout manifests derived only from immutable Phase 12D winners.
 - Payout preparation requires a CLOSED trusted Cup, Phase 12D FINALIZED result, and complete Phase 12C funding evidence that was VERIFIED at close.
@@ -532,3 +541,9 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 - Added explicit reset only for transactions proven failed on-chain.
 - Added payout-batch completion only after every configured winner has a unique finalized transaction signature.
 - No Android signer or payout authority added.
+### Phase 12F operator-controlled prize amendment safety
+
+- Added an explicit pre-close sponsored Cup prize-amendment tool for exceptional operator-authorized corrections/reduced-value live payout tests.
+- Amendment is dry-run first and digest-confirmed on apply, records old/new prize and funding wallet in immutable Admin audit data, and is refused after Cup close/finalization or when payout is enabled.
+- Any amendment invalidates/resets current Phase 12C funding evidence so the new prize/wallet must be independently re-verified before trusted close/payout.
+- No transfer occurs and `payoutEnabled` remains false.

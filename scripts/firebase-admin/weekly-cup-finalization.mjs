@@ -105,7 +105,7 @@ export function trustedFundingStatusAtClose(cup) {
   }
 }
 
-export function assertCloseableCup(cup, weekKey, nowEpochMillis) {
+export function assertCloseableCup(cup, weekKey, nowEpochMillis, { allowEarlyClose = false, earlyCloseReason = null } = {}) {
   if (!cup) throw new Error("Weekly Cup config does not exist.");
   if (Number(cup.schemaVersion) !== CUP_SCHEMA_VERSION) throw new Error(`Cup schemaVersion must be ${CUP_SCHEMA_VERSION}.`);
   if (String(cup.configurationAuthority ?? "") !== CONFIGURATION_AUTHORITY) throw new Error("Cup configurationAuthority is not trusted Phase 12B.");
@@ -126,10 +126,23 @@ export function assertCloseableCup(cup, weekKey, nowEpochMillis) {
   if (endsAtMs <= startsAtMs) throw new Error("Cup end must be after start.");
   const now = Number(nowEpochMillis);
   if (!Number.isSafeInteger(now) || now <= 0) throw new Error("Finalization time is invalid.");
-  if (now < endsAtMs) throw new Error(`Cup cannot be finalized before its configured end (${new Date(endsAtMs).toISOString()}).`);
+  const closedEarly = now < endsAtMs;
+  let normalizedEarlyCloseReason = null;
+  if (closedEarly) {
+    if (!allowEarlyClose) {
+      throw new Error(`Cup cannot be finalized before its configured end (${new Date(endsAtMs).toISOString()}).`);
+    }
+    normalizedEarlyCloseReason = String(earlyCloseReason ?? "").trim();
+    if (normalizedEarlyCloseReason.length < 8 || normalizedEarlyCloseReason.length > 240) {
+      throw new Error("Early close requires an audit reason between 8 and 240 characters.");
+    }
+  }
   return {
     startsAtMs,
     endsAtMs,
+    effectiveEndsAtMs: closedEarly ? now : endsAtMs,
+    closedEarly,
+    earlyCloseReason: normalizedEarlyCloseReason,
     prizeAmountAtomic,
     placements: placementMap(cup.placementAllocationsBps),
     fundingStatusAtClose: trustedFundingStatusAtClose(cup),
@@ -278,8 +291,16 @@ function sha256(lines) {
   return createHash("sha256").update(lines.join("\n"), "utf8").digest("hex");
 }
 
-export function buildFinalizationPlan({ cup, weekKey, receiptDocuments, verificationDocuments, nowEpochMillis }) {
-  const close = assertCloseableCup(cup, weekKey, nowEpochMillis);
+export function buildFinalizationPlan({
+  cup,
+  weekKey,
+  receiptDocuments,
+  verificationDocuments,
+  nowEpochMillis,
+  allowEarlyClose = false,
+  earlyCloseReason = null,
+}) {
+  const close = assertCloseableCup(cup, weekKey, nowEpochMillis, { allowEarlyClose, earlyCloseReason });
   const sourceDocs = Array.isArray(receiptDocuments) ? receiptDocuments : [];
   const verificationDocs = Array.isArray(verificationDocuments) ? verificationDocuments : [];
   const verificationByReceipt = new Map(verificationDocs.map(({ id, data }) => [String(id), data]));
@@ -290,7 +311,7 @@ export function buildFinalizationPlan({ cup, weekKey, receiptDocuments, verifica
     verification: verificationByReceipt.get(String(id)),
     weekKey,
     cupStartMs: close.startsAtMs,
-    cupEndMs: close.endsAtMs,
+    cupEndMs: close.effectiveEndsAtMs,
     cutoffMs: nowEpochMillis,
   })).filter(Boolean);
 
@@ -343,6 +364,10 @@ export function buildFinalizationPlan({ cup, weekKey, receiptDocuments, verifica
     fundingVerificationStatusAtClose: close.fundingStatusAtClose,
     payoutEnabled: false,
     payoutReady: false,
+    closedEarly: close.closedEarly,
+    scheduledEndsAtEpochMillis: close.endsAtMs,
+    effectiveEndsAtEpochMillis: close.effectiveEndsAtMs,
+    earlyCloseReason: close.earlyCloseReason,
     eligibleReceiptDigestSha256,
     rankingDigestSha256,
     frozenReceipts,
@@ -364,6 +389,10 @@ export function buildFinalizationPlan({ cup, weekKey, receiptDocuments, verifica
       prizeAmountAtomic: close.prizeAmountAtomic.toString(),
       placementAllocationsBps: Object.fromEntries(close.placements.entries()),
       fundingVerificationStatusAtClose: close.fundingStatusAtClose,
+      closedEarly: close.closedEarly,
+      scheduledEndsAtEpochMillis: close.endsAtMs,
+      effectiveEndsAtEpochMillis: close.effectiveEndsAtMs,
+      earlyCloseReason: close.earlyCloseReason,
       eligibleReceiptDigestSha256,
       rankingDigestSha256,
       payoutEnabled: false,

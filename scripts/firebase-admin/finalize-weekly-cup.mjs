@@ -16,7 +16,7 @@ function readArgs(argv) {
     const token = argv[i];
     if (!token.startsWith("--")) throw new Error(`Unexpected argument: ${token}`);
     const key = token.slice(2);
-    if (key === "apply") { flags.add(key); continue; }
+    if (key === "apply" || key === "force-close-early") { flags.add(key); continue; }
     const value = argv[i + 1];
     if (!value || value.startsWith("--")) throw new Error(`Missing value for --${key}`);
     values[key] = value;
@@ -29,25 +29,42 @@ function usage() {
   return `
 Radiant Circle Phase 12D trusted Weekly Cup close + winners
 
-Dry run:
+Normal dry run:
   node finalize-weekly-cup.mjs \\
     --project radiant-rush-10a9c \\
-    --week 2026-W37
+    --week 2026-W38
 
-Apply only after every intended winning run has been independently attested with
-verify-competition-run.mjs and after the configured Cup end time:
+Normal apply after configured end:
   node finalize-weekly-cup.mjs \\
     --project radiant-rush-10a9c \\
-    --week 2026-W37 \\
+    --week 2026-W38 \\
     --apply \\
     --confirm-project radiant-rush-10a9c
 
-Funding may be NOT_VERIFIED; competitive results can still freeze, but this tool
-never marks payout ready and never transfers SKR.
+Admin early-close dry run (PERMANENTLY ends the Cup at the current cutoff):
+  node finalize-weekly-cup.mjs \\
+    --project radiant-rush-10a9c \\
+    --week 2026-W38 \\
+    --force-close-early \\
+    --early-close-reason "Operator-authorized live payout test"
+
+Admin early-close apply, after reviewing the dry-run winners and digest:
+  node finalize-weekly-cup.mjs \\
+    --project radiant-rush-10a9c \\
+    --week 2026-W38 \\
+    --force-close-early \\
+    --early-close-reason "Operator-authorized live payout test" \\
+    --apply \\
+    --confirm-project radiant-rush-10a9c \\
+    --confirm-early-close 2026-W38 \\
+    --confirm-ranking-digest <EXACT_SHA256_FROM_DRY_RUN>
+
+Early close does NOT change the configured prize and does NOT bypass trusted-run,
+funding, Phase 12E approval, or Phase 12F transfer requirements.
 `;
 }
 
-async function loadPlan(db, weekKey, nowEpochMillis) {
+async function loadPlan(db, weekKey, nowEpochMillis, { allowEarlyClose = false, earlyCloseReason = null } = {}) {
   const cupRef = db.collection("weeklyCupConfigs").doc(weekKey);
   const [cupSnap, receiptQuery, verificationQuery, existingResult] = await Promise.all([
     cupRef.get(),
@@ -62,6 +79,8 @@ async function loadPlan(db, weekKey, nowEpochMillis) {
     receiptDocuments: receiptQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
     verificationDocuments: verificationQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
     nowEpochMillis,
+    allowEarlyClose,
+    earlyCloseReason,
   });
   return { cupRef, plan };
 }
@@ -71,15 +90,35 @@ async function main() {
   const projectId = values.project;
   const weekKey = values.week;
   if (!projectId || !weekKey) throw new Error(`--project and --week are required.\n${usage()}`);
+
   const apply = flags.has("apply");
+  const forceCloseEarly = flags.has("force-close-early");
+  const earlyCloseReason = String(values["early-close-reason"] ?? "").trim() || null;
+
   if (apply && values["confirm-project"] !== projectId) {
     throw new Error("--apply requires --confirm-project to exactly match --project.");
+  }
+  if (forceCloseEarly && !earlyCloseReason) {
+    throw new Error("--force-close-early requires --early-close-reason.");
+  }
+  if (apply && forceCloseEarly && values["confirm-early-close"] !== weekKey) {
+    throw new Error("Early-close apply requires --confirm-early-close to exactly match --week.");
   }
 
   initializeApp({ credential: applicationDefault(), projectId });
   const db = getFirestore();
   const cutoffMs = Date.now();
-  const { cupRef, plan } = await loadPlan(db, weekKey, cutoffMs);
+  const { cupRef, plan } = await loadPlan(db, weekKey, cutoffMs, {
+    allowEarlyClose: forceCloseEarly,
+    earlyCloseReason,
+  });
+
+  if (apply && plan.closedEarly) {
+    const confirmedDigest = String(values["confirm-ranking-digest"] ?? "").trim().toLowerCase();
+    if (confirmedDigest !== plan.rankingDigestSha256) {
+      throw new Error("Early-close apply requires --confirm-ranking-digest to exactly match the reviewed dry-run ranking digest.");
+    }
+  }
 
   console.log("Radiant Circle Phase 12D trusted Weekly Cup finalization");
   console.log(`Project: ${projectId}`);
@@ -89,6 +128,13 @@ async function main() {
   console.log(`Trusted eligible receipts: ${plan.eligibleReceiptCount}`);
   console.log(`Eligible wallets after best-result dedupe: ${plan.eligibleWalletCount}`);
   console.log(`Funding at close: ${plan.fundingVerificationStatusAtClose}`);
+  console.log(`Closed early: ${plan.closedEarly ? "YES" : "NO"}`);
+  if (plan.closedEarly) {
+    console.log(`Scheduled end: ${new Date(plan.scheduledEndsAtEpochMillis).toISOString()}`);
+    console.log(`Effective close cutoff: ${new Date(plan.effectiveEndsAtEpochMillis).toISOString()}`);
+    console.log(`Early-close reason: ${plan.earlyCloseReason}`);
+    console.log("WARNING: applying this plan permanently ends the Cup now and freezes the currently trusted standings.");
+  }
   console.log("Payout ready: false");
   console.log("Winners:");
   for (const winner of plan.winners) {
@@ -106,8 +152,6 @@ async function main() {
   const receiptQueryRef = db.collection("competitionRunSubmissions").where("utcWeekKey", "==", weekKey);
   const verificationQueryRef = db.collection("competitionRunVerifications").where("weekKey", "==", weekKey);
   await db.runTransaction(async (transaction) => {
-    // Re-read every authoritative finalization input inside the same transaction
-    // before any writes. If anything changed after the displayed plan, fail closed.
     const freshCupSnap = await transaction.get(cupRef);
     const freshResultSnap = await transaction.get(resultRef);
     const freshReceiptQuery = await transaction.get(receiptQueryRef);
@@ -120,6 +164,8 @@ async function main() {
       receiptDocuments: freshReceiptQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
       verificationDocuments: freshVerificationQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
       nowEpochMillis: cutoffMs,
+      allowEarlyClose: forceCloseEarly,
+      earlyCloseReason,
     });
     if (
       freshPlan.eligibleReceiptDigestSha256 !== plan.eligibleReceiptDigestSha256 ||
@@ -127,10 +173,16 @@ async function main() {
     ) {
       throw new Error("Trusted competition inputs changed during finalization; rerun and review the dry-run plan.");
     }
+    if (freshPlan.closedEarly !== plan.closedEarly || freshPlan.effectiveEndsAtEpochMillis !== plan.effectiveEndsAtEpochMillis) {
+      throw new Error("Early-close boundary changed during finalization; rerun the dry run.");
+    }
 
     transaction.create(resultRef, {
       ...freshPlan.result,
       finalizationCutoffAt: Timestamp.fromMillis(cutoffMs),
+      scheduledEndsAt: Timestamp.fromMillis(freshPlan.scheduledEndsAtEpochMillis),
+      effectiveEndsAt: Timestamp.fromMillis(freshPlan.effectiveEndsAtEpochMillis),
+      earlyCloseAuthority: freshPlan.closedEarly ? RESULT_FINALIZATION_AUTHORITY : null,
       finalizedAt: FieldValue.serverTimestamp(),
       closedAt: FieldValue.serverTimestamp(),
     });
@@ -192,12 +244,19 @@ async function main() {
       trustedResultRef: `weeklyCupResults/${weekKey}`,
       trustedResultFinalizedAt: FieldValue.serverTimestamp(),
       closedAt: FieldValue.serverTimestamp(),
+      competitionEndedAt: Timestamp.fromMillis(freshPlan.effectiveEndsAtEpochMillis),
+      earlyClosed: freshPlan.closedEarly,
+      earlyCloseReason: freshPlan.earlyCloseReason,
+      earlyCloseAuthority: freshPlan.closedEarly ? RESULT_FINALIZATION_AUTHORITY : null,
       payoutEnabled: false,
       updatedAt: FieldValue.serverTimestamp(),
     });
   });
 
   console.log(`\nAPPLY COMPLETE — weeklyCupResults/${weekKey} frozen and Cup marked CLOSED.`);
+  if (plan.closedEarly) {
+    console.log("EARLY CLOSE APPLIED — original endsAt is preserved; competitionEndedAt records the actual cutoff.");
+  }
   console.log("No SKR transfer was attempted. payoutEnabled=false and payoutReady=false remain enforced.");
 }
 

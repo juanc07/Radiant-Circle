@@ -311,3 +311,37 @@ Always dry-run first. Do not paste seed phrases or private-key JSON into chat, s
 Phase 12F enforces placement order, exact manifest digest, exact funding/recipient wallets, exact atomic amount, live SKR funding, official mint/program identity, transaction finality, and exact source/recipient token-balance deltas. Ambiguous submissions lock for reconciliation instead of automatic retry.
 
 See `docs/PHASE_12F_REAL_SKR_TRANSFER.md` and `docs/PHASE_12_ADMIN_OPERATOR_RUNBOOK.md` for the complete procedure.
+
+## Admin-only sponsored Cup prize amendment
+
+`amend-weekly-cup-prize.mjs` exists for an exceptional pre-close operator correction/reduced-value live payout test. It is deliberately separate from ordinary Phase 12B configuration so an already-announced prize cannot be silently rewritten.
+
+The Cup must still be `DRAFT`, `ANNOUNCED`, or `OPEN`, must not have Phase 12D finalization evidence, and must keep payout disabled. The command writes an immutable audit record under `weeklyCupPrizeAmendments/{weekKey}/amendments/{amendmentId}` and resets current Phase 12C funding evidence because that evidence was tied to the old prize/wallet. A fresh Phase 12C verification is mandatory before close.
+
+Dry run:
+
+```bash
+node amend-weekly-cup-prize.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --prize-skr 300 \
+  --funding-wallet "EqLUDQpfZrCJcQ5obVWzjuBn1v4sHH8PxVfcCg4rppzj" \
+  --reason "Operator-authorized reduced-value live payout test"
+```
+
+Apply only after reviewing the exact old/new prize, old/new wallet, and SHA-256 printed by the dry run:
+
+```bash
+node amend-weekly-cup-prize.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --prize-skr 300 \
+  --funding-wallet "EqLUDQpfZrCJcQ5obVWzjuBn1v4sHH8PxVfcCg4rppzj" \
+  --reason "Operator-authorized reduced-value live payout test" \
+  --apply \
+  --confirm-project radiant-rush-10a9c \
+  --confirm-week 2026-W38 \
+  --confirm-amendment-digest "<EXACT_SHA256_FROM_DRY_RUN>"
+```
+
+After apply, immediately run `verify-weekly-cup-funding.mjs` again against the new funding wallet. Do not early-close until that fresh check is `VERIFIED` and the required trusted winner set exists.

@@ -254,6 +254,50 @@ Review:
 
 If a three-place Cup has fewer than three trusted eligible wallets, the command must refuse to invent winners. That refusal is the expected fail-closed behavior.
 
+### Exceptional pre-close prize amendment
+
+Use this only when the operator intentionally reduces/corrects a sponsored Cup before it is closed. It does not bypass trust: it records an immutable amendment, resets all current Phase 12C funding evidence tied to the old prize/wallet, keeps payout disabled, and requires a fresh funding verification before finalization.
+
+Dry run:
+
+```bash
+node amend-weekly-cup-prize.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --prize-skr 300 \
+  --funding-wallet "EqLUDQpfZrCJcQ5obVWzjuBn1v4sHH8PxVfcCg4rppzj" \
+  --reason "Operator-authorized reduced-value live payout test"
+```
+
+Copy the exact amendment SHA-256 only after reviewing the old/new values. Apply requires the same inputs plus `--apply`, exact project/week confirmations, and `--confirm-amendment-digest`.
+
+After apply, **do not early-close yet**. Re-run the Phase 12C funding verifier and require `VERIFIED`. For a 300 SKR 50/30/20 Cup the frozen winner allocation will be 150 / 90 / 60 SKR.
+
+### Admin-only early close override
+
+When an operator intentionally needs to end an OPEN Cup before its configured `endsAt`, use the explicit early-close path. This is not a hidden bypass: it permanently closes the Cup, freezes only trusted runs completed/submitted by the invocation cutoff, preserves the original scheduled `endsAt` for audit, and records the actual `competitionEndedAt`.
+
+Dry run first:
+
+```bash
+node finalize-weekly-cup.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --force-close-early \
+  --early-close-reason "Operator-authorized live payout test"
+```
+
+Review the exact winners and copy the printed `Ranking snapshot SHA-256`. To apply, rerun the exact command plus:
+
+```bash
+  --apply \
+  --confirm-project radiant-rush-10a9c \
+  --confirm-early-close 2026-W38 \
+  --confirm-ranking-digest "<EXACT_SHA256_FROM_DRY_RUN>"
+```
+
+Early close does **not** change the configured prize amount, invent winners, bypass trusted run verification, bypass Phase 12C funding verification, enable payout, or transfer SKR. If the configured prize is 1000 SKR, the trusted payout path still requires truthful evidence covering that 1000 SKR prize.
+
 ## 12. Apply finalization once
 
 Only after the dry run is correct:
