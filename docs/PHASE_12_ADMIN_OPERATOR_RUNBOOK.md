@@ -368,3 +368,76 @@ At minimum retain evidence for:
 - duplicate-finalization rejection,
 - Firestore frozen result inspection,
 - Seeker UI verification (`Live standings`, `Final winners`, clean funding copy, no payout-ready claim).
+
+---
+
+## Phase 12E — trusted payout lifecycle
+
+Phase 12E starts only after a Cup has a successful immutable Phase 12D final result **and** funding was VERIFIED before the Cup closed.
+
+### Prepare payout manifest
+
+Dry run:
+
+```bash
+node prepare-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38
+```
+
+Review:
+
+- full funding wallet,
+- full winner wallets,
+- exact atomic SKR amounts,
+- total atomic SKR,
+- payout manifest SHA-256,
+- `Transfer enabled: false`,
+- `SKR transfer attempted: NO`.
+
+Apply only when exact:
+
+```bash
+node prepare-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --apply \
+  --confirm-project radiant-rush-10a9c
+```
+
+A second prepare must be refused.
+
+### Approve reviewed manifest
+
+Dry run:
+
+```bash
+node approve-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --review-ref "operator-review-w38"
+```
+
+`--review-ref` is a non-secret operator/audit reference. Do not put private keys, seed phrases, service-account contents, or confidential material in it.
+
+For apply, copy the exact manifest digest printed by the dry run:
+
+```bash
+node approve-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --review-ref "operator-review-w38" \
+  --confirm-digest "<EXACT_SHA256>" \
+  --apply \
+  --confirm-project radiant-rush-10a9c
+```
+
+Approval keeps:
+
+```text
+payoutEnabled = false
+transferEnabled = false
+transferStatus = NOT_STARTED
+```
+
+It creates no transaction and moves no SKR. Real transfer belongs to Phase 12F only after another explicit safety review.

@@ -206,6 +206,23 @@ service cloud.firestore {
       }
     }
 
+    // Phase 12E trusted payout lifecycle is Admin-only. It contains the exact
+    // winner wallets, amounts, review state, and immutable audit events that a
+    // future trusted transfer service may consume. Android cannot read or write
+    // this internal operational state; normal player UI continues to use the
+    // read-only Phase 12D result/winner documents.
+    match /weeklyCupPayouts/{weekKey} {
+      allow read, write: if false;
+
+      match /items/{placementId} {
+        allow read, write: if false;
+      }
+
+      match /events/{eventId} {
+        allow read, write: if false;
+      }
+    }
+
     match /quests/{questId} {
       allow read: if true;
       allow write: if false;

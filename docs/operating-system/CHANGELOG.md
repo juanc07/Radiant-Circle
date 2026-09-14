@@ -1,3 +1,13 @@
+## 2026-09-14 — Phase 12E trusted payout lifecycle (implementation; live proof pending)
+
+- Added Admin-only `weeklyCupPayouts/{weekKey}` payout manifests derived only from immutable Phase 12D winners.
+- Payout preparation requires a CLOSED trusted Cup, Phase 12D FINALIZED result, and complete Phase 12C funding evidence that was VERIFIED at close.
+- Added deterministic payout-manifest SHA-256 covering the official SKR identity, total amount, funding wallet, Phase 12D ranking digest, winner wallets, receipt ids, and exact atomic allocations.
+- Added explicit `READY_FOR_REVIEW -> APPROVED` lifecycle with review reference, digest confirmation, transactional re-read, duplicate protection, and immutable prepared/approved audit events.
+- Firestore denies Android read/write access to payout lifecycle internals; normal player UI still reads only Phase 12D final results.
+- `payoutEnabled=false`, `transferEnabled=false`, and `transferStatus=NOT_STARTED` remain enforced. No signer/private key or SKR transfer exists in Phase 12E.
+- Added payout lifecycle pure tests and Admin operator documentation.
+
 ## 2026-09-13 — Phase 12D trusted season close + winners (implementation; live proof pending)
 
 - Audited Phase 12A–12C trust boundaries and confirmed there was no trusted run verifier/promotion path; raw Android `UNVERIFIED` receipts remain non-authoritative.

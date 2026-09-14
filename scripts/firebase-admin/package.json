@@ -12,7 +12,9 @@
     "funding:dry-run": "node verify-weekly-cup-funding.mjs --project radiant-rush-10a9c",
     "run:verify:dry-run": "node verify-competition-run.mjs --project radiant-rush-10a9c",
     "cup:finalize:dry-run": "node finalize-weekly-cup.mjs --project radiant-rush-10a9c",
-    "test": "node --test *.test.mjs"
+    "test": "node --test *.test.mjs",
+    "payout:prepare:dry-run": "node prepare-weekly-cup-payout.mjs --project radiant-rush-10a9c",
+    "payout:approve:dry-run": "node approve-weekly-cup-payout.mjs --project radiant-rush-10a9c"
   },
   "dependencies": {
     "firebase-admin": "14.4.0"

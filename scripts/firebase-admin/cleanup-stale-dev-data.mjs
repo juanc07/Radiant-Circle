@@ -20,6 +20,7 @@ const PROTECTED_ROOT_COLLECTIONS = new Set([
   'weeklyCupConfigs',
   'weeklyCupFundingChecks',
   'weeklyCupResults',
+  'weeklyCupPayouts',
 ]);
 
 function parseArgs(argv) {

@@ -1,8 +1,8 @@
 # Radiant Circle — Master Product Vision & Phase Roadmap
-**Date:** 2026-09-13  
-**Status:** Living product guide / source of truth for product direction  
-**Primary product:** Radiant Circle  
-**First embedded game:** Radiant Rush  
+**Date:** 2026-09-13
+**Status:** Living product guide / source of truth for product direction
+**Primary product:** Radiant Circle
+**First embedded game:** Radiant Rush
 
 ---
 
@@ -264,8 +264,8 @@ When Shake discovers another person, Radiant Circle can show:
 
 > **3 Shared Sparks**
 >
-> 🎮 RPGs  
-> 🎵 EDM  
+> 🎮 RPGs
+> 🎵 EDM
 > 🐶 Dogs
 
 This creates a concrete reason to send a friend request.
@@ -400,7 +400,7 @@ Those add too much moderation and implementation risk for the hackathon.
 Create a lightweight emotional reason to return every day even when the user does not want to play.
 
 Home card:
-> **TODAY'S RADIANCE**  
+> **TODAY'S RADIANCE**
 > Tap to reveal your message ✨
 
 Reveal:
@@ -595,12 +595,14 @@ Implemented contract:
 
 Live Firestore/admin/device proof is still required before commit/tag.
 
-### STOP AND ASSESS
-After 12D:
-- rerun complete Android test gate
-- verify Seeker UX
-- assess hackathon remaining time
-- decide whether payout work adds more judging value than social features
+### STOP AND ASSESS — decision recorded 2026-09-14
+After the Phase 12D checkpoint, the project deliberately chose to finish the trusted payout lifecycle foundation before starting Daily Radiance. Real transfer still remains a separate safety gate.
+
+Current order:
+- complete the live W38 Phase 12D winner-close proof
+- Phase 12E trusted payout lifecycle
+- reassess Phase 12F real sponsor-funded SKR transfer
+- then resume Phase 13 social features
 
 ---
 
@@ -688,21 +690,24 @@ Do only if stable.
 
 Payout work is intentionally after the trusted competition foundation and after reassessing judging value.
 
-### Phase 12E — Optional
-## Payout Lifecycle
+### Phase 12E — IMPLEMENTED, LIVE PROOF PENDING
+## Trusted Payout Lifecycle
 
-Build trusted payout states:
-- NOT_ELIGIBLE
-- READY
-- PROCESSING
-- PAID
-- FAILED / REQUIRES_REVIEW
+Implemented foundation:
+- deterministic Admin-only payout manifest from immutable Phase 12D winners
+- requires Cup `CLOSED`, trusted Phase 12D result, and Phase 12C funding `VERIFIED` at close
+- exact winner wallet + exact atomic SKR amount preserved per placement
+- manifest SHA-256 covers source ranking digest, funding wallet, winners, receipts, and amounts
+- `READY_FOR_REVIEW -> APPROVED` lifecycle with explicit review reference
+- apply-time digest confirmation and transactional re-read before approval
+- immutable `prepared` / `approved` audit events
+- duplicate preparation and duplicate approval refused
+- Android denied access to internal payout lifecycle documents
+- cleanup tooling protects payout collections
+- `payoutEnabled=false`, `transferEnabled=false`, `transferStatus=NOT_STARTED` throughout
+- no private key, transaction signing, or SKR transfer
 
-Requirements:
-- no Android payout authority
-- immutable audit history
-- winner wallet verification
-- manual/admin confirmation where appropriate
+Live proof waits for a successfully finalized and funded Cup. W38 must be funded/verified before close if it will be used for the Phase 12E proof.
 
 ### Phase 12F — Optional
 ## Real Sponsor-Funded SKR Transfer
@@ -918,9 +923,9 @@ The goal is not to make every feature equally important.
 
 The hierarchy is:
 
-**Social app first.**  
-**Games second.**  
-**Solana/SKR makes the identity and competition more meaningful.**  
+**Social app first.**
+**Games second.**
+**Solana/SKR makes the identity and competition more meaningful.**
 **Daily rituals make the Circle habitual.**
 
 ---

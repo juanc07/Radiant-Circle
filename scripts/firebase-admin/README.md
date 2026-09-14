@@ -244,3 +244,55 @@ docs/PHASE_12_ADMIN_OPERATOR_RUNBOOK.md
 ```
 
 The runbook also documents the `stdin is not a tty` heredoc issue seen on some Git Bash setups and provides `node --input-type=module -e` read-only alternatives.
+
+## Phase 12E trusted payout lifecycle
+
+Phase 12E prepares and approves an exact payout manifest **without transferring SKR**. The lifecycle is internal/Admin-only and is intentionally inaccessible to Android clients.
+
+Prerequisites:
+
+- the Cup is `CLOSED`,
+- Phase 12D created `weeklyCupResults/{weekKey}` and exact winner records,
+- funding was already `VERIFIED` by Phase 12C when Phase 12D closed the Cup,
+- all payout/transfer flags still remain disabled.
+
+Prepare — always dry-run first:
+
+```bash
+node prepare-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38
+```
+
+Apply only after reviewing the full wallet addresses, atomic SKR amounts, funding wallet, and manifest digest:
+
+```bash
+node prepare-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --apply \
+  --confirm-project radiant-rush-10a9c
+```
+
+Approval — dry-run first:
+
+```bash
+node approve-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --review-ref "operator-review-w38"
+```
+
+Copy the exact manifest SHA-256 printed by the dry run, then explicitly confirm it on apply:
+
+```bash
+node approve-weekly-cup-payout.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --review-ref "operator-review-w38" \
+  --confirm-digest "<EXACT_SHA256>" \
+  --apply \
+  --confirm-project radiant-rush-10a9c
+```
+
+`APPROVED` means only "this exact manifest was reviewed for a future trusted transfer phase." Phase 12E does not hold a signer, sign a transaction, or send SKR.

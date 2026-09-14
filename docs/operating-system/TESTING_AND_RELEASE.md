@@ -839,3 +839,21 @@ Before the Phase 12D commit/tag, test these states on Seeker:
 8. Connect a wallet, play with a standard ticket and available Ranked attempt, and confirm the normal Ranked path still works.
 9. Change/test a Cup outside its configured time window and confirm an expired `OPEN` document does not falsely claim a live tournament warning.
 10. Re-run `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:connectedDebugAndroidTest`, and `:app:installDebug`.
+
+
+## Phase 12E trusted payout lifecycle gate
+
+Phase 12E is Admin-only payout preparation/approval. It does not transfer SKR. Before commit/tag:
+
+1. Run `cd scripts/firebase-admin && npm test`.
+2. Deploy the updated Firestore rules and verify Android cannot read/write `weeklyCupPayouts`.
+3. Use a Cup that has successfully completed Phase 12D and whose Phase 12C funding was VERIFIED before close.
+4. Run `prepare-weekly-cup-payout.mjs` dry-run and verify the exact three winner wallets, atomic amounts, funding wallet, total, and manifest SHA-256.
+5. Apply preparation only with `--apply --confirm-project ...`; prove a second prepare is rejected.
+6. Run `approve-weekly-cup-payout.mjs` dry-run with a non-secret `--review-ref`.
+7. Apply approval only with the exact dry-run `--confirm-digest`; prove a wrong digest is rejected and a second approval is rejected.
+8. Verify Firestore root/item/event records all retain `payoutEnabled=false`, `transferEnabled=false`, and `transferStatus=NOT_STARTED`.
+9. Verify no transaction signature, private key, seed phrase, or token-transfer code exists in Phase 12E.
+10. Keep the normal Android regression gate green even though Phase 12E adds no player-facing payout controls.
+
+If funding was NOT_VERIFIED at Phase 12D close, payout preparation must fail closed. Do not manually rewrite the finalized result or downgrade this requirement.
