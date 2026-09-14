@@ -857,3 +857,24 @@ Phase 12E is Admin-only payout preparation/approval. It does not transfer SKR. B
 10. Keep the normal Android regression gate green even though Phase 12E adds no player-facing payout controls.
 
 If funding was NOT_VERIFIED at Phase 12D close, payout preparation must fail closed. Do not manually rewrite the finalized result or downgrade this requirement.
+
+## Phase 12F real SKR transfer gate
+
+Phase 12F introduces real-value transfer capability and therefore has a stricter gate.
+
+1. Run `cd scripts/firebase-admin && npm test`; all Phase 12A–12F pure tests must pass.
+2. Run `node --check` for all Phase 12F Admin scripts.
+3. Keep the normal Android regression gate green even though Phase 12F adds no Android signer/payout controls.
+4. Confirm Firestore still denies Android access to `weeklyCupPayouts`.
+5. Before any real transfer, require a Phase 12E `APPROVED` manifest produced from a VERIFIED-funded, finalized Phase 12D Cup.
+6. Dry-run placement #1 and verify exact official mint, manifest digest, funding wallet, winner wallet, atomic amount, remaining amount, and live liquid funding.
+7. Prefer external/Seed Vault intent + signature reconciliation when the sponsor wallet is hardware-backed. Never export a Seed Vault secret merely to satisfy the CLI signer path.
+8. For CLI signer mode, confirm `solana-keygen pubkey` exactly matches the funding wallet before any send.
+9. Execute only one placement per command and in placement order.
+10. Require `finalized` Solana status plus exact on-chain funding-wallet debit and winner-wallet credit before `PAID`.
+11. Test ambiguous submission handling: it must lock for reconciliation rather than automatically retry.
+12. Test a known finalized failed transaction path before production use if a safe development fixture is available; only a proven on-chain failure may reset for retry.
+13. After all winners are finalized PAID, dry-run/apply batch completion and prove duplicate completion is refused.
+14. No seed phrase/private key may appear in Git, Firestore, Android, logs uploaded to chat, or docs.
+
+W38 real transfer remains blocked until its Phase 12C–12E prerequisites are genuinely complete.

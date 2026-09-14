@@ -441,3 +441,54 @@ transferStatus = NOT_STARTED
 ```
 
 It creates no transaction and moves no SKR. Real transfer belongs to Phase 12F only after another explicit safety review.
+
+---
+
+## Phase 12F — real SKR transfer
+
+Only start after the Phase 12E payout manifest is `APPROVED`.
+
+### Preferred path for Seed Vault / hardware / external sponsor wallet
+
+Dry-run the next placement intent:
+
+```bash
+node prepare-weekly-cup-skr-transfer-intent.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --placement 1
+```
+
+Review the exact manifest digest, official SKR mint, funding wallet, winner wallet, and atomic amount. Apply the intent only with those exact confirmations. Then use the configured sponsor wallet itself to send the exact amount. Capture the real Solana signature and run reconciliation dry-run before applying it.
+
+Never send another transaction while an item's state is `AWAITING_EXTERNAL_SIGNATURE`, `SUBMITTING`, `SUBMITTED`, or `RECONCILIATION_REQUIRED` unless reconciliation has proved the previous transaction failed and the item was explicitly reset.
+
+### Optional local CLI signer path
+
+Only if the funding wallet is intentionally represented by a trusted local operational keypair outside this repository:
+
+```bash
+export RADIANT_PAYOUT_SIGNER_KEYPAIR="C:\\secure\\sponsor-keypair.json"
+```
+
+Run `execute-weekly-cup-skr-transfer.mjs` without `--apply` first. Apply requires the exact manifest digest, funding wallet, recipient wallet, atomic amount, and project confirmation.
+
+The tool calls `solana-keygen pubkey` first and refuses to sign unless that public key exactly matches the configured Phase 12E funding wallet.
+
+### Reconciliation
+
+If a transaction was submitted but the command timed out or the result is uncertain, use:
+
+```bash
+node reconcile-weekly-cup-skr-transfer.mjs \
+  --project radiant-rush-10a9c \
+  --week 2026-W38 \
+  --placement 1 \
+  --signature "<TX_SIGNATURE>"
+```
+
+The item is marked `PAID` only after finalized mainnet evidence proves the exact SKR debit/credit. A finalized failed transaction may be explicitly reset with `--reset-failed`; unknown outcomes remain locked.
+
+### Complete batch
+
+After every configured placement is `PAID`/`FINALIZED`, dry-run then apply `complete-weekly-cup-payout.mjs` with the exact payout-manifest digest. Duplicate completion is refused.

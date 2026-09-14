@@ -14,7 +14,11 @@
     "cup:finalize:dry-run": "node finalize-weekly-cup.mjs --project radiant-rush-10a9c",
     "test": "node --test *.test.mjs",
     "payout:prepare:dry-run": "node prepare-weekly-cup-payout.mjs --project radiant-rush-10a9c",
-    "payout:approve:dry-run": "node approve-weekly-cup-payout.mjs --project radiant-rush-10a9c"
+    "payout:approve:dry-run": "node approve-weekly-cup-payout.mjs --project radiant-rush-10a9c",
+    "transfer:execute:dry-run": "node execute-weekly-cup-skr-transfer.mjs --project radiant-rush-10a9c",
+    "transfer:reconcile:dry-run": "node reconcile-weekly-cup-skr-transfer.mjs --project radiant-rush-10a9c",
+    "payout:complete:dry-run": "node complete-weekly-cup-payout.mjs --project radiant-rush-10a9c",
+    "transfer:intent:dry-run": "node prepare-weekly-cup-skr-transfer-intent.mjs --project radiant-rush-10a9c"
   },
   "dependencies": {
     "firebase-admin": "14.4.0"

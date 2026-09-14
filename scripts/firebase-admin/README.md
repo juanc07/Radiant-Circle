@@ -296,3 +296,18 @@ node approve-weekly-cup-payout.mjs \
 ```
 
 `APPROVED` means only "this exact manifest was reviewed for a future trusted transfer phase." Phase 12E does not hold a signer, sign a transaction, or send SKR.
+
+## Phase 12F real sponsor-funded SKR transfer
+
+Phase 12F consumes only a Phase 12E `APPROVED` payout manifest. It pays one placement at a time and verifies the finalized Solana transaction before marking an item `PAID`.
+
+Two signer paths are supported:
+
+- `prepare-weekly-cup-skr-transfer-intent.mjs` + `reconcile-weekly-cup-skr-transfer.mjs` for Seed Vault/hardware/external sponsor wallets. No private key is exported to this tool.
+- `execute-weekly-cup-skr-transfer.mjs` for an intentional operational CLI keypair stored outside the repository and supplied only by `RADIANT_PAYOUT_SIGNER_KEYPAIR`.
+
+Always dry-run first. Do not paste seed phrases or private-key JSON into chat, source, Firestore, or shell arguments.
+
+Phase 12F enforces placement order, exact manifest digest, exact funding/recipient wallets, exact atomic amount, live SKR funding, official mint/program identity, transaction finality, and exact source/recipient token-balance deltas. Ambiguous submissions lock for reconciliation instead of automatic retry.
+
+See `docs/PHASE_12F_REAL_SKR_TRANSFER.md` and `docs/PHASE_12_ADMIN_OPERATOR_RUNBOOK.md` for the complete procedure.

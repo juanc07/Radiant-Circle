@@ -520,3 +520,15 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 - Daily chest uses the exact perk values persisted by today's Passport scan, preserving staking bonus without changing the deterministic base rarity roll.
 - Ranked raw score and three daily ranked attempts remain unchanged by liquid/staked SKR wealth.
 - Version bumped to `1.1.3-phase11c1` (`versionCode 18`).
+
+## Phase 12F — real sponsor-funded SKR transfer (implementation, live proof pending)
+
+- Added one-placement-at-a-time trusted SKR transfer planning/execution for Phase 12E `APPROVED` manifests.
+- Added external-wallet/Seed Vault transfer-intent mode so sponsor keys do not need to be exported.
+- Added optional trusted CLI signer mode with signer-pubkey equality check against the configured funding wallet.
+- Added exact manifest, funding wallet, winner wallet, atomic amount, official mint/program, and live-liquid-funding preflight validation.
+- Added Solana finalized transaction verification using exact SKR source debit and recipient credit deltas before marking `PAID`.
+- Added reconciliation and fail-closed handling for submitted/ambiguous transfers; automatic retry is prohibited when outcome is uncertain.
+- Added explicit reset only for transactions proven failed on-chain.
+- Added payout-batch completion only after every configured winner has a unique finalized transaction signature.
+- No Android signer or payout authority added.

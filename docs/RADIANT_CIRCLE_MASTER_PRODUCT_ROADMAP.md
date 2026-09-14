@@ -709,17 +709,23 @@ Implemented foundation:
 
 Live proof waits for a successfully finalized and funded Cup. W38 must be funded/verified before close if it will be used for the Phase 12E proof.
 
-### Phase 12F — Optional
+### Phase 12F — IMPLEMENTED, LIVE PROOF PENDING
 ## Real Sponsor-Funded SKR Transfer
 
-Only if:
-- Phase 12B–12D are stable
-- enough hackathon time remains
-- transfer can be implemented safely
-- no private key is embedded in Android
-- payout story materially improves demo/judging
+Implemented foundation:
+- consumes only a Phase 12E `APPROVED` manifest
+- pays exactly one placement per execution and enforces placement order
+- supports external/Seed Vault sponsor-wallet intent + signature reconciliation without exporting a private key
+- optional trusted CLI signer path keeps signer material outside Android, Git, Firestore, and command arguments
+- re-checks live liquid SKR immediately before transfer
+- verifies official SKR mint/program and standard recipient-wallet shape
+- writes a transfer intent before any automatic send
+- requires finalized Solana evidence plus exact funding-wallet debit and winner-wallet credit before `PAID`
+- ambiguous submission outcomes lock for reconciliation instead of automatic retry
+- only a transaction proven failed on-chain may be reset for a reviewed retry
+- final batch becomes `PAID` only after every configured winner has a unique finalized transaction signature
 
-Real transfer must be trusted/admin/server controlled.
+Live proof remains blocked until W38 (or another controlled Cup) genuinely completes Phase 12C funding VERIFIED, Phase 12D trusted finalization, and Phase 12E payout approval.
 
 ---
 
@@ -935,15 +941,15 @@ The hierarchy is:
 At the time of this document:
 
 1. Phase 12A — complete.
-2. Phase 12B — complete: trusted Sponsor/Cup configuration.
-3. Phase 12C — current: trusted SKR funding verification.
-4. Phase 12D — trusted season close + winners.
-5. Stop and assess.
-6. Phase 13A — Daily Radiance.
-7. Phase 13B — Shake to Radiate.
-8. Phase 13C — Profiles + Friends.
-9. Phase 13D — Mutual Chat.
-10. Reassess 12E/12F payout value versus final submission polish.
+2. Phase 12B — complete.
+3. Phase 12C — complete; live funding verifier proven with truthful `NOT_VERIFIED` result.
+4. Phase 12D — implementation checkpoint complete; successful three-wallet live close proof still pending.
+5. Phase 12E — implementation checkpoint complete; live successful payout-manifest proof waits for a funded finalized Cup.
+6. Phase 12F — implementation current; real transfer execution remains blocked until the Phase 12C–12E trust chain is genuinely satisfied.
+7. After the tournament/payout chain is proven, return to Phase 13A — Daily Radiance.
+8. Phase 13B — Shake to Radiate.
+9. Phase 13C — Profiles + Friends.
+10. Phase 13D — Mutual Chat.
 11. Final UX / build / Seeker / APK / demo / deck / submission.
 
 This document should remain the product guide until Radiant Circle is complete.
