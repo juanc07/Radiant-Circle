@@ -555,3 +555,15 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 - Amendment is dry-run first and digest-confirmed on apply, records old/new prize and funding wallet in immutable Admin audit data, and is refused after Cup close/finalization or when payout is enabled.
 - Any amendment invalidates/resets current Phase 12C funding evidence so the new prize/wallet must be independently re-verified before trusted close/payout.
 - No transfer occurs and `payoutEnabled` remains false.
+
+
+## 2026-09-14 — Phase 12F W38 live payout proof complete
+
+- Completed the controlled `2026-W38` trusted Weekly Cup payout lifecycle end to end on Solana mainnet.
+- Final approved payout manifest: `d2a5cfeabcb83311af32ec68dd0460e2e345afb273a6394e2e61d72af0a9aea4`.
+- Verified and reconciled three unique finalized SKR transfers: `150 SKR`, `90 SKR`, and `60 SKR`, totaling `300 SKR`.
+- Finalized slots: `447015792`, `447017547`, and `447018185`.
+- Each payout item reached `PAID` only after exact official-SKR amount verification from finalized transaction evidence.
+- Final completion succeeded with all three unique signatures and `weeklyCupPayouts/2026-W38` is `PAID`.
+- No payout private key was added to Android, Git, Firestore, or documentation; W38 used the external-wallet intent + reconciliation path.
+- Updated the Phase 12 operator runbook and end-to-end command playbook with the completed live proof.

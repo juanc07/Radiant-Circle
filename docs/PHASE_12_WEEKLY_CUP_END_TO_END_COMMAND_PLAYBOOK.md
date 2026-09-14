@@ -537,4 +537,36 @@ transfer enabled: false
 SKR transfer attempted: NO
 ```
 
-At the time this snapshot was written, the approval **apply** and Phase 12F real transfers had not yet been executed. Continue from Step 8 above using the exact manifest digest shown here, then execute/reconcile placements sequentially.
+The approval **apply** completed successfully and `weeklyCupPayouts/2026-W38` entered `APPROVED` before any transfer was attempted.
+
+## Phase 12F live transfer proof
+
+Each placement was locked with an external-wallet transfer intent, sent from the configured sponsor wallet, and reconciled only after finalized Solana evidence proved the exact official-SKR transfer.
+
+```text
+#1 150 SKR
+slot: 447015792
+signature: 5cAPT7d9Ycee98Xu8vUX9YwohiPQAuNDPuTEqN45ZXH1UinAjRzidpgD25QfNjPkkPitn5SU6TQdVrJWMew7htKp
+status: PAID
+
+#2 90 SKR
+slot: 447017547
+signature: 2oJvRCvGNhDaurvME62bPBF2dfv27dve8mffnVtpwQapPgQY3x8awoWC9gopS1EZ7LE9LPLhrn54PEsoWgMFEvki
+status: PAID
+
+#3 60 SKR
+slot: 447018185
+signature: 5xx9WUEBoZpNZuQmfMYr8ZAihh8YQ5QizkRToeCnVACLE9SGvmVyVXAueyhdwoZAwtPjdj8e9yzXar7oBrNy4aTo
+status: PAID
+```
+
+The final completion dry-run observed three paid winners and proposed batch status `PAID`. The apply required the exact reviewed manifest digest and then completed successfully:
+
+```text
+weeklyCupPayouts/2026-W38 = PAID
+paid winners = 3
+total verified payout = 300000000 atomic SKR = 300 SKR
+manifest SHA-256 = d2a5cfeabcb83311af32ec68dd0460e2e345afb273a6394e2e61d72af0a9aea4
+```
+
+This closes the controlled W38 end-to-end proof: trusted funding, trusted winner verification, audited early close, reviewed/approved manifest, three unique finalized transfer signatures, exact on-chain reconciliation, and final payout-batch `PAID`.

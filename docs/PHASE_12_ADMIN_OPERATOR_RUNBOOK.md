@@ -552,9 +552,14 @@ The controlled `2026-W38` live proof progressed beyond the earlier W37 fail-clos
 - The explicit admin early-close dry run produced 150 / 90 / 60 SKR allocations and was then applied with the reviewed ranking digest.
 - `weeklyCupResults/2026-W38` is frozen and the Cup is `CLOSED`.
 - Phase 12E payout preparation dry-run and apply succeeded.
-- `weeklyCupPayouts/2026-W38` exists in `READY_FOR_REVIEW`.
-- Phase 12E approval dry-run succeeded; approval apply is the next step.
-- No SKR has been transferred yet at this checkpoint.
+- Phase 12E approval dry-run and apply succeeded; the exact reviewed manifest entered `APPROVED` before any transfer.
+- Placement #1 reconciled at finalized slot `447015792` for exactly `150000000` atomic SKR and was marked `PAID`.
+- Placement #2 reconciled at finalized slot `447017547` for exactly `90000000` atomic SKR and was marked `PAID`.
+- Placement #3 reconciled at finalized slot `447018185` for exactly `60000000` atomic SKR and was marked `PAID`.
+- All three payout signatures are unique.
+- Final payout completion applied successfully with the reviewed manifest digest.
+- `weeklyCupPayouts/2026-W38` is now `PAID`.
+- Total verified sponsor-funded payout: `300000000` atomic SKR = `300 SKR`.
 
 Frozen W38 winners:
 
@@ -577,4 +582,13 @@ Payout manifest SHA-256:
 d2a5cfeabcb83311af32ec68dd0460e2e345afb273a6394e2e61d72af0a9aea4
 ```
 
-The exact command sequence used and the remaining approval/transfer commands are recorded in `PHASE_12_WEEKLY_CUP_END_TO_END_COMMAND_PLAYBOOK.md`.
+
+Finalized W38 payout signatures:
+
+```text
+#1 5cAPT7d9Ycee98Xu8vUX9YwohiPQAuNDPuTEqN45ZXH1UinAjRzidpgD25QfNjPkkPitn5SU6TQdVrJWMew7htKp
+#2 2oJvRCvGNhDaurvME62bPBF2dfv27dve8mffnVtpwQapPgQY3x8awoWC9gopS1EZ7LE9LPLhrn54PEsoWgMFEvki
+#3 5xx9WUEBoZpNZuQmfMYr8ZAihh8YQ5QizkRToeCnVACLE9SGvmVyVXAueyhdwoZAwtPjdj8e9yzXar7oBrNy4aTo
+```
+
+The exact start-to-finish command sequence is maintained in `PHASE_12_WEEKLY_CUP_END_TO_END_COMMAND_PLAYBOOK.md`.
