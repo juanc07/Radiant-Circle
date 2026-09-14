@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Token
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,6 +46,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +83,7 @@ fun ProfileScreen(
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
     val profileAvatar = PublicProfileRules.avatarFor(user.avatarId)
+    var showDisconnectConfirmation by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -224,6 +227,31 @@ fun ProfileScreen(
             )
         }
         item {
+            if (uiState.isWalletConnected) {
+                OutlinedButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = responsive.buttonHeight),
+                    enabled = !uiState.walletActionInProgress,
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = { showDisconnectConfirmation = true },
+                ) {
+                    AdaptiveButtonText(if (uiState.walletActionInProgress) "Disconnecting…" else "Disconnect Wallet")
+                }
+            } else {
+                Button(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = responsive.buttonHeight),
+                    enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = onConnectWallet,
+                ) {
+                    AdaptiveButtonText(if (uiState.walletActionInProgress) "Opening Wallet…" else "Connect Wallet")
+                }
+            }
+        }
+        item {
             SectionTitle(
                 title = "SKR Passport",
                 body = "Liquid + active staked SKR unlock daily perks, chest boosts, and cosmetics.",
@@ -343,32 +371,6 @@ fun ProfileScreen(
             }
         }
         item {
-            Button(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = responsive.buttonHeight),
-                enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress && !uiState.isWalletConnected,
-                shape = RoundedCornerShape(16.dp),
-                onClick = onConnectWallet,
-            ) {
-                AdaptiveButtonText(if (uiState.walletActionInProgress) "Opening Wallet…" else "Connect Wallet")
-            }
-        }
-        if (uiState.isWalletConnected) {
-            item {
-                OutlinedButton(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = responsive.buttonHeight),
-                    enabled = !uiState.walletActionInProgress,
-                    shape = RoundedCornerShape(16.dp),
-                    onClick = onDisconnectWallet,
-                ) {
-                    AdaptiveButtonText("Disconnect Wallet")
-                }
-            }
-        }
-        item {
             OutlinedButton(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -380,6 +382,32 @@ fun ProfileScreen(
                 AdaptiveButtonText("Refresh Profile")
             }
         }
+    }
+
+    if (showDisconnectConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDisconnectConfirmation = false },
+            title = { Text("Disconnect wallet?") },
+            text = {
+                Text("Your Radiant Circle profile and earned rewards stay intact. Wallet-only features will be unavailable until you reconnect.")
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectConfirmation = false }) {
+                    AdaptiveButtonText("Cancel")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !uiState.walletActionInProgress,
+                    onClick = {
+                        showDisconnectConfirmation = false
+                        onDisconnectWallet()
+                    },
+                ) {
+                    AdaptiveButtonText("Disconnect")
+                }
+            },
+        )
     }
 }
 

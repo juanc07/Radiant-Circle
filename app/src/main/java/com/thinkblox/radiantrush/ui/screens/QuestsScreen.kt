@@ -51,6 +51,7 @@ fun QuestsScreen(
     onRetryFirebase: () -> Unit,
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
+    onDisconnectWallet: () -> Unit,
     onClaimRadiantChest: () -> Unit,
     onPlayRadiantRun: () -> Unit,
     returnToRushRequest: Int = 0,
@@ -58,6 +59,7 @@ fun QuestsScreen(
 ) {
     val responsive = rememberResponsiveUiSpec()
     var selectedQuest by remember { mutableStateOf<QuestPreview?>(null) }
+    var showDisconnectConfirmation by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val syncItemCount = if (uiState.firebaseStatus != FirebaseStatus.Ready) 1 else 0
     val radiantRushLauncherIndex = syncItemCount + uiState.quests.size + 3
@@ -109,11 +111,17 @@ fun QuestsScreen(
                 actionEnabled = uiState.isFirebaseReady &&
                     !uiState.walletActionInProgress &&
                     (quest.status == QuestStatus.Ready ||
+                        quest.id == QuestIds.WALLET_CONNECT ||
                         (quest.id == QuestIds.SKR_HOLDER && quest.status == QuestStatus.Completed)),
+                allowCompletedAction = quest.id == QuestIds.WALLET_CONNECT || quest.id == QuestIds.SKR_HOLDER,
                 onClick = { selectedQuest = quest },
                 onActionClick = {
                     if (quest.id == QuestIds.WALLET_CONNECT) {
-                        onConnectWallet()
+                        if (uiState.isWalletConnected) {
+                            showDisconnectConfirmation = true
+                        } else {
+                            onConnectWallet()
+                        }
                     } else {
                         onCompleteQuest(quest)
                     }
@@ -148,6 +156,43 @@ fun QuestsScreen(
                 onPlay = onPlayRadiantRun,
             )
         }
+    }
+
+
+    if (showDisconnectConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDisconnectConfirmation = false },
+            title = {
+                Text(
+                    text = "Disconnect wallet?",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            },
+            text = {
+                Text(
+                    text = "Your Radiant Circle profile and earned rewards stay intact. Wallet-only features will be unavailable until you reconnect.",
+                    modifier = Modifier.fillMaxWidth(),
+                    textAlign = TextAlign.Center,
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectConfirmation = false }) {
+                    AdaptiveButtonText("Cancel")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !uiState.walletActionInProgress,
+                    onClick = {
+                        showDisconnectConfirmation = false
+                        onDisconnectWallet()
+                    },
+                ) {
+                    AdaptiveButtonText("Disconnect")
+                }
+            },
+        )
     }
 
     selectedQuest?.let { quest ->
@@ -225,7 +270,7 @@ private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String?
     if (uiState.activeQuestId == quest.id) {
         return when (quest.id) {
             QuestIds.DAILY_CHECK_IN -> "Saving Check-In…"
-            QuestIds.WALLET_CONNECT -> "Opening Wallet…"
+            QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected) "Disconnecting…" else "Opening Wallet…"
             QuestIds.SIGN_DAILY_PROOF -> "Waiting for Signature…"
             QuestIds.ON_CHAIN_PROOF -> "Opening Memo…"
             QuestIds.SKR_HOLDER -> "Scanning SKR + stake…"
@@ -242,7 +287,7 @@ private fun questActionLabel(quest: QuestPreview, uiState: RushUiState): String?
 
     return when (quest.id) {
         QuestIds.DAILY_CHECK_IN -> if (quest.status == QuestStatus.Completed) "Done" else "Check In"
-        QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected || quest.status == QuestStatus.Completed) "Wallet Connected" else "Connect Wallet"
+        QuestIds.WALLET_CONNECT -> if (uiState.isWalletConnected) "Disconnect Wallet" else "Connect Wallet"
         QuestIds.SIGN_DAILY_PROOF -> if (quest.status == QuestStatus.Completed) "Signed" else "Sign Daily Proof"
         QuestIds.ON_CHAIN_PROOF -> if (quest.status == QuestStatus.Completed) "Memo Submitted" else "Submit Memo Proof"
         QuestIds.SKR_HOLDER -> if (quest.status == QuestStatus.Completed) "Refresh SKR Passport" else "Check SKR Passport"

@@ -17,7 +17,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -25,9 +27,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +61,7 @@ fun HomeScreen(
     uiState: RushUiState,
     onRetryFirebase: () -> Unit,
     onConnectWallet: () -> Unit,
+    onDisconnectWallet: () -> Unit,
     onOpenToday: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
@@ -164,6 +173,7 @@ fun HomeScreen(
             WalletHomeCard(
                 uiState = uiState,
                 onConnectWallet = onConnectWallet,
+                onDisconnectWallet = onDisconnectWallet,
             )
         }
 
@@ -280,10 +290,12 @@ private fun HomeStat(
 private fun WalletHomeCard(
     uiState: RushUiState,
     onConnectWallet: () -> Unit,
+    onDisconnectWallet: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
     val connected = uiState.isWalletConnected
-    val canConnect = uiState.firebaseStatus == FirebaseStatus.Ready && !uiState.walletActionInProgress
+    val canManageWallet = uiState.firebaseStatus == FirebaseStatus.Ready && !uiState.walletActionInProgress
+    var showDisconnectConfirmation by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -332,12 +344,36 @@ private fun WalletHomeCard(
                 }
             }
 
-            if (!connected) {
+            if (connected) {
+                // A filled, high-contrast action makes wallet management discoverable on Home.
+                // Dark violet keeps the action visually distinct without implying destructive
+                // data loss (the confirmation dialog still explains the reversible disconnect).
                 Button(
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = responsive.buttonHeight),
-                    enabled = canConnect,
+                    enabled = canManageWallet,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4B246D),
+                        contentColor = Color.White,
+                        disabledContainerColor = Color(0xFF4B246D).copy(alpha = 0.38f),
+                        disabledContentColor = Color.White.copy(alpha = 0.68f),
+                    ),
+                    onClick = { showDisconnectConfirmation = true },
+                ) {
+                    AdaptiveButtonText(
+                        text = if (uiState.walletActionInProgress) "Disconnecting…" else "Disconnect Wallet",
+                        compactText = "Disconnect",
+                        tinyText = "Disconnect",
+                    )
+                }
+            } else {
+                Button(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = responsive.buttonHeight),
+                    enabled = canManageWallet,
                     shape = RoundedCornerShape(16.dp),
                     onClick = onConnectWallet,
                 ) {
@@ -349,6 +385,32 @@ private fun WalletHomeCard(
                 }
             }
         }
+    }
+
+    if (showDisconnectConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDisconnectConfirmation = false },
+            title = { Text("Disconnect wallet?") },
+            text = {
+                Text("Your Radiant Circle profile and earned rewards stay intact. Wallet-only features will be unavailable until you reconnect.")
+            },
+            dismissButton = {
+                TextButton(onClick = { showDisconnectConfirmation = false }) {
+                    AdaptiveButtonText("Cancel")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !uiState.walletActionInProgress,
+                    onClick = {
+                        showDisconnectConfirmation = false
+                        onDisconnectWallet()
+                    },
+                ) {
+                    AdaptiveButtonText("Disconnect")
+                }
+            },
+        )
     }
 }
 

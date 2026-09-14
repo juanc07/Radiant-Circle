@@ -438,6 +438,7 @@ fun QuestCard(
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     actionEnabled: Boolean = false,
+    allowCompletedAction: Boolean = false,
     onClick: () -> Unit = {},
     onActionClick: () -> Unit = {},
 ) {
@@ -526,9 +527,14 @@ fun QuestCard(
             }
             if (actionLabel != null) {
                 var lastAcceptedClickMs by remember(quest.id) { mutableLongStateOf(0L) }
-                val buttonEnabled = actionEnabled && quest.status == QuestStatus.Ready
+                val completedActionAvailable = allowCompletedAction && quest.status == QuestStatus.Completed
+                val buttonEnabled = actionEnabled && (quest.status == QuestStatus.Ready || completedActionAvailable)
                 val visibleLabel = when (quest.status) {
-                    QuestStatus.Completed -> responsive.chooseLabel("Done Today", "Done", "Done")
+                    QuestStatus.Completed -> if (completedActionAvailable) {
+                        actionLabel
+                    } else {
+                        responsive.chooseLabel("Done Today", "Done", "Done")
+                    }
                     QuestStatus.Syncing -> actionLabel
                     QuestStatus.Blocked -> responsive.chooseLabel("Connect Wallet First", "Connect First", "Wallet")
                     QuestStatus.Locked -> quest.status.label

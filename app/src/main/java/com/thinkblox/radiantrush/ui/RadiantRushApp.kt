@@ -282,7 +282,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         firebaseRefreshGeneration += 1
         appState = appState.copy(
             walletActionInProgress = true,
-            activeQuestId = null,
+            activeQuestId = QuestIds.WALLET_CONNECT,
             lastMessage = "Disconnecting wallet…",
         )
 
@@ -690,6 +690,7 @@ private fun ScreenContent(
             uiState = uiState,
             onRetryFirebase = onRetryFirebase,
             onConnectWallet = onConnectWallet,
+            onDisconnectWallet = onDisconnectWallet,
             onOpenToday = { onNavigate(AppDestination.Quests) },
         )
         AppDestination.Quests -> QuestsScreen(
@@ -698,6 +699,7 @@ private fun ScreenContent(
             onRetryFirebase = onRetryFirebase,
             onCompleteQuest = onCompleteQuest,
             onConnectWallet = onConnectWallet,
+            onDisconnectWallet = onDisconnectWallet,
             onClaimRadiantChest = onClaimRadiantChest,
             onPlayRadiantRun = onPlayRadiantRun,
             returnToRushRequest = returnToRushRequest,
