@@ -3,9 +3,11 @@
 **Project:** Radiant Circle
 **Game:** Radiant Rush
 **Firebase project:** `radiant-rush-10a9c`
-**Purpose:** trusted Weekly Radiant Cup configuration, funding verification, run attestation, and season finalization.
+**Purpose:** trusted Weekly Radiant Cup configuration, funding verification, run attestation, finalization, payout approval, and real SKR transfer operations.
 
 This document is an operator guide for the Phase 12 Firebase Admin tools. It is not player-facing documentation.
+
+For the linear start-to-finish command sequence, use `PHASE_12_WEEKLY_CUP_END_TO_END_COMMAND_PLAYBOOK.md`. That playbook covers Cup creation/opening through funding, trusted receipt attestation, close/finalization, Phase 12E manifest approval, Phase 12F transfer/reconciliation, and final payout completion.
 
 ## 1. Safety rules
 
@@ -536,3 +538,43 @@ The item is marked `PAID` only after finalized mainnet evidence proves the exact
 ### Complete batch
 
 After every configured placement is `PAID`/`FINALIZED`, dry-run then apply `complete-weekly-cup-payout.mjs` with the exact payout-manifest digest. Duplicate completion is refused.
+
+## 18. W38 live end-to-end proof status — 2026-09-14
+
+The controlled `2026-W38` live proof progressed beyond the earlier W37 fail-closed checkpoint. Current trusted state:
+
+- Cup prize was explicitly and immutably amended from `1000 SKR` to `300 SKR` while still `OPEN`.
+- Funding wallet: `EqLUDQpfZrCJcQ5obVWzjuBn1v4sHH8PxVfcCg4rppzj`.
+- Liquid transferable funding observed: `399.926445 SKR`.
+- Fresh Phase 12C funding evidence was persisted as `VERIFIED`.
+- Three independently reviewed receipts were promoted through Phase 12D with matching immutable verification audits.
+- Three distinct full winner wallets were present.
+- The explicit admin early-close dry run produced 150 / 90 / 60 SKR allocations and was then applied with the reviewed ranking digest.
+- `weeklyCupResults/2026-W38` is frozen and the Cup is `CLOSED`.
+- Phase 12E payout preparation dry-run and apply succeeded.
+- `weeklyCupPayouts/2026-W38` exists in `READY_FOR_REVIEW`.
+- Phase 12E approval dry-run succeeded; approval apply is the next step.
+- No SKR has been transferred yet at this checkpoint.
+
+Frozen W38 winners:
+
+```text
+#1 J86vtTs7twTUuS4xfo8H8zaUeFyMNHWPPeEXyL5DscPg  150000000 atomic
+#2 HbyQrE2N1V8TPs5HJ9wGDq3M85Zm1i21RmgbLFk39xkS   90000000 atomic
+#3 21jdTFKL5LS41dPRUZsZzFkceE7fBXvSCSwe6kDUk5ey   60000000 atomic
+```
+
+Proof digests:
+
+```text
+Eligible receipt snapshot SHA-256:
+3ec77e41fac067ad90e19874f27fabfa30c4a24a77f743c7486b9073dd951882
+
+Ranking snapshot SHA-256:
+bd0ff48ff5b4e9e4fd866c177a5544a90ec11eb471f5644283bfd5d4f9c322f5
+
+Payout manifest SHA-256:
+d2a5cfeabcb83311af32ec68dd0460e2e345afb273a6394e2e61d72af0a9aea4
+```
+
+The exact command sequence used and the remaining approval/transfer commands are recorded in `PHASE_12_WEEKLY_CUP_END_TO_END_COMMAND_PLAYBOOK.md`.

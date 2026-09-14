@@ -1,3 +1,11 @@
+## 2026-09-14 — Phase 12F live W38 proof + end-to-end operator playbook
+
+- Added `PHASE_12_WEEKLY_CUP_END_TO_END_COMMAND_PLAYBOOK.md` with the exact dry-run/apply sequence from Cup opening through Phase 12C funding verification, Phase 12D run attestation/finalization, Phase 12E payout preparation/approval, Phase 12F transfer intent/reconciliation, and final batch completion.
+- Recorded the controlled W38 live proof: prize amended to 300 SKR, funding wallet `EqLUDQpfZrCJcQ5obVWzjuBn1v4sHH8PxVfcCg4rppzj`, 399.926445 liquid SKR observed, fresh funding `VERIFIED`, three distinct trusted winners, and early-close finalization applied.
+- Frozen W38 allocations are 150 / 90 / 60 SKR with ranking digest `bd0ff48ff5b4e9e4fd866c177a5544a90ec11eb471f5644283bfd5d4f9c322f5`.
+- Phase 12E payout manifest was prepared and applied in `READY_FOR_REVIEW`; approval dry-run reviewed the exact manifest digest `d2a5cfeabcb83311af32ec68dd0460e2e345afb273a6394e2e61d72af0a9aea4`.
+- At this checkpoint no SKR transfer has occurred; approval apply and sequential Phase 12F on-chain transfer/reconciliation remain.
+
 ## 2026-09-14 — Phase 12E trusted payout lifecycle (implementation; live proof pending)
 ## 2026-09-14 — Phase 12D admin early-close override
 
