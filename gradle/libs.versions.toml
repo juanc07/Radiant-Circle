@@ -9,6 +9,8 @@ googleServices = "4.5.0"
 mwaClient = "2.2.0-agp9-beta1"
 web3Solana = "0.2.5"
 multimult = "0.2.3"
+credentials = "1.6.0"
+googleId = "1.2.0"
 
 [libraries]
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
@@ -22,6 +24,9 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore" }
+androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }
+androidx-credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentials" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
 solana-mwa-client = { group = "com.solanamobile", name = "mobile-wallet-adapter-clientlib-ktx", version.ref = "mwaClient" }
 solana-web3 = { group = "com.solanamobile", name = "web3-solana", version.ref = "web3Solana" }
 multimult = { group = "io.github.funkatronics", name = "multimult", version.ref = "multimult" }

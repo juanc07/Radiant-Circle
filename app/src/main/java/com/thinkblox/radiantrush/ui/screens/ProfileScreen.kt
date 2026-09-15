@@ -62,8 +62,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.thinkblox.radiantrush.data.CircleProfilePreview
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.logic.PublicProfileRules
+import com.thinkblox.radiantrush.logic.SharedSparkRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.PassportCrestCard
 import com.thinkblox.radiantrush.ui.components.GradientHeroCard
@@ -79,6 +81,13 @@ fun ProfileScreen(
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
     onSavePublicProfile: (String, String) -> Unit,
+    circleProfile: CircleProfilePreview,
+    circleProfileLoading: Boolean,
+    circleActionInProgress: Boolean,
+    onSaveCircleProfile: (CircleProfilePreview) -> Unit,
+    accountActionInProgress: Boolean,
+    accountActionMessage: String?,
+    onProtectAccount: () -> Unit,
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
@@ -149,6 +158,29 @@ fun ProfileScreen(
                 avatarId = user.avatarId,
                 enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
                 onSave = onSavePublicProfile,
+            )
+        }
+
+        item {
+            SocialProfileEditor(
+                profile = circleProfile.copy(
+                    displayName = user.displayName,
+                    avatarId = user.avatarId,
+                ),
+                enabled = uiState.isFirebaseReady && !circleActionInProgress && !circleProfileLoading,
+                loading = circleProfileLoading,
+                onSave = onSaveCircleProfile,
+            )
+        }
+
+        item {
+            AccountProtectionCard(
+                isTemporary = uiState.accountIdentity.isTemporary,
+                providerLabel = uiState.accountIdentity.providerLabel,
+                email = uiState.accountIdentity.email,
+                actionInProgress = accountActionInProgress,
+                message = accountActionMessage,
+                onProtectAccount = onProtectAccount,
             )
         }
 
@@ -409,6 +441,294 @@ fun ProfileScreen(
             },
         )
     }
+}
+
+@Composable
+private fun AccountProtectionCard(
+    isTemporary: Boolean,
+    providerLabel: String,
+    email: String?,
+    actionInProgress: Boolean,
+    message: String?,
+    onProtectAccount: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isTemporary) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Security,
+                    contentDescription = null,
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isTemporary) "Keep your Circle" else "Circle account protected",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = if (isTemporary) {
+                            "Keep your profile, Daily Radiance and Circle if you reinstall or move to another phone."
+                        } else {
+                            buildString {
+                                append("Protected with $providerLabel")
+                                email?.takeIf { it.isNotBlank() }?.let { append(" • $it") }
+                            }
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (isTemporary) {
+                Button(
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = onProtectAccount,
+                    enabled = !actionInProgress,
+                ) {
+                    AdaptiveButtonText(
+                        text = if (actionInProgress) "Opening Google…" else "Continue with Google",
+                    )
+                }
+            }
+
+            message?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SocialProfileEditor(
+    profile: CircleProfilePreview,
+    enabled: Boolean,
+    loading: Boolean,
+    onSave: (CircleProfilePreview) -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    var showEditor by remember { mutableStateOf(false) }
+    val clean = SharedSparkRules.sanitizeProfile(profile)
+    val filledCount = SharedSparkRules.filledInterestCount(clean)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(responsive.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "About you",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                text = "Share a few things you enjoy so Radiant Circle can highlight what you have in common with other people.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                softWrap = true,
+            )
+            if (clean.motto.isNotBlank()) {
+                Text(
+                    text = "“${clean.motto}”",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    softWrap = true,
+                )
+            }
+            Text(
+                text = when {
+                    loading -> "Loading your shared interests…"
+                    filledCount == 0 -> "Nothing shared yet. Every field is optional."
+                    else -> "$filledCount interest${if (filledCount == 1) "" else "s"} shared on your Circle profile."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = responsive.buttonHeight),
+                onClick = { showEditor = true },
+                enabled = enabled,
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                AdaptiveButtonText(
+                    text = if (filledCount == 0) "Add interests" else "Edit shared interests",
+                    compactText = if (filledCount == 0) "Add interests" else "Edit interests",
+                    tinyText = "Edit interests",
+                )
+            }
+            Text(
+                text = "Only the fields you fill in are shared. Your email, wallet, exact location, and account id are never part of this profile.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                softWrap = true,
+            )
+        }
+    }
+
+    if (showEditor) {
+        SocialProfileEditDialog(
+            profile = clean,
+            enabled = enabled,
+            onSave = {
+                onSave(it)
+                showEditor = false
+            },
+            onDismiss = { showEditor = false },
+        )
+    }
+}
+
+@Composable
+private fun SocialProfileEditDialog(
+    profile: CircleProfilePreview,
+    enabled: Boolean,
+    onSave: (CircleProfilePreview) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    var motto by remember(profile) { mutableStateOf(profile.motto) }
+    var favoriteFood by remember(profile) { mutableStateOf(profile.favoriteFood) }
+    var music by remember(profile) { mutableStateOf(profile.music) }
+    var games by remember(profile) { mutableStateOf(profile.games) }
+    var hobbies by remember(profile) { mutableStateOf(profile.hobbies) }
+    var books by remember(profile) { mutableStateOf(profile.books) }
+    var pets by remember(profile) { mutableStateOf(profile.pets) }
+    var currentlyInto by remember(profile) { mutableStateOf(profile.currentlyInto) }
+    var weekendVibe by remember(profile) { mutableStateOf(profile.weekendVibe) }
+    var talkAbout by remember(profile) { mutableStateOf(profile.talkAbout) }
+
+    fun draft(): CircleProfilePreview = SharedSparkRules.sanitizeProfile(
+        profile.copy(
+            motto = motto,
+            favoriteFood = favoriteFood,
+            music = music,
+            games = games,
+            hobbies = hobbies,
+            books = books,
+            pets = pets,
+            currentlyInto = currentlyInto,
+            weekendVibe = weekendVibe,
+            talkAbout = talkAbout,
+        ),
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.96f)
+                .fillMaxHeight(0.94f),
+            shape = RoundedCornerShape(28.dp),
+            colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                item {
+                    Text(
+                        text = "What do you want to share?",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Black,
+                        softWrap = true,
+                    )
+                    Text(
+                        text = "All fields are optional. Separate multiple interests with commas or slashes so Shared Sparks can spot similarities.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        softWrap = true,
+                    )
+                }
+
+                item { SocialProfileField("Motto", motto, SharedSparkRules.MAX_MOTTO_LENGTH, enabled) { motto = it } }
+                item { SocialProfileField("🍜 Favorite food", favoriteFood, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { favoriteFood = it } }
+                item { SocialProfileField("🎵 Music", music, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { music = it } }
+                item { SocialProfileField("🎮 Games", games, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { games = it } }
+                item { SocialProfileField("🎨 Hobbies", hobbies, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { hobbies = it } }
+                item { SocialProfileField("📚 Books", books, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { books = it } }
+                item { SocialProfileField("🐾 Pets", pets, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { pets = it } }
+                item { SocialProfileField("✨ Currently into", currentlyInto, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { currentlyInto = it } }
+                item { SocialProfileField("🌤 Weekend vibe", weekendVibe, SharedSparkRules.MAX_SHORT_FIELD_LENGTH, enabled) { weekendVibe = it } }
+                item { SocialProfileField("💬 I can talk for hours about…", talkAbout, SharedSparkRules.MAX_TALK_ABOUT_LENGTH, enabled) { talkAbout = it } }
+
+                item {
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight),
+                        onClick = { onSave(draft()) },
+                        enabled = enabled,
+                    ) {
+                        AdaptiveButtonText("Save Circle Profile", compactText = "Save profile", tinyText = "Save")
+                    }
+                }
+                item {
+                    OutlinedButton(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight),
+                        onClick = onDismiss,
+                    ) {
+                        AdaptiveButtonText("Cancel")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SocialProfileField(
+    label: String,
+    value: String,
+    maxLength: Int,
+    enabled: Boolean,
+    onValueChange: (String) -> Unit,
+) {
+    OutlinedTextField(
+        modifier = Modifier.fillMaxWidth(),
+        value = value,
+        onValueChange = { onValueChange(it.take(maxLength)) },
+        enabled = enabled,
+        label = { Text(label, softWrap = true) },
+        supportingText = { Text("${value.length}/$maxLength") },
+        minLines = 1,
+        maxLines = 2,
+    )
 }
 
 @Composable

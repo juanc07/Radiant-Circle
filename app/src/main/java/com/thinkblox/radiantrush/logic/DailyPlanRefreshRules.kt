@@ -1,5 +1,6 @@
 package com.thinkblox.radiantrush.logic
 
+import com.thinkblox.radiantrush.data.DailyRadiancePreview
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.QuestPreview
@@ -32,6 +33,7 @@ object DailyPlanRefreshRules {
             incoming.firebaseStatus == FirebaseStatus.Error
         ) {
             return current.copy(
+                dailyRadiance = current.dailyRadiance.copy(opening = false),
                 backgroundSyncInProgress = false,
                 lastMessage = incoming.lastMessage,
             )
@@ -48,6 +50,7 @@ object DailyPlanRefreshRules {
 
         return incoming.copy(
             quests = mergedQuests,
+            dailyRadiance = stabilizeDailyRadiance(current.dailyRadiance, incoming.dailyRadiance),
             radiantChest = stabilizeChest(current.radiantChest, incoming.radiantChest),
         )
     }
@@ -74,6 +77,18 @@ object DailyPlanRefreshRules {
             return incoming.copy(status = previous.status)
         }
 
+        return incoming
+    }
+
+    private fun stabilizeDailyRadiance(
+        previous: DailyRadiancePreview,
+        incoming: DailyRadiancePreview,
+    ): DailyRadiancePreview {
+        // Revealing today's Radiance is monotonic for the selected day. A slower profile
+        // snapshot must not briefly hide the message after the successful write returns.
+        if (previous.revealedToday && !incoming.revealedToday) {
+            return previous.copy(opening = incoming.opening)
+        }
         return incoming
     }
 

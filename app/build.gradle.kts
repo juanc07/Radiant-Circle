@@ -58,6 +58,12 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
 
+    // Durable Radiant Circle identity: keep the frictionless anonymous first launch,
+    // then let players protect/restore the same Firebase account with Google.
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services.auth)
+    implementation(libs.googleid)
+
     // Phase 10.1 keeps MWA/SKR proof support and adds procedural game audio + Canvas VFX to the Radiant Rush game.
     // Exclude test/mock dependencies that older MWA KTX metadata can expose transitively.
     // Those libraries are not needed by the production app and can trigger noisy/failing

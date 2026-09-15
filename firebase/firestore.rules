@@ -97,6 +97,165 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Phase 13C social profiles. This is intentionally a small, public-to-signed-in
+    // social card only. Exact location, wallet data, email, auth ids, and trusted
+    // competition fields never belong here. Owners control only their own profile.
+    match /circleProfiles/{userId} {
+      allow read: if signedIn();
+
+      allow create, update: if owns(userId)
+        && request.resource.data.keys().hasOnly([
+          "ownerUid",
+          "displayName",
+          "avatarId",
+          "motto",
+          "favoriteFood",
+          "music",
+          "games",
+          "hobbies",
+          "books",
+          "pets",
+          "currentlyInto",
+          "weekendVibe",
+          "talkAbout",
+          "updatedAt"
+        ])
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 20
+        && request.resource.data.avatarId is string
+        && request.resource.data.avatarId.size() >= 1
+        && request.resource.data.avatarId.size() <= 32
+        && (!request.resource.data.keys().hasAny(["motto"])
+          || (request.resource.data.motto is string && request.resource.data.motto.size() <= 100))
+        && (!request.resource.data.keys().hasAny(["favoriteFood"])
+          || (request.resource.data.favoriteFood is string && request.resource.data.favoriteFood.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["music"])
+          || (request.resource.data.music is string && request.resource.data.music.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["games"])
+          || (request.resource.data.games is string && request.resource.data.games.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["hobbies"])
+          || (request.resource.data.hobbies is string && request.resource.data.hobbies.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["books"])
+          || (request.resource.data.books is string && request.resource.data.books.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["pets"])
+          || (request.resource.data.pets is string && request.resource.data.pets.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["currentlyInto"])
+          || (request.resource.data.currentlyInto is string && request.resource.data.currentlyInto.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["weekendVibe"])
+          || (request.resource.data.weekendVibe is string && request.resource.data.weekendVibe.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["talkAbout"])
+          || (request.resource.data.talkAbout is string && request.resource.data.talkAbout.size() <= 90))
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if owns(userId);
+    }
+
+    // Phase 13B social discovery. Presence is opt-in, short-lived and contains
+    // coarse area/time buckets only — never raw latitude/longitude or wallet data.
+    // Any signed-in Radiant Circle member may read active candidates; only the
+    // owner can publish or replace their own temporary discovery presence.
+    match /circleDiscovery/{userId} {
+      allow read: if signedIn();
+
+      allow create, update: if owns(userId)
+        && request.resource.data.keys().hasOnly([
+          "ownerUid",
+          "displayName",
+          "avatarId",
+          "radianceStreak",
+          "level",
+          "localWindowKeys",
+          "regionalWindowKeys",
+          "broadWindowKeys",
+          "countryWindowKeys",
+          "globalWindowKeys",
+          "expiresAtEpochMillis",
+          "expiresAt",
+          "updatedAt"
+        ])
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 20
+        && request.resource.data.avatarId is string
+        && request.resource.data.avatarId.size() >= 1
+        && request.resource.data.avatarId.size() <= 32
+        && request.resource.data.radianceStreak is int
+        && request.resource.data.radianceStreak >= 0
+        && request.resource.data.level is int
+        && request.resource.data.level >= 1
+        && request.resource.data.localWindowKeys is list
+        && request.resource.data.localWindowKeys.size() == 2
+        && request.resource.data.regionalWindowKeys is list
+        && request.resource.data.regionalWindowKeys.size() == 2
+        && request.resource.data.broadWindowKeys is list
+        && request.resource.data.broadWindowKeys.size() == 2
+        && request.resource.data.countryWindowKeys is list
+        && request.resource.data.countryWindowKeys.size() == 2
+        && request.resource.data.globalWindowKeys is list
+        && request.resource.data.globalWindowKeys.size() == 2
+        && request.resource.data.expiresAtEpochMillis is int
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt >= request.time - duration.value(15, 'm')
+        && request.resource.data.expiresAt <= request.time + duration.value(15, 'm')
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if owns(userId);
+    }
+
+    // One deterministic document represents a Spark relationship between two
+    // Firebase UIDs. The initiator can create only PENDING; only the recipient
+    // can turn that request into ACCEPTED or IGNORED. Wallet identity is not used.
+    match /circleEdges/{edgeId} {
+      allow read: if signedIn()
+        && request.auth.uid in resource.data.memberUids;
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          "memberUids",
+          "initiatorUid",
+          "recipientUid",
+          "status",
+          "initiatorDisplayName",
+          "initiatorAvatarId",
+          "recipientDisplayName",
+          "recipientAvatarId",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() == 2
+        && request.resource.data.initiatorUid == request.auth.uid
+        && request.resource.data.recipientUid is string
+        && request.resource.data.recipientUid != request.auth.uid
+        && request.resource.data.initiatorUid in request.resource.data.memberUids
+        && request.resource.data.recipientUid in request.resource.data.memberUids
+        && request.resource.data.status == "PENDING"
+        && request.resource.data.initiatorDisplayName is string
+        && request.resource.data.initiatorDisplayName.size() >= 1
+        && request.resource.data.initiatorDisplayName.size() <= 20
+        && request.resource.data.recipientDisplayName is string
+        && request.resource.data.recipientDisplayName.size() >= 1
+        && request.resource.data.recipientDisplayName.size() <= 20
+        && request.resource.data.initiatorAvatarId is string
+        && request.resource.data.initiatorAvatarId.size() <= 32
+        && request.resource.data.recipientAvatarId is string
+        && request.resource.data.recipientAvatarId.size() <= 32
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if signedIn()
+        && resource.data.recipientUid == request.auth.uid
+        && resource.data.status == "PENDING"
+        && request.resource.data.status in ["ACCEPTED", "IGNORED"]
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
 
     // Phase 11 Radiant Run competition boards. These are prototype/client-reported
     // rankings only. They are public-readable for competition display, but each

@@ -1,12 +1,16 @@
 package com.thinkblox.radiantrush.ui
 
 import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -26,7 +30,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import com.thinkblox.radiantrush.auth.GoogleAccountCredentialProvider
+import com.thinkblox.radiantrush.auth.GoogleAccountCredentialResult
 import com.thinkblox.radiantrush.data.AppDestination
+import com.thinkblox.radiantrush.data.ApproximateCircleLocation
+import com.thinkblox.radiantrush.data.CircleDiscoveryStatus
+import com.thinkblox.radiantrush.data.CircleMemberPreview
+import com.thinkblox.radiantrush.data.CircleProfilePreview
+import com.thinkblox.radiantrush.data.CircleSparkPreview
+import com.thinkblox.radiantrush.data.CircleUiState
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.PreviewContent
 import com.thinkblox.radiantrush.data.QuestIds
@@ -48,6 +60,7 @@ import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveNavLabel
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.screens.BadgesScreen
+import com.thinkblox.radiantrush.ui.screens.CircleScreen
 import com.thinkblox.radiantrush.ui.screens.HomeScreen
 import com.thinkblox.radiantrush.ui.screens.LeaderboardScreen
 import com.thinkblox.radiantrush.ui.screens.ProfileScreen
@@ -69,7 +82,13 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     val skrRepository = remember {
         SkrBalanceRepository()
     }
+    val googleAccountCredentialProvider = remember(context) {
+        GoogleAccountCredentialProvider(context)
+    }
+    var accountActionInProgress by remember { mutableStateOf(false) }
+    var accountActionMessage by remember { mutableStateOf<String?>(null) }
     var appState by remember { mutableStateOf(PreviewContent.defaultState()) }
+    var circleState by remember { mutableStateOf(CircleUiState()) }
     var enteredShell by rememberSaveable { mutableStateOf(false) }
     // Radiant Rush owns transient in-memory gameplay state. Do not restore the run route
     // across Activity recreation/process restoration; restoring only the route can reopen a
@@ -220,6 +239,58 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         // while a legitimate read was still in flight, which made Home show a false error
         // and disabled wallet entry. Core profile readiness is now emitted as soon as the
         // profile document loads; secondary quest/rank/Cup hydration continues quietly.
+    }
+
+    fun protectCircleAccount() {
+        if (accountActionInProgress) return
+        accountActionInProgress = true
+        accountActionMessage = null
+        scope.launch {
+            when (val credentialResult = googleAccountCredentialProvider.requestIdToken()) {
+                is GoogleAccountCredentialResult.Success -> {
+                    repository.linkOrRestoreGoogleAccount(credentialResult.idToken) { result ->
+                        accountActionInProgress = false
+                        accountActionMessage = result.message
+                        if (result.success) {
+                            refreshFirebase()
+                        }
+                    }
+                }
+                GoogleAccountCredentialResult.Cancelled -> {
+                    accountActionInProgress = false
+                    accountActionMessage = "Google sign-in was closed. Your current Circle is unchanged."
+                }
+                is GoogleAccountCredentialResult.SetupRequired -> {
+                    accountActionInProgress = false
+                    accountActionMessage = credentialResult.message
+                }
+                is GoogleAccountCredentialResult.Failure -> {
+                    accountActionInProgress = false
+                    accountActionMessage = credentialResult.message
+                }
+            }
+        }
+    }
+
+    fun openDailyRadiance() {
+        if (!appState.isFirebaseReady) {
+            appState = appState.copy(lastMessage = "Your profile is still getting ready.")
+            return
+        }
+        if (appState.walletActionInProgress) {
+            appState = appState.copy(lastMessage = "Please finish the current action first.")
+            return
+        }
+        if (appState.dailyRadiance.revealedToday || appState.dailyRadiance.opening) return
+
+        firebaseRefreshGeneration += 1
+        appState = appState.copy(
+            dailyRadiance = appState.dailyRadiance.copy(opening = true),
+            lastMessage = null,
+        )
+        repository.openDailyRadiance { nextState ->
+            applyRepositoryState(nextState)
+        }
     }
 
     fun savePublicProfile(displayName: String, avatarId: String) {
@@ -497,8 +568,123 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun refreshCircle() {
+        circleState = circleState.copy(actionInProgress = true, myProfileLoading = true)
+        repository.loadCircleSocial { snapshot, error ->
+            circleState = if (snapshot != null) {
+                circleState.copy(
+                    incomingRequests = snapshot.incomingRequests,
+                    connections = snapshot.connections,
+                    actionInProgress = false,
+                    message = circleState.message,
+                )
+            } else {
+                circleState.copy(
+                    actionInProgress = false,
+                    message = error ?: "Couldn't refresh your Circle.",
+                )
+            }
+        }
+        repository.loadMyCircleProfile { profile, error ->
+            if (profile != null) {
+                circleState = circleState.copy(myProfile = profile, myProfileLoading = false)
+            } else {
+                circleState = circleState.copy(
+                    myProfileLoading = false,
+                    message = error ?: circleState.message,
+                )
+            }
+        }
+    }
+
+    fun saveCircleProfile(profile: CircleProfilePreview) {
+        if (circleState.actionInProgress) return
+        circleState = circleState.copy(actionInProgress = true, message = "Saving your Circle profile…")
+        repository.saveCircleProfile(profile) { result ->
+            circleState = circleState.copy(
+                actionInProgress = false,
+                message = result.message,
+            )
+            if (result.success) {
+                repository.loadMyCircleProfile { refreshed, _ ->
+                    if (refreshed != null) circleState = circleState.copy(myProfile = refreshed)
+                }
+            }
+        }
+    }
+
+    fun openCircleProfile(member: CircleMemberPreview) {
+        circleState = circleState.copy(
+            selectedMemberProfile = null,
+            profileLoading = true,
+            message = "Opening ${member.displayName}'s profile…",
+        )
+        repository.loadCircleMemberProfile(member) { profile, error ->
+            circleState = circleState.copy(
+                selectedMemberProfile = profile,
+                profileLoading = false,
+                message = error ?: circleState.message,
+            )
+        }
+    }
+
+    fun closeCircleProfile() {
+        circleState = circleState.copy(selectedMemberProfile = null, profileLoading = false)
+    }
+
+    fun startCircleDiscovery(location: ApproximateCircleLocation) {
+        circleState = circleState.copy(
+            discoveryStatus = CircleDiscoveryStatus.Searching,
+            discoveredMember = null,
+            actionInProgress = true,
+            message = "Searching the Circle…",
+        )
+        repository.startCircleDiscovery(location) { result ->
+            circleState = circleState.copy(
+                discoveryStatus = if (result.member != null) {
+                    CircleDiscoveryStatus.MatchFound
+                } else {
+                    CircleDiscoveryStatus.Empty
+                },
+                discoveredMember = result.member,
+                actionInProgress = false,
+                message = result.message,
+            )
+        }
+    }
+
+    fun sendCircleSpark(member: CircleMemberPreview) {
+        circleState = circleState.copy(actionInProgress = true, message = "Sending Spark…")
+        repository.sendCircleSpark(member) { result ->
+            circleState = circleState.copy(
+                actionInProgress = false,
+                discoveredMember = if (result.success) null else circleState.discoveredMember,
+                discoveryStatus = if (result.success) CircleDiscoveryStatus.Idle else circleState.discoveryStatus,
+                message = result.message,
+            )
+            if (result.success) refreshCircle()
+        }
+    }
+
+    fun respondToCircleSpark(request: CircleSparkPreview, accept: Boolean) {
+        circleState = circleState.copy(actionInProgress = true)
+        repository.respondToCircleSpark(request.edgeId, accept) { result ->
+            circleState = circleState.copy(
+                actionInProgress = false,
+                message = result.message,
+            )
+            refreshCircle()
+        }
+    }
+
     LaunchedEffect(Unit) {
         refreshFirebase()
+    }
+
+    LaunchedEffect(shellDestination) {
+        if (shellDestination == AppDestination.Circle || shellDestination == AppDestination.Profile) {
+            refreshCircle()
+        }
     }
 
     if (!enteredShell) {
@@ -527,6 +713,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
     RadiantRushShell(
         uiState = appState,
+        circleState = circleState,
         destination = shellDestination,
         onDestinationChange = { shellDestination = it },
         todayReturnToRushRequest = todayReturnToRushRequest,
@@ -535,7 +722,18 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onCompleteQuest = ::completeQuest,
         onConnectWallet = ::connectWallet,
         onDisconnectWallet = ::disconnectWallet,
+        onOpenDailyRadiance = ::openDailyRadiance,
+        onStartCircleDiscovery = ::startCircleDiscovery,
+        onSendCircleSpark = ::sendCircleSpark,
+        onRespondToCircleSpark = ::respondToCircleSpark,
+        onRefreshCircle = ::refreshCircle,
+        onSaveCircleProfile = ::saveCircleProfile,
+        onOpenCircleProfile = ::openCircleProfile,
+        onCloseCircleProfile = ::closeCircleProfile,
         onSavePublicProfile = ::savePublicProfile,
+        accountActionInProgress = accountActionInProgress,
+        accountActionMessage = accountActionMessage,
+        onProtectAccount = ::protectCircleAccount,
         onClaimRadiantChest = ::claimDailyRadiantChest,
         onPlayRadiantRun = {
             if (appState.isFirebaseReady && appState.radiantRun.canPlay && !appState.walletActionInProgress) {
@@ -551,6 +749,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 @Composable
 private fun RadiantRushShell(
     uiState: RushUiState,
+    circleState: CircleUiState,
     destination: AppDestination,
     onDestinationChange: (AppDestination) -> Unit,
     todayReturnToRushRequest: Int,
@@ -559,11 +758,34 @@ private fun RadiantRushShell(
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onOpenDailyRadiance: () -> Unit,
+    onStartCircleDiscovery: (ApproximateCircleLocation) -> Unit,
+    onSendCircleSpark: (CircleMemberPreview) -> Unit,
+    onRespondToCircleSpark: (CircleSparkPreview, Boolean) -> Unit,
+    onRefreshCircle: () -> Unit,
+    onSaveCircleProfile: (CircleProfilePreview) -> Unit,
+    onOpenCircleProfile: (CircleMemberPreview) -> Unit,
+    onCloseCircleProfile: () -> Unit,
     onSavePublicProfile: (String, String) -> Unit,
+    accountActionInProgress: Boolean,
+    accountActionMessage: String?,
+    onProtectAccount: () -> Unit,
     onClaimRadiantChest: () -> Unit,
     onPlayRadiantRun: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val viewingCircleMemberProfile = destination == AppDestination.Circle &&
+        (circleState.profileLoading || circleState.selectedMemberProfile != null)
+
+    if (destination == AppDestination.Circle) {
+        BackHandler {
+            if (viewingCircleMemberProfile) {
+                onCloseCircleProfile()
+            } else {
+                onDestinationChange(AppDestination.Home)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -572,14 +794,38 @@ private fun RadiantRushShell(
                     Text(
                         text = when (destination) {
                             AppDestination.Home -> "Radiant Circle"
-                            AppDestination.Quests -> "Daily Plan"
+                            AppDestination.Quests -> "Today"
+                            AppDestination.Circle -> "Circle"
                             AppDestination.Badges -> "Badges"
                             AppDestination.Leaderboard -> "Ranks"
-                            AppDestination.Profile -> "Profile"
+                            AppDestination.Profile -> "You"
                             AppDestination.Demo -> "Guide"
                         },
                         softWrap = false,
                     )
+                },
+                navigationIcon = {
+                    if (destination == AppDestination.Circle) {
+                        IconButton(
+                            modifier = Modifier.testTag(UiTestTags.CIRCLE_TOP_BACK),
+                            onClick = {
+                                if (viewingCircleMemberProfile) {
+                                    onCloseCircleProfile()
+                                } else {
+                                    onDestinationChange(AppDestination.Home)
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = if (viewingCircleMemberProfile) {
+                                    "Back to Circle"
+                                } else {
+                                    "Back to Home"
+                                },
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -591,19 +837,28 @@ private fun RadiantRushShell(
             NavigationBar(
                 containerColor = MaterialTheme.colorScheme.surface,
             ) {
-                AppDestination.entries.forEach { item ->
+                val bottomDestinations = listOf(
+                    AppDestination.Home,
+                    AppDestination.Quests,
+                    AppDestination.Badges,
+                    AppDestination.Leaderboard,
+                    AppDestination.Profile,
+                    AppDestination.Demo,
+                )
+                bottomDestinations.forEach { item ->
                     NavigationBarItem(
                         modifier = Modifier.testTag(
                             when (item) {
                                 AppDestination.Home -> UiTestTags.NAV_HOME
                                 AppDestination.Quests -> UiTestTags.NAV_QUESTS
+                                AppDestination.Circle -> UiTestTags.NAV_CIRCLE
                                 AppDestination.Badges -> UiTestTags.NAV_BADGES
                                 AppDestination.Leaderboard -> UiTestTags.NAV_LEADERBOARD
                                 AppDestination.Profile -> UiTestTags.NAV_PROFILE
                                 AppDestination.Demo -> UiTestTags.NAV_DEMO
                             },
                         ),
-                        selected = destination == item,
+                        selected = destination == item || (destination == AppDestination.Circle && item == AppDestination.Home),
                         onClick = { onDestinationChange(item) },
                         alwaysShowLabel = !responsive.isCompact && !responsive.hasLargeText,
                         icon = {
@@ -618,6 +873,7 @@ private fun RadiantRushShell(
                                 compactText = when (item) {
                                     AppDestination.Home -> "Home"
                                     AppDestination.Quests -> "Today"
+                                    AppDestination.Circle -> "Circle"
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Ranks"
                                     AppDestination.Profile -> "Me"
@@ -626,6 +882,7 @@ private fun RadiantRushShell(
                                 tinyText = when (item) {
                                     AppDestination.Home -> "Home"
                                     AppDestination.Quests -> "Today"
+                                    AppDestination.Circle -> "Circle"
                                     AppDestination.Badges -> "Badge"
                                     AppDestination.Leaderboard -> "Rank"
                                     AppDestination.Profile -> "Me"
@@ -653,11 +910,23 @@ private fun RadiantRushShell(
                 destination = destination,
                 contentPadding = PaddingValues(),
                 uiState = uiState,
+                circleState = circleState,
                 onRetryFirebase = onRetryFirebase,
                 onCompleteQuest = onCompleteQuest,
                 onConnectWallet = onConnectWallet,
                 onDisconnectWallet = onDisconnectWallet,
+                onOpenDailyRadiance = onOpenDailyRadiance,
+                onStartCircleDiscovery = onStartCircleDiscovery,
+                onSendCircleSpark = onSendCircleSpark,
+                onRespondToCircleSpark = onRespondToCircleSpark,
+                onRefreshCircle = onRefreshCircle,
+                onSaveCircleProfile = onSaveCircleProfile,
+                onOpenCircleProfile = onOpenCircleProfile,
+                onCloseCircleProfile = onCloseCircleProfile,
                 onSavePublicProfile = onSavePublicProfile,
+                accountActionInProgress = accountActionInProgress,
+                accountActionMessage = accountActionMessage,
+                onProtectAccount = onProtectAccount,
                 onClaimRadiantChest = onClaimRadiantChest,
                 onPlayRadiantRun = onPlayRadiantRun,
                 returnToRushRequest = todayReturnToRushRequest,
@@ -673,11 +942,23 @@ private fun ScreenContent(
     destination: AppDestination,
     contentPadding: PaddingValues,
     uiState: RushUiState,
+    circleState: CircleUiState,
     onRetryFirebase: () -> Unit,
     onCompleteQuest: (QuestPreview) -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onOpenDailyRadiance: () -> Unit,
+    onStartCircleDiscovery: (ApproximateCircleLocation) -> Unit,
+    onSendCircleSpark: (CircleMemberPreview) -> Unit,
+    onRespondToCircleSpark: (CircleSparkPreview, Boolean) -> Unit,
+    onRefreshCircle: () -> Unit,
+    onSaveCircleProfile: (CircleProfilePreview) -> Unit,
+    onOpenCircleProfile: (CircleMemberPreview) -> Unit,
+    onCloseCircleProfile: () -> Unit,
     onSavePublicProfile: (String, String) -> Unit,
+    accountActionInProgress: Boolean,
+    accountActionMessage: String?,
+    onProtectAccount: () -> Unit,
     onClaimRadiantChest: () -> Unit,
     onPlayRadiantRun: () -> Unit,
     returnToRushRequest: Int,
@@ -691,7 +972,9 @@ private fun ScreenContent(
             onRetryFirebase = onRetryFirebase,
             onConnectWallet = onConnectWallet,
             onDisconnectWallet = onDisconnectWallet,
+            onOpenDailyRadiance = onOpenDailyRadiance,
             onOpenToday = { onNavigate(AppDestination.Quests) },
+            onOpenCircle = { onNavigate(AppDestination.Circle) },
         )
         AppDestination.Quests -> QuestsScreen(
             contentPadding = contentPadding,
@@ -705,6 +988,16 @@ private fun ScreenContent(
             returnToRushRequest = returnToRushRequest,
             onReturnToRushHandled = onReturnToRushHandled,
         )
+        AppDestination.Circle -> CircleScreen(
+            contentPadding = contentPadding,
+            state = circleState,
+            onStartDiscovery = onStartCircleDiscovery,
+            onSendSpark = onSendCircleSpark,
+            onRespondToSpark = onRespondToCircleSpark,
+            onRefresh = onRefreshCircle,
+            onOpenProfile = onOpenCircleProfile,
+            onCloseProfile = onCloseCircleProfile,
+        )
         AppDestination.Badges -> BadgesScreen(contentPadding, uiState.badges)
         AppDestination.Leaderboard -> LeaderboardScreen(contentPadding, uiState)
         AppDestination.Profile -> ProfileScreen(
@@ -714,6 +1007,13 @@ private fun ScreenContent(
             onConnectWallet = onConnectWallet,
             onDisconnectWallet = onDisconnectWallet,
             onSavePublicProfile = onSavePublicProfile,
+            circleProfile = circleState.myProfile,
+            circleProfileLoading = circleState.myProfileLoading,
+            circleActionInProgress = circleState.actionInProgress,
+            onSaveCircleProfile = onSaveCircleProfile,
+            accountActionInProgress = accountActionInProgress,
+            accountActionMessage = accountActionMessage,
+            onProtectAccount = onProtectAccount,
         )
         AppDestination.Demo -> DemoScreen(contentPadding, uiState)
     }

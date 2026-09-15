@@ -1,5 +1,6 @@
 package com.thinkblox.radiantrush.logic
 
+import com.thinkblox.radiantrush.data.DailyRadiancePreview
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.PreviewContent
 import com.thinkblox.radiantrush.data.QuestIds
@@ -80,6 +81,38 @@ class DailyPlanRefreshRulesTest {
     }
 
     @Test
+    fun revealedDailyRadianceDoesNotHideDuringSameDayRefresh() {
+        val current = state(
+            dailyRadiance = DailyRadiancePreview(
+                dayKey = day,
+                messageId = "focus-one-thing",
+                category = "Focus",
+                message = "Keep the known message visible.",
+                revealedToday = true,
+                currentStreak = 4,
+                longestStreak = 7,
+            ),
+        )
+        val incoming = state(
+            dailyRadiance = DailyRadiancePreview(
+                dayKey = day,
+                messageId = "focus-one-thing",
+                category = "Focus",
+                message = "Keep the known message visible.",
+                revealedToday = false,
+                currentStreak = 3,
+                longestStreak = 7,
+            ),
+            backgroundSync = true,
+        )
+
+        val merged = DailyPlanRefreshRules.stabilize(current, incoming)
+
+        assertEquals(true, merged.dailyRadiance.revealedToday)
+        assertEquals(4, merged.dailyRadiance.currentStreak)
+    }
+
+    @Test
     fun walletQuestCanBecomeReadyAgainAfterDisconnect() {
         val connected = PreviewContent.user.copy(
             walletStatus = "Wallet connected",
@@ -152,6 +185,7 @@ class DailyPlanRefreshRulesTest {
         user: com.thinkblox.radiantrush.data.UserPreview = PreviewContent.user,
         questStatuses: Map<String, QuestStatus> = emptyMap(),
         chest: RadiantChestPreview = PreviewContent.radiantChest,
+        dailyRadiance: DailyRadiancePreview = PreviewContent.dailyRadiance,
         backgroundSync: Boolean = false,
     ) = PreviewContent.defaultState().copy(
         firebaseStatus = FirebaseStatus.Ready,
@@ -160,6 +194,7 @@ class DailyPlanRefreshRulesTest {
         quests = PreviewContent.quests.map { quest ->
             quest.copy(status = questStatuses[quest.id] ?: quest.status)
         },
+        dailyRadiance = dailyRadiance,
         radiantChest = chest,
         backgroundSyncInProgress = backgroundSync,
     )

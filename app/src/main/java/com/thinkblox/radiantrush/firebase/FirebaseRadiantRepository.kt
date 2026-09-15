@@ -5,13 +5,26 @@ import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.thinkblox.radiantrush.data.AccountIdentityPreview
+import com.thinkblox.radiantrush.data.AccountLinkResult
+import com.thinkblox.radiantrush.data.ApproximateCircleLocation
+import com.thinkblox.radiantrush.data.CircleActionResult
+import com.thinkblox.radiantrush.data.CircleDiscoveryResult
+import com.thinkblox.radiantrush.data.CircleMemberPreview
+import com.thinkblox.radiantrush.data.CircleMemberProfilePreview
+import com.thinkblox.radiantrush.data.CircleProfilePreview
+import com.thinkblox.radiantrush.data.CircleSocialSnapshot
+import com.thinkblox.radiantrush.data.CircleSparkPreview
 import com.thinkblox.radiantrush.data.BadgePreview
+import com.thinkblox.radiantrush.data.DailyRadiancePreview
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.LeaderboardPreview
 import com.thinkblox.radiantrush.data.PreviewContent
@@ -29,6 +42,8 @@ import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
+import com.thinkblox.radiantrush.logic.CircleDiscoveryRules
+import com.thinkblox.radiantrush.logic.DailyRadianceRules
 import com.thinkblox.radiantrush.logic.LeaderboardCandidate
 import com.thinkblox.radiantrush.logic.LeaderboardRules
 import com.thinkblox.radiantrush.logic.GameplayXpAward
@@ -39,6 +54,7 @@ import com.thinkblox.radiantrush.logic.Phase12WeeklyCupResultRules
 import com.thinkblox.radiantrush.logic.TrustedWeeklyCupResultState
 import com.thinkblox.radiantrush.logic.TrustedWeeklyCupWinnerInput
 import com.thinkblox.radiantrush.logic.PublicProfileRules
+import com.thinkblox.radiantrush.logic.SharedSparkRules
 import com.thinkblox.radiantrush.logic.RetentionRules
 import com.thinkblox.radiantrush.logic.RunCompetitionMode
 import com.thinkblox.radiantrush.logic.RunLeaderboardCandidate
@@ -55,6 +71,7 @@ import com.thinkblox.radiantrush.solana.SkrBalanceSnapshot
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Date
 import java.util.Locale
 
 /**
@@ -113,6 +130,94 @@ class FirebaseRadiantRepository(
             }
     }
 
+    fun currentAccountIdentity(): AccountIdentityPreview {
+        val app = ensureFirebaseApp() ?: return AccountIdentityPreview()
+        val user = FirebaseAuth.getInstance(app).currentUser ?: return AccountIdentityPreview()
+        val googleLinked = user.providerData.any { provider -> provider.providerId == GoogleAuthProvider.PROVIDER_ID }
+        return AccountIdentityPreview(
+            isTemporary = user.isAnonymous || !googleLinked,
+            providerLabel = if (googleLinked) "Google" else "This device",
+            email = user.email?.trim()?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    /**
+     * Upgrades the current anonymous Firebase account in-place when possible.
+     * If this Google account already owns a Radiant Circle UID (for example after reinstall),
+     * switch back to that existing UID so its profile/Circle/Radiance state is restored.
+     */
+    fun linkOrRestoreGoogleAccount(
+        idToken: String,
+        onResult: (AccountLinkResult) -> Unit,
+    ) {
+        val app = ensureFirebaseApp()
+        if (app == null) {
+            onResult(AccountLinkResult(false, message = "Account recovery is unavailable right now."))
+            return
+        }
+        val auth = FirebaseAuth.getInstance(app)
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            onResult(AccountLinkResult(false, message = "Your Circle account is still getting ready."))
+            return
+        }
+        if (idToken.isBlank()) {
+            onResult(AccountLinkResult(false, message = "Google sign-in did not finish. Please try again."))
+            return
+        }
+
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val alreadyLinked = currentUser.providerData.any { provider ->
+            provider.providerId == GoogleAuthProvider.PROVIDER_ID
+        }
+        if (!currentUser.isAnonymous && alreadyLinked) {
+            onResult(AccountLinkResult(true, message = "Your Circle is already protected with Google."))
+            return
+        }
+
+        currentUser.linkWithCredential(credential)
+            .addOnSuccessListener {
+                onResult(
+                    AccountLinkResult(
+                        success = true,
+                        restoredExistingAccount = false,
+                        message = "Your Circle is protected. Your profile can now return after reinstall.",
+                    ),
+                )
+            }
+            .addOnFailureListener { error ->
+                if (error is FirebaseAuthUserCollisionException) {
+                    // The Google account is already linked to the user's older durable UID.
+                    // This is the expected recovery path after uninstall/reinstall.
+                    auth.signInWithCredential(credential)
+                        .addOnSuccessListener {
+                            onResult(
+                                AccountLinkResult(
+                                    success = true,
+                                    restoredExistingAccount = true,
+                                    message = "Welcome back. Your saved Circle profile was restored.",
+                                ),
+                            )
+                        }
+                        .addOnFailureListener {
+                            onResult(
+                                AccountLinkResult(
+                                    false,
+                                    message = "We couldn't restore your saved Circle right now. Please try again.",
+                                ),
+                            )
+                        }
+                } else {
+                    onResult(
+                        AccountLinkResult(
+                            false,
+                            message = "We couldn't protect your Circle right now. Please try again.",
+                        ),
+                    )
+                }
+            }
+    }
+
     fun completeDailyFirebaseCheckIn(
         quest: QuestPreview,
         onState: (RushUiState) -> Unit,
@@ -138,6 +243,59 @@ class FirebaseRadiantRepository(
             ),
             onState = onState,
         )
+    }
+
+    fun openDailyRadiance(onState: (RushUiState) -> Unit) {
+        val session = currentFirebaseSession(onState) ?: return
+        val db = FirebaseFirestore.getInstance(session.app)
+        val today = todayKey()
+        val userRef = db.collection(USERS).document(session.uid)
+
+        db.runTransaction { transaction ->
+            val snapshot = transaction.get(userRef)
+            val lastOpenedDay = snapshot.getString("dailyRadianceLastOpenedDate")
+            if (lastOpenedDay != today) {
+                val savedStreak = (snapshot.getLong("dailyRadianceCurrentStreak") ?: 0L).toInt()
+                val savedLongest = (snapshot.getLong("dailyRadianceLongestStreak") ?: 0L).toInt()
+                val nextStreak = DailyRadianceRules.nextStreak(
+                    lastOpenedDay = lastOpenedDay,
+                    todayKey = today,
+                    currentStreak = savedStreak,
+                )
+                val content = DailyRadianceRules.contentFor(
+                    accountId = session.uid,
+                    dayKey = today,
+                )
+
+                transaction.set(
+                    userRef,
+                    mapOf(
+                        "dailyRadianceLastOpenedDate" to today,
+                        "dailyRadianceCurrentStreak" to nextStreak.toLong(),
+                        "dailyRadianceLongestStreak" to maxOf(savedLongest, nextStreak).toLong(),
+                        "dailyRadianceMessageId" to content.id,
+                        "dailyRadianceCategory" to content.category,
+                        "dailyRadianceOpenedAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                    SetOptions.merge(),
+                )
+            }
+            Unit
+        }
+            .addOnSuccessListener {
+                loadOrCreateProfile(session.uid, onState, "Today's Radiance is ready.")
+            }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Daily Radiance open failed: ${safeMessage(error)}")
+                // Keep the last known profile/Daily Plan usable instead of replacing the shell
+                // with a default error snapshot after a lightweight social action fails.
+                loadOrCreateProfile(
+                    session.uid,
+                    onState,
+                    "Couldn't open today's Radiance. Please try again.",
+                )
+            }
     }
 
     fun saveWalletConnection(
@@ -1316,7 +1474,22 @@ class FirebaseRadiantRepository(
             }
         }
             .addOnSuccessListener {
-                loadOrCreateProfile(session.uid, onState, "Public profile updated.")
+                // Circle identity sync is best-effort. The core public profile save must
+                // never fail just because the optional social-profile collection is not
+                // available yet.
+                db.collection(CIRCLE_PROFILES).document(session.uid)
+                    .set(
+                        mapOf(
+                            "ownerUid" to session.uid,
+                            "displayName" to cleanName,
+                            "avatarId" to cleanAvatar,
+                            "updatedAt" to FieldValue.serverTimestamp(),
+                        ),
+                        SetOptions.merge(),
+                    )
+                    .addOnCompleteListener {
+                        loadOrCreateProfile(session.uid, onState, "Public profile updated.")
+                    }
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not update profile: ${safeMessage(error)}")
@@ -1518,6 +1691,11 @@ class FirebaseRadiantRepository(
                         "skrStakeBoostActive" to false,
                         "skrStakeBoostLabel" to "Stake Boost inactive",
                         "skrUnstakingReady" to false,
+                        "dailyRadianceLastOpenedDate" to null,
+                        "dailyRadianceCurrentStreak" to 0L,
+                        "dailyRadianceLongestStreak" to 0L,
+                        "dailyRadianceMessageId" to null,
+                        "dailyRadianceCategory" to null,
                         "xp" to 0L,
                         "level" to 1L,
                         "currentStreak" to 0L,
@@ -1592,6 +1770,12 @@ class FirebaseRadiantRepository(
             collectionOwned = collection.count { it.discovered },
             collectionTotal = collection.size,
         )
+        val dailyRadiance = dailyRadianceState(
+            uid = uid,
+            userSnapshot = userSnapshot,
+            today = today,
+        )
+        val accountIdentity = currentAccountIdentity()
 
         fun profileFallbackCompletedIds(): MutableSet<String> = mutableSetOf<String>().apply {
             if (userSnapshot.getString("lastDailyCheckInDate") == today) {
@@ -1659,8 +1843,10 @@ class FirebaseRadiantRepository(
         onState(
             RushUiState(
                 firebaseStatus = FirebaseStatus.Ready,
+                accountIdentity = accountIdentity,
                 user = user,
                 quests = fallbackQuests,
+                dailyRadiance = dailyRadiance,
                 radiantChest = chestState(fallbackCompletedIds, fallbackQuests),
                 radiantRun = radiantRun,
                 collection = collection,
@@ -1715,8 +1901,10 @@ class FirebaseRadiantRepository(
                     onState(
                         RushUiState(
                             firebaseStatus = FirebaseStatus.Ready,
+                            accountIdentity = accountIdentity,
                             user = user,
                             quests = quests,
+                            dailyRadiance = dailyRadiance,
                             radiantChest = radiantChest,
                             radiantRun = radiantRun,
                             collection = collection,
@@ -2413,6 +2601,562 @@ class FirebaseRadiantRepository(
                 )
             }
 
+
+    fun loadMyCircleProfile(onResult: (CircleProfilePreview?, String?) -> Unit) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(null, "Your Circle profile is still getting ready.")
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(USERS).document(session.uid).get()
+            .addOnSuccessListener { userSnapshot ->
+                val user = profileToUser(userSnapshot)
+                db.collection(CIRCLE_PROFILES).document(session.uid).get()
+                    .addOnSuccessListener { profileSnapshot ->
+                        onResult(
+                            circleProfileFromDocument(
+                                document = profileSnapshot,
+                                uid = session.uid,
+                                fallbackName = user.displayName,
+                                fallbackAvatarId = user.avatarId,
+                            ),
+                            null,
+                        )
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(null, circleFriendlyFailure("load your social profile", error))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(null, circleFriendlyFailure("load your social profile", error))
+            }
+    }
+
+    fun saveCircleProfile(
+        profile: CircleProfilePreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Your Circle account is still getting ready."))
+            return
+        }
+
+        val clean = SharedSparkRules.sanitizeProfile(profile)
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(USERS).document(session.uid).get()
+            .addOnSuccessListener { userSnapshot ->
+                val user = profileToUser(userSnapshot)
+                val payload = mapOf(
+                    "ownerUid" to session.uid,
+                    "displayName" to PublicProfileRules.sanitizeDisplayName(user.displayName),
+                    "avatarId" to PublicProfileRules.normalizeAvatarId(user.avatarId),
+                    "motto" to clean.motto,
+                    "favoriteFood" to clean.favoriteFood,
+                    "music" to clean.music,
+                    "games" to clean.games,
+                    "hobbies" to clean.hobbies,
+                    "books" to clean.books,
+                    "pets" to clean.pets,
+                    "currentlyInto" to clean.currentlyInto,
+                    "weekendVibe" to clean.weekendVibe,
+                    "talkAbout" to clean.talkAbout,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+
+                db.collection(CIRCLE_PROFILES).document(session.uid)
+                    .set(payload, SetOptions.merge())
+                    .addOnSuccessListener {
+                        onResult(CircleActionResult(true, "Your Circle profile is updated."))
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(CircleActionResult(false, circleFriendlyFailure("save your social profile", error)))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("save your social profile", error)))
+            }
+    }
+
+    fun loadCircleMemberProfile(
+        member: CircleMemberPreview,
+        onResult: (CircleMemberProfilePreview?, String?) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(null, "Circle needs cloud sign-in.")
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(null, "Choose another member in your Circle.")
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        db.collection(CIRCLE_EDGES).document(edgeId).get()
+            .addOnSuccessListener { edgeSnapshot ->
+                if (!edgeSnapshot.exists() || edgeSnapshot.getString("status") != CIRCLE_STATUS_ACCEPTED) {
+                    onResult(null, "This profile is available after a Spark is accepted.")
+                    return@addOnSuccessListener
+                }
+
+                db.collection(CIRCLE_PROFILES).document(member.uid).get()
+                    .addOnSuccessListener { memberProfileSnapshot ->
+                        val memberProfile = circleProfileFromDocument(
+                            document = memberProfileSnapshot,
+                            uid = member.uid,
+                            fallbackName = member.displayName,
+                            fallbackAvatarId = member.avatarId,
+                        )
+                        db.collection(CIRCLE_PROFILES).document(session.uid).get()
+                            .addOnSuccessListener { myProfileSnapshot ->
+                                val myProfile = circleProfileFromDocument(
+                                    document = myProfileSnapshot,
+                                    uid = session.uid,
+                                    fallbackName = "",
+                                    fallbackAvatarId = "fox",
+                                )
+                                onResult(
+                                    CircleMemberProfilePreview(
+                                        member = member.copy(
+                                            displayName = memberProfile.displayName,
+                                            avatarId = memberProfile.avatarId,
+                                        ),
+                                        profile = memberProfile,
+                                        sharedSparks = SharedSparkRules.sharedSparks(myProfile, memberProfile, limit = 5),
+                                    ),
+                                    null,
+                                )
+                            }
+                            .addOnFailureListener {
+                                onResult(
+                                    CircleMemberProfilePreview(
+                                        member = member.copy(
+                                            displayName = memberProfile.displayName,
+                                            avatarId = memberProfile.avatarId,
+                                        ),
+                                        profile = memberProfile,
+                                    ),
+                                    null,
+                                )
+                            }
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(null, circleFriendlyFailure("open this Circle profile", error))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(null, circleFriendlyFailure("open this Circle profile", error))
+            }
+    }
+
+
+    fun loadCircleSocial(onResult: (CircleSocialSnapshot?, String?) -> Unit) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(null, "Circle needs cloud sign-in. Try again in a moment.")
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(CIRCLE_EDGES)
+            .whereArrayContains("memberUids", session.uid)
+            .limit(60)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val incoming = mutableListOf<CircleSparkPreview>()
+                val connections = mutableListOf<CircleSparkPreview>()
+                snapshot.documents.forEach { document ->
+                    val edge = circleEdgePreview(document, session.uid) ?: return@forEach
+                    when (edge.status) {
+                        CIRCLE_STATUS_PENDING -> if (edge.incoming) incoming += edge
+                        CIRCLE_STATUS_ACCEPTED -> connections += edge
+                    }
+                }
+                onResult(
+                    CircleSocialSnapshot(
+                        incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                        connections = connections.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                    ),
+                    null,
+                )
+            }
+            .addOnFailureListener { error ->
+                onResult(null, circleFriendlyFailure("refresh your Circle", error))
+            }
+    }
+
+    fun startCircleDiscovery(
+        location: ApproximateCircleLocation,
+        onResult: (CircleDiscoveryResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleDiscoveryResult(message = "Circle needs cloud sign-in. Try again in a moment."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val now = System.currentTimeMillis()
+        val presenceKeys = CircleDiscoveryRules.presenceKeys(location, now)
+        val userRef = db.collection(USERS).document(session.uid)
+
+        userRef.get()
+            .addOnSuccessListener { userSnapshot ->
+                if (!userSnapshot.exists()) {
+                    onResult(CircleDiscoveryResult(message = "Your Radiant Circle profile is still loading."))
+                    return@addOnSuccessListener
+                }
+
+                val user = profileToUser(userSnapshot)
+                val presenceRef = db.collection(CIRCLE_DISCOVERY).document(session.uid)
+                val presence = mapOf(
+                    "ownerUid" to session.uid,
+                    "displayName" to PublicProfileRules.sanitizeDisplayName(user.displayName),
+                    "avatarId" to PublicProfileRules.normalizeAvatarId(user.avatarId),
+                    "radianceStreak" to (userSnapshot.getLong("dailyRadianceCurrentStreak") ?: 0L).coerceAtLeast(0L),
+                    "level" to user.level.coerceAtLeast(1).toLong(),
+                    "localWindowKeys" to presenceKeys.localWindowKeys,
+                    "regionalWindowKeys" to presenceKeys.regionalWindowKeys,
+                    "broadWindowKeys" to presenceKeys.broadWindowKeys,
+                    "countryWindowKeys" to presenceKeys.countryWindowKeys,
+                    "globalWindowKeys" to presenceKeys.globalWindowKeys,
+                    "expiresAtEpochMillis" to (now + CircleDiscoveryRules.DISCOVERY_WINDOW_MILLIS),
+                    "expiresAt" to Timestamp(Date(now + CircleDiscoveryRules.DISCOVERY_WINDOW_MILLIS)),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+
+                presenceRef.set(presence)
+                    .addOnSuccessListener {
+                        db.collection(CIRCLE_EDGES)
+                            .whereArrayContains("memberUids", session.uid)
+                            .limit(80)
+                            .get()
+                            .addOnSuccessListener { edges ->
+                                val excludedUids = buildSet {
+                                    add(session.uid)
+                                    edges.documents.forEach { edge ->
+                                        (edge.get("memberUids") as? List<*>)
+                                            ?.filterIsInstance<String>()
+                                            ?.forEach(::add)
+                                    }
+                                }
+                                searchCircleTier(
+                                    db = db,
+                                    session = session,
+                                    location = location,
+                                    nowMillis = now,
+                                    excludedUids = excludedUids,
+                                    tierIndex = 0,
+                                    onResult = onResult,
+                                )
+                            }
+                            .addOnFailureListener {
+                                searchCircleTier(
+                                    db = db,
+                                    session = session,
+                                    location = location,
+                                    nowMillis = now,
+                                    excludedUids = setOf(session.uid),
+                                    tierIndex = 0,
+                                    onResult = onResult,
+                                )
+                            }
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(CircleDiscoveryResult(message = circleFriendlyFailure("start discovery", error)))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleDiscoveryResult(message = circleFriendlyFailure("load your Circle profile", error)))
+            }
+    }
+
+    fun sendCircleSpark(
+        member: CircleMemberPreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Your Circle account is still getting ready."))
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(CircleActionResult(false, "Choose another Radiant Circle member."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val userRef = db.collection(USERS).document(session.uid)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val edgeRef = db.collection(CIRCLE_EDGES).document(edgeId)
+
+        userRef.get()
+            .addOnSuccessListener { userSnapshot ->
+                val user = profileToUser(userSnapshot)
+                val payload = mapOf(
+                    "memberUids" to listOf(session.uid, member.uid).sorted(),
+                    "initiatorUid" to session.uid,
+                    "recipientUid" to member.uid,
+                    "status" to CIRCLE_STATUS_PENDING,
+                    "initiatorDisplayName" to PublicProfileRules.sanitizeDisplayName(user.displayName),
+                    "initiatorAvatarId" to PublicProfileRules.normalizeAvatarId(user.avatarId),
+                    "recipientDisplayName" to PublicProfileRules.sanitizeDisplayName(member.displayName),
+                    "recipientAvatarId" to PublicProfileRules.normalizeAvatarId(member.avatarId),
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+
+                // Do not transaction-get a deterministic edge before creation. Security rules
+                // intentionally hide non-existent relationship documents, so that pre-read can
+                // fail with PERMISSION_DENIED. A direct create succeeds for a new Spark. If the
+                // relationship already exists the write is denied by the update rule, after which
+                // a member-authorized read tells us the existing status without weakening rules.
+                edgeRef.set(payload)
+                    .addOnSuccessListener {
+                        onResult(CircleActionResult(true, "Spark sent to ${member.displayName}."))
+                    }
+                    .addOnFailureListener { writeError ->
+                        edgeRef.get()
+                            .addOnSuccessListener { existing ->
+                                if (existing.exists()) {
+                                    val message = when (existing.getString("status")) {
+                                        CIRCLE_STATUS_ACCEPTED -> "${member.displayName} is already in your Circle."
+                                        CIRCLE_STATUS_IGNORED -> "That Spark was previously passed on."
+                                        else -> "A Spark is already waiting for ${member.displayName}."
+                                    }
+                                    onResult(CircleActionResult(true, message))
+                                } else {
+                                    onResult(CircleActionResult(false, circleFriendlyFailure("send this Spark", writeError)))
+                                }
+                            }
+                            .addOnFailureListener {
+                                onResult(CircleActionResult(false, circleFriendlyFailure("send this Spark", writeError)))
+                            }
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("load your Circle profile", error)))
+            }
+    }
+
+    fun respondToCircleSpark(
+        edgeId: String,
+        accept: Boolean,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeRef = db.collection(CIRCLE_EDGES).document(edgeId)
+        val nextStatus = if (accept) CIRCLE_STATUS_ACCEPTED else CIRCLE_STATUS_IGNORED
+        edgeRef.update(
+            mapOf(
+                "status" to nextStatus,
+                "updatedAt" to FieldValue.serverTimestamp(),
+            ),
+        )
+            .addOnSuccessListener {
+                onResult(
+                    CircleActionResult(
+                        true,
+                        if (accept) "Spark accepted. Your Circle just grew." else "Spark passed on.",
+                    ),
+                )
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("update this Spark", error)))
+            }
+    }
+
+    private fun searchCircleTier(
+        db: FirebaseFirestore,
+        session: FirebaseSession,
+        location: ApproximateCircleLocation,
+        nowMillis: Long,
+        excludedUids: Set<String>,
+        tierIndex: Int,
+        onResult: (CircleDiscoveryResult) -> Unit,
+    ) {
+        val tiers = CircleDiscoveryRules.SearchTier.entries
+        if (tierIndex >= tiers.size) {
+            onResult(
+                CircleDiscoveryResult(
+                    message = "No new Spark is active right now. Try another shake soon.",
+                ),
+            )
+            return
+        }
+
+        val tier = tiers[tierIndex]
+        val queryKeys = CircleDiscoveryRules.queryKeys(tier, location, nowMillis)
+        db.collection(CIRCLE_DISCOVERY)
+            .whereArrayContainsAny(tier.fieldName, queryKeys)
+            .limit(40)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val candidates = snapshot.documents
+                    .filter { document ->
+                        val uid = document.getString("ownerUid").orEmpty()
+                        uid.isNotBlank() &&
+                            uid !in excludedUids &&
+                            (document.getLong("expiresAtEpochMillis") ?: 0L) > System.currentTimeMillis()
+                    }
+
+                if (candidates.isEmpty()) {
+                    searchCircleTier(
+                        db = db,
+                        session = session,
+                        location = location,
+                        nowMillis = nowMillis,
+                        excludedUids = excludedUids,
+                        tierIndex = tierIndex + 1,
+                        onResult = onResult,
+                    )
+                    return@addOnSuccessListener
+                }
+
+                val document = candidates.shuffled().first()
+                val member = CircleMemberPreview(
+                    uid = document.getString("ownerUid").orEmpty(),
+                    displayName = PublicProfileRules.sanitizeDisplayName(
+                        document.getString("displayName") ?: "Radiant Rookie",
+                    ),
+                    avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
+                    radianceStreak = (document.getLong("radianceStreak") ?: 0L).toInt().coerceAtLeast(0),
+                    level = (document.getLong("level") ?: 1L).toInt().coerceAtLeast(1),
+                    distanceLabel = tier.distanceLabel,
+                )
+                enrichDiscoveryWithSharedSparks(
+                    db = db,
+                    session = session,
+                    member = member,
+                    onResult = onResult,
+                )
+            }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Circle discovery ${tier.name} failed: ${safeMessage(error)}")
+                searchCircleTier(
+                    db = db,
+                    session = session,
+                    location = location,
+                    nowMillis = nowMillis,
+                    excludedUids = excludedUids,
+                    tierIndex = tierIndex + 1,
+                    onResult = onResult,
+                )
+            }
+    }
+
+
+    private fun enrichDiscoveryWithSharedSparks(
+        db: FirebaseFirestore,
+        session: FirebaseSession,
+        member: CircleMemberPreview,
+        onResult: (CircleDiscoveryResult) -> Unit,
+    ) {
+        db.collection(CIRCLE_PROFILES).document(member.uid).get()
+            .addOnSuccessListener { memberSnapshot ->
+                val memberProfile = circleProfileFromDocument(
+                    document = memberSnapshot,
+                    uid = member.uid,
+                    fallbackName = member.displayName,
+                    fallbackAvatarId = member.avatarId,
+                )
+                db.collection(CIRCLE_PROFILES).document(session.uid).get()
+                    .addOnSuccessListener { mySnapshot ->
+                        val mine = circleProfileFromDocument(
+                            document = mySnapshot,
+                            uid = session.uid,
+                            fallbackName = "",
+                            fallbackAvatarId = "fox",
+                        )
+                        onResult(
+                            CircleDiscoveryResult(
+                                member = member.copy(
+                                    displayName = memberProfile.displayName,
+                                    avatarId = memberProfile.avatarId,
+                                    sharedSparks = SharedSparkRules.sharedSparks(mine, memberProfile),
+                                ),
+                                message = "You found a new Spark.",
+                            ),
+                        )
+                    }
+                    .addOnFailureListener {
+                        onResult(CircleDiscoveryResult(member = member, message = "You found a new Spark."))
+                    }
+            }
+            .addOnFailureListener {
+                onResult(CircleDiscoveryResult(member = member, message = "You found a new Spark."))
+            }
+    }
+
+    private fun circleProfileFromDocument(
+        document: DocumentSnapshot,
+        uid: String,
+        fallbackName: String,
+        fallbackAvatarId: String,
+    ): CircleProfilePreview = SharedSparkRules.sanitizeProfile(
+        CircleProfilePreview(
+            uid = uid,
+            displayName = PublicProfileRules.sanitizeDisplayName(
+                document.getString("displayName") ?: fallbackName.ifBlank { "Radiant Rookie" },
+            ),
+            avatarId = PublicProfileRules.normalizeAvatarId(
+                document.getString("avatarId") ?: fallbackAvatarId,
+            ),
+            motto = document.getString("motto").orEmpty(),
+            favoriteFood = document.getString("favoriteFood").orEmpty(),
+            music = document.getString("music").orEmpty(),
+            games = document.getString("games").orEmpty(),
+            hobbies = document.getString("hobbies").orEmpty(),
+            books = document.getString("books").orEmpty(),
+            pets = document.getString("pets").orEmpty(),
+            currentlyInto = document.getString("currentlyInto").orEmpty(),
+            weekendVibe = document.getString("weekendVibe").orEmpty(),
+            talkAbout = document.getString("talkAbout").orEmpty(),
+        ),
+    )
+
+    private fun circleEdgePreview(
+        document: DocumentSnapshot,
+        currentUid: String,
+    ): CircleSparkPreview? {
+        val initiatorUid = document.getString("initiatorUid") ?: return null
+        val recipientUid = document.getString("recipientUid") ?: return null
+        val incoming = recipientUid == currentUid
+        val otherUid = if (initiatorUid == currentUid) recipientUid else initiatorUid
+        if (otherUid == currentUid) return null
+
+        val displayNameField = if (incoming) "initiatorDisplayName" else "recipientDisplayName"
+        val avatarField = if (incoming) "initiatorAvatarId" else "recipientAvatarId"
+        return CircleSparkPreview(
+            edgeId = document.id,
+            member = CircleMemberPreview(
+                uid = otherUid,
+                displayName = PublicProfileRules.sanitizeDisplayName(
+                    document.getString(displayNameField) ?: "Radiant Rookie",
+                ),
+                avatarId = PublicProfileRules.normalizeAvatarId(document.getString(avatarField)),
+            ),
+            incoming = incoming,
+            status = document.getString("status") ?: CIRCLE_STATUS_PENDING,
+        )
+    }
+
+    private fun currentCircleSession(): FirebaseSession? {
+        val app = ensureFirebaseApp() ?: return null
+        val uid = FirebaseAuth.getInstance(app).currentUser?.uid ?: return null
+        return FirebaseSession(app, uid)
+    }
+
     private fun currentFirebaseSession(onState: (RushUiState) -> Unit): FirebaseSession? {
         val app = ensureFirebaseApp()
         if (app == null) {
@@ -2457,6 +3201,45 @@ class FirebaseRadiantRepository(
             }
             id to count.coerceAtLeast(0)
         }.toMap()
+    }
+
+    private fun dailyRadianceState(
+        uid: String,
+        userSnapshot: DocumentSnapshot,
+        today: String,
+    ): DailyRadiancePreview {
+        val lastOpenedDay = userSnapshot.getString("dailyRadianceLastOpenedDate")
+        val revealedToday = lastOpenedDay == today
+        val savedMessage = if (revealedToday) {
+            DailyRadianceRules.contentById(userSnapshot.getString("dailyRadianceMessageId"))
+        } else {
+            null
+        }
+        val content = savedMessage ?: DailyRadianceRules.contentFor(
+            accountId = uid,
+            dayKey = today,
+        )
+        val savedStreak = (userSnapshot.getLong("dailyRadianceCurrentStreak") ?: 0L).toInt()
+        val visibleStreak = if (revealedToday) {
+            savedStreak.coerceAtLeast(1)
+        } else {
+            DailyRadianceRules.visibleStreak(
+                lastOpenedDay = lastOpenedDay,
+                todayKey = today,
+                savedStreak = savedStreak,
+            )
+        }
+
+        return DailyRadiancePreview(
+            dayKey = today,
+            messageId = content.id,
+            category = content.category,
+            message = content.message,
+            revealedToday = revealedToday,
+            currentStreak = visibleStreak,
+            longestStreak = (userSnapshot.getLong("dailyRadianceLongestStreak") ?: 0L).toInt(),
+            opening = false,
+        )
     }
 
     private fun profileToUser(snapshot: DocumentSnapshot): UserPreview {
@@ -2696,6 +3479,17 @@ class FirebaseRadiantRepository(
         lastMessage = message,
     )
 
+    private fun circleFriendlyFailure(action: String, error: Throwable): String = when (error) {
+        is FirebaseFirestoreException -> when (error.code) {
+            FirebaseFirestoreException.Code.UNAVAILABLE ->
+                "Circle is having trouble connecting. Check your connection and try again."
+            FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+                "Circle couldn't $action right now. Refresh and try again."
+            else -> "Circle couldn't $action right now. Please try again."
+        }
+        else -> "Circle couldn't $action right now. Please try again."
+    }
+
     private fun safeMessage(error: Throwable): String = when (error) {
         is FirebaseFirestoreException -> "${error.code}: ${error.message ?: "Firestore error"}"
         else -> error.message ?: error::class.java.simpleName
@@ -2746,6 +3540,12 @@ class FirebaseRadiantRepository(
         const val WEEKLY_CUP_CONFIGS = "weeklyCupConfigs"
         const val WEEKLY_CUP_RESULTS = "weeklyCupResults"
         const val WEEKLY_CUP_WINNERS = "winners"
+        const val CIRCLE_DISCOVERY = "circleDiscovery"
+        const val CIRCLE_PROFILES = "circleProfiles"
+        const val CIRCLE_EDGES = "circleEdges"
+        const val CIRCLE_STATUS_PENDING = "PENDING"
+        const val CIRCLE_STATUS_ACCEPTED = "ACCEPTED"
+        const val CIRCLE_STATUS_IGNORED = "IGNORED"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100
         const val SKR_SCAN_XP = 50

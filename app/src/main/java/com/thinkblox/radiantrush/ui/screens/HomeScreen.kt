@@ -1,5 +1,7 @@
 package com.thinkblox.radiantrush.ui.screens
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -29,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,7 +67,9 @@ fun HomeScreen(
     onRetryFirebase: () -> Unit,
     onConnectWallet: () -> Unit,
     onDisconnectWallet: () -> Unit,
+    onOpenDailyRadiance: () -> Unit,
     onOpenToday: () -> Unit,
+    onOpenCircle: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
     val user = uiState.user
@@ -143,6 +150,67 @@ fun HomeScreen(
                     message = uiState.lastMessage,
                     onRetry = onRetryFirebase,
                 )
+            }
+        }
+
+        item {
+            DailyRadianceCard(
+                uiState = uiState,
+                onReveal = onOpenDailyRadiance,
+            )
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(if (responsive.isTiny) 16.dp else 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Surface(
+                        modifier = Modifier.size(44.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.tertiaryContainer,
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.Groups,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Text(
+                            text = "Find your Circle",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Text(
+                            text = "Shake to discover an active Radiant Circle member around your area.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                            overflow = TextOverflow.Clip,
+                        )
+                    }
+                    FilledTonalButton(
+                        modifier = Modifier.testTag(UiTestTags.HOME_OPEN_CIRCLE),
+                        onClick = onOpenCircle,
+                    ) {
+                        Text("Open")
+                    }
+                }
             }
         }
 
@@ -250,6 +318,135 @@ fun HomeScreen(
             }
         }
     }
+}
+
+@Composable
+private fun DailyRadianceCard(
+    uiState: RushUiState,
+    onReveal: () -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    val radiance = uiState.dailyRadiance
+    val revealAlpha = remember(radiance.dayKey) { Animatable(1f) }
+
+    LaunchedEffect(radiance.revealedToday) {
+        if (radiance.revealedToday) {
+            revealAlpha.snapTo(0.35f)
+            revealAlpha.animateTo(1f, animationSpec = tween(durationMillis = 420))
+        } else {
+            revealAlpha.snapTo(1f)
+        }
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(UiTestTags.DAILY_RADIANCE_CARD),
+        shape = RoundedCornerShape(26.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(if (responsive.isTiny) 16.dp else 20.dp),
+            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 12.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier = Modifier.size(42.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "✦",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.tertiary,
+                            fontWeight = FontWeight.Black,
+                        )
+                    }
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "TODAY'S RADIANCE",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.tertiary,
+                        fontWeight = FontWeight.Black,
+                    )
+                    Text(
+                        text = if (radiance.revealedToday) radiance.category else "A small spark for your day",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+
+            if (radiance.revealedToday) {
+                Column(
+                    modifier = Modifier.graphicsLayer(alpha = revealAlpha.value),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        text = radiance.message,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Black,
+                    )
+                    Text(
+                        text = radianceStreakLabel(
+                            current = radiance.currentStreak,
+                            longest = radiance.longestStreak,
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
+                    )
+                    Text(
+                        text = "Come back tomorrow for a new Radiance.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.68f),
+                    )
+                }
+            } else {
+                Text(
+                    text = if (radiance.currentStreak > 0) {
+                        "Your ${radiance.currentStreak}-day Radiance streak is waiting for today's spark."
+                    } else {
+                        "Open one positive message each day — no score, no competition."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
+                )
+
+                Button(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = responsive.buttonHeight)
+                        .testTag(UiTestTags.DAILY_RADIANCE_REVEAL),
+                    enabled = uiState.isFirebaseReady && !radiance.opening && !uiState.walletActionInProgress,
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = onReveal,
+                ) {
+                    AdaptiveButtonText(
+                        text = if (radiance.opening) "Opening…" else "Reveal Today's Radiance",
+                        compactText = if (radiance.opening) "Opening…" else "Reveal Radiance",
+                        tinyText = if (radiance.opening) "Opening…" else "Reveal",
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun radianceStreakLabel(current: Int, longest: Int): String {
+    val currentLabel = if (current == 1) "1-day Radiance streak" else "$current-day Radiance streak"
+    val bestLabel = if (longest == 1) "Best: 1 day" else "Best: $longest days"
+    return "$currentLabel • $bestLabel"
 }
 
 @Composable

@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import org.junit.Rule
@@ -61,6 +62,27 @@ class RadiantRushSmokeTest {
     @Test
     fun welcomeScreenOpensShellWithoutWalletPopup() {
         enterShell()
+        composeRule.onNodeWithTag(UiTestTags.HOME_SCREEN).assertIsDisplayed()
+    }
+
+    @Test
+    fun circleDiscoveryRouteIsReachableFromHome() {
+        enterShell()
+
+        composeRule
+            .onNodeWithTag(UiTestTags.HOME_OPEN_CIRCLE)
+            .performScrollTo()
+            .performClick()
+
+        composeRule.onNodeWithTag(UiTestTags.CIRCLE_SCREEN).assertIsDisplayed()
+        composeRule.onNodeWithTag(UiTestTags.CIRCLE_SHAKE_PROMPT).assertIsDisplayed()
+
+        // Circle is a nested social destination, so it must always have an obvious
+        // escape back to the main Radiant Circle shell.
+        composeRule.onNodeWithTag(UiTestTags.CIRCLE_TOP_BACK).performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000L) {
+            hasTag(UiTestTags.HOME_SCREEN)
+        }
         composeRule.onNodeWithTag(UiTestTags.HOME_SCREEN).assertIsDisplayed()
     }
 
