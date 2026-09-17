@@ -179,6 +179,7 @@ fun ProfileScreen(
                 providerLabel = uiState.accountIdentity.providerLabel,
                 email = uiState.accountIdentity.email,
                 actionInProgress = accountActionInProgress,
+                walletActionInProgress = uiState.walletActionInProgress,
                 message = accountActionMessage,
                 onProtectAccount = onProtectAccount,
             )
@@ -212,8 +213,17 @@ fun ProfileScreen(
             item {
                 ProfileInfoRow(
                     title = "Last Capsule",
-                    value = "${user.lastRunRewardRarity ?: "Reward"} • ${user.lastRunRewardTitle}",
-                    helper = "+${user.lastRunRewardXp} XP" + if (user.lastRunRewardShards > 0) " • duplicate +${user.lastRunRewardShards} shards" else " • new discovery",
+                    value = buildString {
+                        append(uiState.radiantRun.lastCapsuleTier ?: "Rush Capsule")
+                        append(" → ")
+                        append(user.lastRunRewardTitle)
+                    },
+                    helper = "${user.lastRunRewardRarity ?: "Reward"} • +${user.lastRunRewardXp} XP" +
+                        if (user.lastRunRewardShards > 0) {
+                            " • duplicate +${user.lastRunRewardShards} shards"
+                        } else {
+                            " • added to Radiant Vault"
+                        },
                     icon = Icons.Filled.EmojiEvents,
                 )
             }
@@ -449,6 +459,7 @@ private fun AccountProtectionCard(
     providerLabel: String,
     email: String?,
     actionInProgress: Boolean,
+    walletActionInProgress: Boolean,
     message: String?,
     onProtectAccount: () -> Unit,
 ) {
@@ -503,10 +514,14 @@ private fun AccountProtectionCard(
                 Button(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = onProtectAccount,
-                    enabled = !actionInProgress,
+                    enabled = !actionInProgress && !walletActionInProgress,
                 ) {
                     AdaptiveButtonText(
-                        text = if (actionInProgress) "Opening Google…" else "Continue with Google",
+                        text = when {
+                            actionInProgress -> "Opening Google…"
+                            walletActionInProgress -> "Finish Wallet Action…"
+                            else -> "Continue with Google"
+                        },
                     )
                 }
             }
@@ -1254,7 +1269,7 @@ private fun ProfileInfoRow(
                     OutlinedButton(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(min = if (responsive.isTiny) 46.dp else 48.dp),
+                            .heightIn(min = responsive.compactButtonHeight),
                         shape = RoundedCornerShape(14.dp),
                         onClick = ::copy,
                     ) {
@@ -1298,7 +1313,7 @@ private fun ProfileInfoRow(
                     )
                     if (!copyValue.isNullOrBlank()) {
                         OutlinedButton(
-                            modifier = Modifier.heightIn(min = 48.dp),
+                            modifier = Modifier.heightIn(min = responsive.compactButtonHeight),
                             shape = RoundedCornerShape(14.dp),
                             onClick = ::copy,
                         ) {

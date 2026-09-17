@@ -11,6 +11,11 @@ import {
   RUN_VERIFICATION_METHOD,
   RUN_VERIFICATION_SCHEMA_VERSION,
 } from "./competition-run-verification.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+  assertCompetitionWalletLock,
+} from "./competition-wallet-lock.mjs";
 
 export const RESULT_SCHEMA_VERSION = 1;
 export const RESULT_VERSION = 1;
@@ -154,6 +159,8 @@ export function normalizeTrustedPlacementReceipt({
   data,
   verification,
   verificationDocId,
+  competitionWalletLock,
+  competitionWalletLockDocId,
   weekKey,
   cupStartMs,
   cupEndMs,
@@ -204,6 +211,22 @@ export function normalizeTrustedPlacementReceipt({
     return null;
   }
 
+  let walletLock;
+  try {
+    walletLock = assertCompetitionWalletLock({
+      weekKey,
+      ownerUid,
+      walletAddress,
+      lockDocId: competitionWalletLockDocId,
+      lock: competitionWalletLock,
+    });
+  } catch {
+    return null;
+  }
+  if (String(data.trustedCompetitionWalletLockRef ?? "") !== walletLock.ref) return null;
+  if (String(data.trustedCompetitionWalletAddress ?? "") !== walletLock.walletAddress) return null;
+  if (String(data.trustedCompetitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY) return null;
+
   // The promoted receipt is not sufficient by itself. Eligibility also requires
   // the immutable Admin-only verification decision written by the verifier.
   if (!verification || String(verificationDocId ?? "") !== receiptId) return null;
@@ -224,12 +247,19 @@ export function normalizeTrustedPlacementReceipt({
     String(verification.evidenceRef ?? "").trim() !== evidenceRef ||
     String(verification.verificationAuthority ?? "") !== RUN_VERIFICATION_AUTHORITY ||
     String(verification.verificationMethod ?? "") !== RUN_VERIFICATION_METHOD ||
+    String(verification.competitionWalletLockRef ?? "") !== walletLock.ref ||
+    String(verification.competitionWalletAddress ?? "") !== walletLock.walletAddress ||
+    String(verification.competitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY ||
     verification.payoutEnabled !== false ||
     auditDecidedAt == null || auditDecidedAt > cutoffMs
   ) return null;
 
   return {
     ...normalized,
+    competitionWalletLockRef: walletLock.ref,
+    competitionWalletLockAuthority: walletLock.authority,
+    competitionWalletAddress: walletLock.walletAddress,
+    competitionWalletFirstReceiptId: walletLock.firstReceiptId,
     trustedVerificationAuditRef: `competitionRunVerifications/${receiptId}`,
     trustedVerificationDecidedAtEpochMillis: auditDecidedAt,
   };
@@ -273,6 +303,9 @@ function canonicalReceipt(receipt) {
     receipt.receiptId,
     receipt.ownerUid,
     receipt.walletAddress,
+    receipt.competitionWalletLockRef,
+    receipt.competitionWalletLockAuthority,
+    receipt.competitionWalletFirstReceiptId,
     receipt.score,
     receipt.maxCombo,
     receipt.perfectHits,
@@ -296,6 +329,7 @@ export function buildFinalizationPlan({
   weekKey,
   receiptDocuments,
   verificationDocuments,
+  competitionWalletLockDocuments,
   nowEpochMillis,
   allowEarlyClose = false,
   earlyCloseReason = null,
@@ -303,12 +337,16 @@ export function buildFinalizationPlan({
   const close = assertCloseableCup(cup, weekKey, nowEpochMillis, { allowEarlyClose, earlyCloseReason });
   const sourceDocs = Array.isArray(receiptDocuments) ? receiptDocuments : [];
   const verificationDocs = Array.isArray(verificationDocuments) ? verificationDocuments : [];
+  const lockDocs = Array.isArray(competitionWalletLockDocuments) ? competitionWalletLockDocuments : [];
   const verificationByReceipt = new Map(verificationDocs.map(({ id, data }) => [String(id), data]));
+  const lockByOwner = new Map(lockDocs.map(({ id, data }) => [String(id), data]));
   const eligible = sourceDocs.map(({ id, data }) => normalizeTrustedPlacementReceipt({
     docId: id,
     data,
     verificationDocId: String(id),
     verification: verificationByReceipt.get(String(id)),
+    competitionWalletLockDocId: String(data?.ownerUid ?? ""),
+    competitionWalletLock: lockByOwner.get(String(data?.ownerUid ?? "")),
     weekKey,
     cupStartMs: close.startsAtMs,
     cupEndMs: close.effectiveEndsAtMs,
@@ -323,6 +361,7 @@ export function buildFinalizationPlan({
   }
 
   const rankedWallets = bestEligibleResultPerWallet(eligible);
+  const eligibleAccountCount = new Set(eligible.map((receipt) => receipt.ownerUid)).size;
   const requiredWinnerCount = close.placements.size;
   if (rankedWallets.length < requiredWinnerCount) {
     throw new Error(`Cup requires ${requiredWinnerCount} configured placements but only ${rankedWallets.length} eligible wallet(s) exist.`);
@@ -348,6 +387,9 @@ export function buildFinalizationPlan({
       clientCompletedAtEpochMillis: receipt.clientCompletedAtEpochMillis,
       prizeAmountAtomic: allocations.get(placement).toString(),
       prizeAssetSymbol: "SKR",
+      competitionWalletLockRef: receipt.competitionWalletLockRef,
+      competitionWalletLockAuthority: receipt.competitionWalletLockAuthority,
+      competitionWalletAddress: receipt.competitionWalletAddress,
       payoutStatus: WINNER_PAYOUT_STATUS,
       payoutEnabled: false,
       payoutReady: false,
@@ -360,6 +402,7 @@ export function buildFinalizationPlan({
     sourceReceiptCount: sourceDocs.length,
     eligibleReceiptCount: eligible.length,
     eligibleWalletCount: rankedWallets.length,
+    eligibleAccountCount,
     winnerCount: winners.length,
     fundingVerificationStatusAtClose: close.fundingStatusAtClose,
     payoutEnabled: false,
@@ -382,7 +425,11 @@ export function buildFinalizationPlan({
       sourceReceiptCount: sourceDocs.length,
       eligibleReceiptCount: eligible.length,
       eligibleWalletCount: rankedWallets.length,
+      eligibleAccountCount,
       winnerCount: winners.length,
+      competitionWalletLockRequired: true,
+      competitionWalletLockSchemaVersion: COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+      competitionWalletLockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
       prizeAssetSymbol: "SKR",
       prizeMint: OFFICIAL_SKR_MINT,
       prizeDecimals: SKR_DECIMALS,

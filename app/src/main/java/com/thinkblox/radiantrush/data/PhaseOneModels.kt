@@ -104,13 +104,14 @@ data class RadiantRunPreview(
     val totalRuns: Int = 0,
     val lastScore: Int = 0,
     val lastMaxCombo: Int = 0,
+    val lastCapsuleTier: String? = null,
     val lastRewardTitle: String? = null,
     val lastRewardRarity: String? = null,
     val lastRewardXp: Int = 0,
     val lastRewardShards: Int = 0,
     val radiantShards: Int = 0,
     val collectionOwned: Int = 0,
-    val collectionTotal: Int = 6,
+    val collectionTotal: Int = 12,
 ) {
     val totalPlayableTickets: Int
         get() = (rushTickets + skrCasualRushTickets).coerceAtLeast(0)

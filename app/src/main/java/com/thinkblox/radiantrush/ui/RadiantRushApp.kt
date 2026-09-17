@@ -243,12 +243,26 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
     fun protectCircleAccount() {
         if (accountActionInProgress) return
+        if (appState.walletActionInProgress) {
+            accountActionMessage = "Finish the current wallet action before continuing with Google."
+            return
+        }
+
+        // Snapshot the live connected wallet before Credential Manager opens. If Google
+        // restores an older durable Firebase UID, the repository carries this public
+        // address onto that account so sign-in does not visually disconnect the wallet.
+        val connectedWalletAddress = appState.user.walletAddress
+            .takeIf { appState.isWalletConnected && it.isNotBlank() }
+
         accountActionInProgress = true
         accountActionMessage = null
         scope.launch {
             when (val credentialResult = googleAccountCredentialProvider.requestIdToken()) {
                 is GoogleAccountCredentialResult.Success -> {
-                    repository.linkOrRestoreGoogleAccount(credentialResult.idToken) { result ->
+                    repository.linkOrRestoreGoogleAccount(
+                        idToken = credentialResult.idToken,
+                        connectedWalletAddress = connectedWalletAddress,
+                    ) { result ->
                         accountActionInProgress = false
                         accountActionMessage = result.message
                         if (result.success) {

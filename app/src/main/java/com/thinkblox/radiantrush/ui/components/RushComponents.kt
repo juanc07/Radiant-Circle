@@ -99,6 +99,7 @@ data class ResponsiveUiSpec(
     val screenPadding: Dp,
     val cardPadding: Dp,
     val buttonHeight: Dp,
+    val compactButtonHeight: Dp,
     val buttonHorizontalPadding: Dp,
     val buttonTextSize: TextUnit,
     val navTextSize: TextUnit,
@@ -132,11 +133,12 @@ fun rememberResponsiveUiSpec(): ResponsiveUiSpec {
             compact -> 16.dp
             else -> 18.dp
         },
-        buttonHeight = when {
-            tiny -> 62.dp
-            compact -> 58.dp
-            else -> 54.dp
-        },
+        // Primary/secondary actions use one stable touch target across phones.
+        // Text adapts instead of making the physical button jump between screens.
+        buttonHeight = 56.dp,
+        // Utility actions (Copy/View/etc.) are deliberately smaller, but equally
+        // consistent wherever they appear.
+        compactButtonHeight = 44.dp,
         buttonHorizontalPadding = when {
             tiny -> 10.dp
             compact -> 14.dp

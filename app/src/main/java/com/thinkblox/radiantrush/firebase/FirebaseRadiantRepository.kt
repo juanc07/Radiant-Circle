@@ -49,6 +49,7 @@ import com.thinkblox.radiantrush.logic.LeaderboardRules
 import com.thinkblox.radiantrush.logic.GameplayXpAward
 import com.thinkblox.radiantrush.logic.Phase11CompetitionRules
 import com.thinkblox.radiantrush.logic.Phase12CompetitionVerificationRules
+import com.thinkblox.radiantrush.logic.Phase12CompetitionWalletLockRules
 import com.thinkblox.radiantrush.logic.Phase12WeeklyCupConfigRules
 import com.thinkblox.radiantrush.logic.Phase12WeeklyCupResultRules
 import com.thinkblox.radiantrush.logic.TrustedWeeklyCupResultState
@@ -148,6 +149,7 @@ class FirebaseRadiantRepository(
      */
     fun linkOrRestoreGoogleAccount(
         idToken: String,
+        connectedWalletAddress: String? = null,
         onResult: (AccountLinkResult) -> Unit,
     ) {
         val app = ensureFirebaseApp()
@@ -190,14 +192,40 @@ class FirebaseRadiantRepository(
                     // The Google account is already linked to the user's older durable UID.
                     // This is the expected recovery path after uninstall/reinstall.
                     auth.signInWithCredential(credential)
-                        .addOnSuccessListener {
-                            onResult(
-                                AccountLinkResult(
-                                    success = true,
-                                    restoredExistingAccount = true,
-                                    message = "Welcome back. Your saved Circle profile was restored.",
-                                ),
-                            )
+                        .addOnSuccessListener { result ->
+                            val restoredUid = result.user?.uid
+                            if (restoredUid.isNullOrBlank()) {
+                                onResult(
+                                    AccountLinkResult(
+                                        false,
+                                        message = "We couldn't restore your saved Circle right now. Please try again.",
+                                    ),
+                                )
+                                return@addOnSuccessListener
+                            }
+
+                            // Google recovery can switch Firebase UIDs. The currently connected
+                            // Solana wallet is a live app/session choice, not the social identity,
+                            // so carry that public address onto the restored account instead of
+                            // making the player reconnect. This does not grant a wallet quest reward
+                            // and does not change the immutable Phase 12G Cup competition-wallet lock.
+                            preserveConnectedWalletAfterAccountRestore(
+                                app = app,
+                                restoredUid = restoredUid,
+                                connectedWalletAddress = connectedWalletAddress,
+                            ) { walletPreserved ->
+                                onResult(
+                                    AccountLinkResult(
+                                        success = true,
+                                        restoredExistingAccount = true,
+                                        message = if (walletPreserved) {
+                                            "Welcome back. Your saved Circle was restored and your wallet stayed connected."
+                                        } else {
+                                            "Welcome back. Your saved Circle profile was restored."
+                                        },
+                                    ),
+                                )
+                            }
                         }
                         .addOnFailureListener {
                             onResult(
@@ -215,6 +243,54 @@ class FirebaseRadiantRepository(
                         ),
                     )
                 }
+            }
+    }
+
+    private fun preserveConnectedWalletAfterAccountRestore(
+        app: FirebaseApp,
+        restoredUid: String,
+        connectedWalletAddress: String?,
+        onComplete: (Boolean) -> Unit,
+    ) {
+        val cleanWallet = connectedWalletAddress?.trim().orEmpty()
+        if (cleanWallet.isBlank()) {
+            onComplete(false)
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(app)
+        val userRef = db.collection(USERS).document(restoredUid)
+        val leaderboardRef = db.collection(LEADERBOARD).document(restoredUid)
+        val batch = db.batch()
+
+        // Preserve only the current public wallet connection. Do not copy anonymous
+        // account progression, do not mint rewards, and do not touch trusted Cup locks.
+        batch.set(
+            userRef,
+            mapOf(
+                "walletAddress" to cleanWallet,
+                "walletAddressShort" to shortenAddress(cleanWallet),
+                "walletAccountLabel" to null,
+                "walletStatus" to "Wallet connected",
+                "updatedAt" to FieldValue.serverTimestamp(),
+            ),
+            SetOptions.merge(),
+        )
+        batch.set(
+            leaderboardRef,
+            mapOf(
+                "walletAddress" to cleanWallet,
+                "walletAddressShort" to shortenAddress(cleanWallet),
+                "updatedAt" to FieldValue.serverTimestamp(),
+            ),
+            SetOptions.merge(),
+        )
+
+        batch.commit()
+            .addOnSuccessListener { onComplete(true) }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Circle account restored, but connected wallet could not be preserved", error)
+                onComplete(false)
             }
     }
 
@@ -887,6 +963,10 @@ class FirebaseRadiantRepository(
             .collection(RUN_ENTRIES)
             .document(session.uid)
         val allTimeRef = db.collection(RUN_ALL_TIME).document(session.uid)
+        val competitionWalletLockRef = db.collection(WEEKLY_CUP_COMPETITION_WALLET_LOCKS)
+            .document(utcWeekKey)
+            .collection(WEEKLY_CUP_LOCK_ACCOUNTS)
+            .document(session.uid)
 
         db.runTransaction { transaction ->
             // Firestore transactions require all reads before writes.
@@ -913,6 +993,7 @@ class FirebaseRadiantRepository(
             val walletDailySnapshot = walletDailyRef?.let { transaction.get(it) }
             val weeklySnapshot = transaction.get(weeklyRef)
             val allTimeSnapshot = transaction.get(allTimeRef)
+            val competitionWalletLockSnapshot = transaction.get(competitionWalletLockRef)
 
             val oldTickets = userSnapshot.getLong("rushTickets")
                 ?: RadiantGameRules.STARTER_TICKETS.toLong()
@@ -922,7 +1003,7 @@ class FirebaseRadiantRepository(
             }
 
             val legacyAttemptsUsed = (userSnapshot.getLong("rankedAttemptsUsedToday") ?: 0L).toInt()
-            val rankedDecision = Phase11CompetitionRules.rankedAttemptDecision(
+            val rankedDecisionCandidate = Phase11CompetitionRules.rankedAttemptDecision(
                 walletConnected = walletConnected,
                 savedDayKey = walletDailySnapshot?.getString("utcDayKey")
                     ?: userSnapshot.getString("rankedRunsDayKey"),
@@ -934,6 +1015,33 @@ class FirebaseRadiantRepository(
                 completedAtEpochMillis = completedAtMs,
                 rankedEntryTicketAvailable = oldTickets >= RadiantGameRules.RUN_TICKET_COST,
             )
+            val competitionWalletLockShapeTrusted = competitionWalletLockSnapshot.exists() &&
+                Phase12CompetitionWalletLockRules.isTrustedLockShape(
+                    schemaVersion = competitionWalletLockSnapshot.getLong("schemaVersion")?.toInt(),
+                    weekKey = competitionWalletLockSnapshot.getString("weekKey"),
+                    ownerUid = competitionWalletLockSnapshot.getString("ownerUid"),
+                    lockAuthority = competitionWalletLockSnapshot.getString("lockAuthority"),
+                    expectedWeekKey = utcWeekKey,
+                    expectedOwnerUid = session.uid,
+                )
+            val competitionWalletLockedOut = rankedDecisionCandidate.mode == RunCompetitionMode.Ranked &&
+                !Phase12CompetitionWalletLockRules.allowsRankedEntry(
+                    lockExists = competitionWalletLockSnapshot.exists(),
+                    trustedLockShape = competitionWalletLockShapeTrusted,
+                    lockedWallet = competitionWalletLockSnapshot.getString("walletAddress"),
+                    candidateWallet = walletAddress,
+                )
+            val rankedDecision = if (competitionWalletLockedOut) {
+                rankedDecisionCandidate.copy(
+                    mode = RunCompetitionMode.Casual,
+                    rankedAttemptsUsedAfter = rankedDecisionCandidate.rankedAttemptsUsedBefore,
+                    rankedAttemptsRemaining = (
+                        Phase11CompetitionRules.DAILY_RANKED_ATTEMPTS - rankedDecisionCandidate.rankedAttemptsUsedBefore
+                    ).coerceAtLeast(0),
+                )
+            } else {
+                rankedDecisionCandidate
+            }
             // Phase 11C.4: gameplay XP uses the same wallet/day scope as ranked
             // attempts. Otherwise reinstalling or using a second phone would reset
             // the 300 XP cap and My Stats would show device-local values. Existing
@@ -1207,6 +1315,7 @@ class FirebaseRadiantRepository(
                 mode = rankedDecision.mode,
                 xpAward = xpAward,
                 runRecord = runRecord,
+                competitionWalletLockedOut = competitionWalletLockedOut,
             )
         }
             .addOnSuccessListener { outcome ->
@@ -1224,9 +1333,15 @@ class FirebaseRadiantRepository(
                     "Casual run saved; ranked boards unchanged"
                 }
                 val capText = if (xpAward.wasCapped) " Daily gameplay XP cap reached." else ""
+                val walletLockText = if (outcome.competitionWalletLockedOut) {
+                    " This Cup is already linked to the first competition wallet used by this account. " +
+                        "This run was saved as Casual; reconnect that wallet for Ranked."
+                } else {
+                    ""
+                }
                 val savedMessage =
                     "$modeText • ${reward.capsuleTier}: ${reward.collectible.rarity} ${reward.collectible.title}. " +
-                        "+${xpAward.grantedXp} performance XP.$duplicateText$capText"
+                        "+${xpAward.grantedXp} performance XP.$duplicateText$capText$walletLockText"
 
                 // Phase 12A.1: do not silently hide receipt failures. The normal
                 // run/reward transaction above is already committed, so a receipt
@@ -1307,7 +1422,7 @@ class FirebaseRadiantRepository(
             return
         }
 
-        val walletAddress = run.walletAddress?.trim()?.takeIf { it.isNotBlank() }
+        val walletAddress = Phase12CompetitionWalletLockRules.normalizedWallet(run.walletAddress)
         if (walletAddress == null) {
             val detail = "No connected wallet was attached to the Ranked run."
             Log.w(TAG, "Competition receipt ${run.runId} not submitted: $detail")
@@ -1322,6 +1437,10 @@ class FirebaseRadiantRepository(
 
         val trust = Phase12CompetitionVerificationRules.clientInitialTrustState()
         val receiptRef = db.collection(COMPETITION_RUN_SUBMISSIONS).document(run.runId)
+        val walletLockRef = db.collection(WEEKLY_CUP_COMPETITION_WALLET_LOCKS)
+            .document(run.utcWeekKey)
+            .collection(WEEKLY_CUP_LOCK_ACCOUNTS)
+            .document(run.ownerUid)
         val payload = mapOf(
             "schemaVersion" to Phase12CompetitionVerificationRules.RECEIPT_SCHEMA_VERSION,
             "receiptId" to run.runId,
@@ -1344,58 +1463,103 @@ class FirebaseRadiantRepository(
             "submittedAt" to FieldValue.serverTimestamp(),
         )
 
-        receiptRef.set(payload)
-            .addOnSuccessListener {
-                Log.d(TAG, "Created UNVERIFIED competition receipt ${run.runId}")
-                onComplete(
-                    CompetitionReceiptWriteResult(
-                        status = CompetitionReceiptWriteStatus.CREATED,
+        db.runTransaction { transaction ->
+            val lockSnapshot = transaction.get(walletLockRef)
+            val receiptSnapshot = transaction.get(receiptRef)
+
+            val lockIsTrustedShape = lockSnapshot.exists() &&
+                lockSnapshot.getLong("schemaVersion") == Phase12CompetitionWalletLockRules.LOCK_SCHEMA_VERSION.toLong() &&
+                lockSnapshot.getString("weekKey") == run.utcWeekKey &&
+                lockSnapshot.getString("ownerUid") == run.ownerUid &&
+                lockSnapshot.getString("lockAuthority") == Phase12CompetitionWalletLockRules.LOCK_AUTHORITY
+
+            if (receiptSnapshot.exists()) {
+                val sameReceipt = receiptSnapshot.getString("receiptId") == run.runId &&
+                    receiptSnapshot.getString("ownerUid") == run.ownerUid &&
+                    receiptSnapshot.getString("utcWeekKey") == run.utcWeekKey &&
+                    receiptSnapshot.getString("walletAddress") == walletAddress
+                if (!sameReceipt) {
+                    throw IllegalStateException("A different competition receipt already uses this run id.")
+                }
+                if (!lockIsTrustedShape) {
+                    throw IllegalStateException(
+                        "This Cup entry does not have a valid competition-wallet lock. Please use a new Cup entry after updating the app.",
+                    )
+                }
+                if (!Phase12CompetitionWalletLockRules.walletMatchesLock(
+                        lockSnapshot.getString("walletAddress"),
+                        walletAddress,
+                    )
+                ) {
+                    throw IllegalStateException(
+                        "This Weekly Cup is already linked to another competition wallet. Reconnect the wallet first used for this Cup.",
+                    )
+                }
+                return@runTransaction CompetitionReceiptWriteStatus.ALREADY_EXISTS
+            }
+
+            if (lockSnapshot.exists()) {
+                if (!lockIsTrustedShape) {
+                    throw IllegalStateException("This Cup's competition-wallet lock is invalid. Please try again later.")
+                }
+                if (!Phase12CompetitionWalletLockRules.walletMatchesLock(
+                        lockSnapshot.getString("walletAddress"),
+                        walletAddress,
+                    )
+                ) {
+                    throw IllegalStateException(
+                        "This Weekly Cup is already linked to another competition wallet. Reconnect the wallet first used for this Cup.",
+                    )
+                }
+            } else {
+                transaction.set(
+                    walletLockRef,
+                    mapOf(
+                        "schemaVersion" to Phase12CompetitionWalletLockRules.LOCK_SCHEMA_VERSION,
+                        "weekKey" to run.utcWeekKey,
+                        "ownerUid" to run.ownerUid,
+                        "walletAddress" to walletAddress,
+                        "firstReceiptId" to run.runId,
+                        "lockAuthority" to Phase12CompetitionWalletLockRules.LOCK_AUTHORITY,
+                        "lockedAt" to FieldValue.serverTimestamp(),
                     ),
                 )
             }
-            .addOnFailureListener { writeError ->
-                // A retry of the exact same completed run intentionally reuses the
-                // same receipt id. Because client updates are denied, .set() on an
-                // already-created document is rejected as an update. Read it back
-                // and treat an exact same-owner receipt as an idempotent success.
-                receiptRef.get()
-                    .addOnSuccessListener { existing ->
-                        val sameReceiptExists = existing.exists() &&
-                            existing.getString("receiptId") == run.runId &&
-                            existing.getString("ownerUid") == run.ownerUid
 
-                        if (sameReceiptExists) {
-                            Log.d(TAG, "Competition receipt ${run.runId} already exists; retry is idempotent.")
-                            onComplete(
-                                CompetitionReceiptWriteResult(
-                                    status = CompetitionReceiptWriteStatus.ALREADY_EXISTS,
-                                ),
-                            )
-                        } else {
-                            val detail = safeMessage(writeError).take(180)
-                            Log.w(TAG, "Competition receipt ${run.runId} was not persisted: $detail")
-                            onComplete(
-                                CompetitionReceiptWriteResult(
-                                    status = CompetitionReceiptWriteStatus.FAILED,
-                                    detail = detail,
-                                ),
-                            )
-                        }
+            transaction.set(receiptRef, payload)
+            CompetitionReceiptWriteStatus.CREATED
+        }
+            .addOnSuccessListener { status ->
+                when (status) {
+                    CompetitionReceiptWriteStatus.CREATED -> {
+                        Log.d(TAG, "Created UNVERIFIED competition receipt ${run.runId} with immutable Cup wallet lock")
+                        onComplete(CompetitionReceiptWriteResult(status = status))
                     }
-                    .addOnFailureListener { readError ->
-                        val detail = safeMessage(writeError).take(140)
-                        val readDetail = safeMessage(readError).take(100)
-                        Log.w(
-                            TAG,
-                            "Competition receipt ${run.runId} failed and could not be checked: $detail / $readDetail",
-                        )
+
+                    CompetitionReceiptWriteStatus.ALREADY_EXISTS -> {
+                        Log.d(TAG, "Competition receipt ${run.runId} already exists; retry is idempotent.")
+                        onComplete(CompetitionReceiptWriteResult(status = status))
+                    }
+
+                    CompetitionReceiptWriteStatus.FAILED -> {
                         onComplete(
                             CompetitionReceiptWriteResult(
                                 status = CompetitionReceiptWriteStatus.FAILED,
-                                detail = "$detail (verification read also failed: $readDetail)",
+                                detail = "Competition receipt was not persisted.",
                             ),
                         )
                     }
+                }
+            }
+            .addOnFailureListener { error ->
+                val detail = safeMessage(error).take(180)
+                Log.w(TAG, "Competition receipt ${run.runId} was not persisted: $detail")
+                onComplete(
+                    CompetitionReceiptWriteResult(
+                        status = CompetitionReceiptWriteStatus.FAILED,
+                        detail = detail,
+                    ),
+                )
             }
     }
 
@@ -1762,13 +1926,16 @@ class FirebaseRadiantRepository(
             totalRuns = user.totalRuns,
             lastScore = user.lastRunScore,
             lastMaxCombo = user.lastRunMaxCombo,
+            lastCapsuleTier = userSnapshot.getString("lastRunCapsuleTier"),
             lastRewardTitle = user.lastRunRewardTitle,
             lastRewardRarity = user.lastRunRewardRarity,
             lastRewardXp = user.lastRunRewardXp,
             lastRewardShards = user.lastRunRewardShards,
             radiantShards = user.radiantShards,
             collectionOwned = collection.count { it.discovered },
-            collectionTotal = collection.size,
+            // The catalog, not persisted profile data, is authoritative for Vault size.
+            // This prevents older 6-item builds/profile snapshots from leaking a stale total.
+            collectionTotal = RadiantGameRules.COLLECTION_TOTAL,
         )
         val dailyRadiance = dailyRadianceState(
             uid = uid,
@@ -3517,6 +3684,7 @@ class FirebaseRadiantRepository(
         val mode: RunCompetitionMode,
         val xpAward: GameplayXpAward,
         val runRecord: RunScoreRecord,
+        val competitionWalletLockedOut: Boolean = false,
     )
 
     private data class FirebaseSession(
@@ -3537,6 +3705,8 @@ class FirebaseRadiantRepository(
         const val RUN_WALLET_DAILY = "runWalletDaily"
         const val RUN_WALLETS = "wallets"
         const val COMPETITION_RUN_SUBMISSIONS = "competitionRunSubmissions"
+        const val WEEKLY_CUP_COMPETITION_WALLET_LOCKS = "weeklyCupCompetitionWalletLocks"
+        const val WEEKLY_CUP_LOCK_ACCOUNTS = "accounts"
         const val WEEKLY_CUP_CONFIGS = "weeklyCupConfigs"
         const val WEEKLY_CUP_RESULTS = "weeklyCupResults"
         const val WEEKLY_CUP_WINNERS = "winners"

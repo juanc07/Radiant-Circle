@@ -2,12 +2,16 @@ import {
   CONFIGURATION_AUTHORITY,
   SCHEMA_VERSION as CUP_SCHEMA_VERSION,
 } from "./weekly-cup-config.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  assertCompetitionWalletLock,
+} from "./competition-wallet-lock.mjs";
 
 export const RUN_RECEIPT_SCHEMA_VERSION = 1;
 export const CLIENT_SCORE_AUTHORITY = "client-reported-prototype-not-payout-authority";
-export const RUN_VERIFICATION_SCHEMA_VERSION = 1;
+export const RUN_VERIFICATION_SCHEMA_VERSION = 2;
 export const RUN_VERIFICATION_AUTHORITY = "trusted-admin-phase12d";
-export const RUN_VERIFICATION_METHOD = "manual-independent-evidence-attestation-v1";
+export const RUN_VERIFICATION_METHOD = "manual-independent-evidence-attestation-v2-account-wallet-locked";
 
 const SOLANA_ADDRESS = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const VERIFIABLE_CUP_STATUSES = new Set(["OPEN"]);
@@ -113,8 +117,15 @@ export function assertUnverifiedReceipt({ cup, weekKey, receiptId, receipt }) {
   };
 }
 
-export function buildVerifiedRunDecision({ cup, weekKey, receiptId, receipt, expected, evidenceRef }) {
+export function buildVerifiedRunDecision({ cup, weekKey, receiptId, receipt, expected, evidenceRef, competitionWalletLock }) {
   const normalized = assertUnverifiedReceipt({ cup, weekKey, receiptId, receipt });
+  const walletLock = assertCompetitionWalletLock({
+    weekKey: normalized.weekKey,
+    ownerUid: normalized.ownerUid,
+    walletAddress: normalized.walletAddress,
+    lockDocId: competitionWalletLock?.id,
+    lock: competitionWalletLock?.data ?? competitionWalletLock,
+  });
   const evidence = requiredString(evidenceRef, "evidenceRef", 240);
   const requiredExpected = {
     walletAddress: requiredString(expected?.walletAddress, "expected walletAddress", 64),
@@ -146,6 +157,9 @@ export function buildVerifiedRunDecision({ cup, weekKey, receiptId, receipt, exp
       trustedVerificationMethod: RUN_VERIFICATION_METHOD,
       trustedEvidenceRef: evidence,
       trustedVerificationRef: `competitionRunVerifications/${normalized.receiptId}`,
+      trustedCompetitionWalletLockRef: walletLock.ref,
+      trustedCompetitionWalletAddress: walletLock.walletAddress,
+      trustedCompetitionWalletLockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
       payoutEligible: false,
       payoutStatus: "NOT_ELIGIBLE",
     },

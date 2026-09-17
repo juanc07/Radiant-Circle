@@ -11,6 +11,10 @@ import {
   PAYOUT_STATUS_APPROVED,
   TRANSFER_STATUS_NOT_STARTED,
 } from "./weekly-cup-payout-lifecycle.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+} from "./competition-wallet-lock.mjs";
 
 export const TRANSFER_EXECUTION_SCHEMA_VERSION = 1;
 export const TRANSFER_EXECUTION_AUTHORITY = "trusted-admin-phase12f";
@@ -80,6 +84,7 @@ export function computePayoutManifestDigest(batch, itemDocuments, weekKey) {
     .map(normalizeItem)
     .map((entry) => entry.data)
     .sort((a, b) => Number(a?.placement) - Number(b?.placement));
+  const lockRequired = batch.competitionWalletLockRequired === true;
   return digestLines([
     `week=${cleanWeek}`,
     `mint=${OFFICIAL_SKR_MINT}`,
@@ -87,12 +92,20 @@ export function computePayoutManifestDigest(batch, itemDocuments, weekKey) {
     `total=${total}`,
     `fundingWallet=${fundingWallet}`,
     `rankingDigest=${rankingDigest}`,
-    ...items.map((item) => [
+    ...items.map((item) => (lockRequired ? [
+      Number(item?.placement),
+      String(item?.ownerUid ?? "").trim(),
+      String(item?.walletAddress ?? "").trim(),
+      String(item?.receiptId ?? "").trim(),
+      String(item?.amountAtomic ?? "").trim(),
+      String(item?.competitionWalletLockRef ?? "").trim(),
+      String(item?.competitionWalletLockAuthority ?? "").trim(),
+    ] : [
       Number(item?.placement),
       String(item?.walletAddress ?? "").trim(),
       String(item?.receiptId ?? "").trim(),
       String(item?.amountAtomic ?? "").trim(),
-    ].join("|")),
+    ]).join("|")),
   ]);
 }
 
@@ -104,6 +117,12 @@ export function validateTransferManifest({ batch, itemDocuments, weekKey }) {
   }
   if (String(batch.weekKey ?? "").trim() !== cleanWeek) throw new Error("Payout batch weekKey mismatch.");
   if (String(batch.authority ?? "") !== PAYOUT_AUTHORITY) throw new Error("Payout batch authority is not trusted Phase 12E.");
+  const lockRequired = batch.competitionWalletLockRequired === true;
+  if (lockRequired && (
+      Number(batch.competitionWalletLockSchemaVersion) !== COMPETITION_WALLET_LOCK_SCHEMA_VERSION ||
+      String(batch.competitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY)) {
+    throw new Error("Payout batch competition-wallet lock contract is invalid.");
+  }
   const batchStatus = String(batch.status ?? "").toUpperCase();
   if (![PAYOUT_STATUS_APPROVED, BATCH_STATUS_PAYMENT_PENDING, BATCH_STATUS_PAID].includes(batchStatus)) {
     throw new Error("Phase 12F requires an APPROVED, PAYMENT_PENDING, or PAID payout batch.");
@@ -151,6 +170,13 @@ export function validateTransferManifest({ batch, itemDocuments, weekKey }) {
     if (seenWallets.has(wallet)) throw new Error("Payout items must use distinct full wallet addresses.");
     seenWallets.add(wallet);
     requiredString(item.receiptId, `Payout item #${placement} receiptId`, 100);
+    if (lockRequired) {
+      requiredString(item.ownerUid, `Payout item #${placement} ownerUid`, 128);
+      requiredString(item.competitionWalletLockRef, `Payout item #${placement} competitionWalletLockRef`, 300);
+      if (String(item.competitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY) {
+        throw new Error(`Payout item #${placement} competition-wallet lock authority is invalid.`);
+      }
+    }
     if (String(item.prizeAssetSymbol ?? "").toUpperCase() !== "SKR") {
       throw new Error(`Payout item #${placement} is not SKR.`);
     }

@@ -39,6 +39,7 @@ import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.QuestCard
 import com.thinkblox.radiantrush.ui.components.RadiantChestCard
 import com.thinkblox.radiantrush.ui.components.RadiantRunLauncherCard
+import com.thinkblox.radiantrush.ui.components.RadiantVaultStrip
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
@@ -154,6 +155,13 @@ fun QuestsScreen(
                 cupRunning = radiantRushWalletAccess.cupRunning,
                 onConnectWallet = onConnectWallet,
                 onPlay = onPlayRadiantRun,
+            )
+        }
+
+        item {
+            RadiantVaultStrip(
+                collection = uiState.collection,
+                run = uiState.radiantRun,
             )
         }
     }

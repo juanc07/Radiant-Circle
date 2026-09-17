@@ -8,6 +8,7 @@ import {
   buildRejectedRunDecision,
   buildVerifiedRunDecision,
 } from "./competition-run-verification.mjs";
+import { competitionWalletLockRefPath } from "./competition-wallet-lock.mjs";
 
 function readArgs(argv) {
   const values = {};
@@ -96,12 +97,22 @@ async function main() {
   ]);
   if (verificationSnap.exists) throw new Error("An immutable trusted verification record already exists for this receipt.");
 
+  const initialReceipt = receiptSnap.exists ? receiptSnap.data() : null;
+  const initialOwnerUid = String(initialReceipt?.ownerUid ?? "").trim();
+  const competitionWalletLockRef = decisionName === "VERIFIED" && initialOwnerUid
+    ? db.doc(competitionWalletLockRefPath(weekKey, initialOwnerUid))
+    : null;
+  const competitionWalletLockSnap = competitionWalletLockRef ? await competitionWalletLockRef.get() : null;
+
   const args = {
     cup: cupSnap.exists ? cupSnap.data() : null,
     weekKey,
     receiptId,
-    receipt: receiptSnap.exists ? receiptSnap.data() : null,
+    receipt: initialReceipt,
     evidenceRef: values["evidence-ref"],
+    competitionWalletLock: competitionWalletLockSnap?.exists
+      ? { id: competitionWalletLockSnap.id, data: competitionWalletLockSnap.data() }
+      : null,
   };
   const decision = decisionName === "VERIFIED"
     ? buildVerifiedRunDecision({
@@ -127,6 +138,9 @@ async function main() {
   console.log(`Wallet: ${decision.normalized.walletAddress}`);
   console.log(`Score: ${decision.normalized.score}`);
   console.log(`Evidence ref: ${decision.update.trustedEvidenceRef}`);
+  if (decision.decision === "VERIFIED") {
+    console.log(`Competition wallet lock: ${decision.update.trustedCompetitionWalletLockRef}`);
+  }
   console.log("Payout enabled: false");
 
   if (!apply) {
@@ -135,11 +149,14 @@ async function main() {
   }
 
   await db.runTransaction(async (transaction) => {
-    const [freshCupSnap, freshReceiptSnap, freshVerificationSnap] = await Promise.all([
+    const baseReads = [
       transaction.get(cupRef),
       transaction.get(receiptRef),
       transaction.get(verificationRef),
-    ]);
+    ];
+    if (competitionWalletLockRef) baseReads.push(transaction.get(competitionWalletLockRef));
+    const snapshots = await Promise.all(baseReads);
+    const [freshCupSnap, freshReceiptSnap, freshVerificationSnap, freshCompetitionWalletLockSnap] = snapshots;
     if (freshVerificationSnap.exists) throw new Error("Trusted verification already exists; refusing duplicate decision.");
 
     const freshArgs = {
@@ -148,6 +165,9 @@ async function main() {
       receiptId,
       receipt: freshReceiptSnap.exists ? freshReceiptSnap.data() : null,
       evidenceRef: values["evidence-ref"],
+      competitionWalletLock: freshCompetitionWalletLockSnap?.exists
+        ? { id: freshCompetitionWalletLockSnap.id, data: freshCompetitionWalletLockSnap.data() }
+        : null,
     };
     const freshDecision = decisionName === "VERIFIED"
       ? buildVerifiedRunDecision({
@@ -186,6 +206,11 @@ async function main() {
       rejectionReason: freshDecision.update.trustedRejectionReason ?? null,
       verificationAuthority: RUN_VERIFICATION_AUTHORITY,
       verificationMethod: RUN_VERIFICATION_METHOD,
+      ...(freshDecision.decision === "VERIFIED" ? {
+        competitionWalletLockRef: freshDecision.update.trustedCompetitionWalletLockRef,
+        competitionWalletAddress: freshDecision.update.trustedCompetitionWalletAddress,
+        competitionWalletLockAuthority: freshDecision.update.trustedCompetitionWalletLockAuthority,
+      } : {}),
       payoutEnabled: false,
       decidedAt: FieldValue.serverTimestamp(),
     });

@@ -26,6 +26,11 @@ import {
   TRANSFER_STATUS_NOT_STARTED,
 } from "./weekly-cup-payout-lifecycle.mjs";
 import { OFFICIAL_SKR_MINT, SKR_DECIMALS } from "./weekly-cup-config.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+  competitionWalletLockRefPath,
+} from "./competition-wallet-lock.mjs";
 
 const funding = "HbyQrE2N1V8TPs5HJ9wGDq3M85Zm1i21RmgbLFk39xkS";
 const wallets = [
@@ -86,6 +91,22 @@ test("Phase 12F transfer plan requires exact approved manifest and pays placemen
   assert.equal(plan.recipientWalletAddress, wallets[0]);
   assert.equal(plan.remainingAmountAtomic, "1000000000");
   assert.throws(() => buildTransferItemPlan({ batch, itemDocuments: items, weekKey: "2026-W38", placement: 2 }), /placement order/);
+});
+
+test("Phase 12G payout manifest freezes account-to-wallet lock evidence", () => {
+  const { batch, items } = fixture();
+  batch.competitionWalletLockRequired = true;
+  batch.competitionWalletLockSchemaVersion = COMPETITION_WALLET_LOCK_SCHEMA_VERSION;
+  batch.competitionWalletLockAuthority = COMPETITION_WALLET_LOCK_AUTHORITY;
+  items.forEach((item, index) => {
+    item.ownerUid = `uid-${index + 1}`;
+    item.competitionWalletLockRef = competitionWalletLockRefPath(batch.weekKey, item.ownerUid);
+    item.competitionWalletLockAuthority = COMPETITION_WALLET_LOCK_AUTHORITY;
+  });
+  batch.payoutManifestDigestSha256 = computePayoutManifestDigest(batch, items, batch.weekKey);
+  assert.doesNotThrow(() => buildTransferItemPlan({ batch, itemDocuments: items, weekKey: batch.weekKey, placement: 1 }));
+  items[0].ownerUid = "tampered-owner";
+  assert.throws(() => buildTransferItemPlan({ batch, itemDocuments: items, weekKey: batch.weekKey, placement: 1 }), /digest mismatch/);
 });
 
 test("manifest mutation fails closed", () => {

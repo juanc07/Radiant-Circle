@@ -93,12 +93,13 @@ object RetentionRules {
     fun nextCollectionMilestone(collectionOwned: Int, collectionTotal: Int): Milestone {
         val safeOwned = collectionOwned.coerceAtLeast(0)
         val safeTotal = collectionTotal.coerceAtLeast(1)
-        val firstTarget = minOf(3, safeTotal)
-        return if (safeOwned < firstTarget) {
-            Milestone(firstTarget, "Collector Crest", false)
-        } else {
-            Milestone(safeTotal, "Radiant Vault Complete", safeOwned >= safeTotal)
-        }
+        val milestones = listOf(
+            Milestone(minOf(3, safeTotal), "Collector Crest", false),
+            Milestone(minOf(6, safeTotal), "Vault Seeker", false),
+            Milestone(safeTotal, "Radiant Vault Complete", false),
+        ).distinctBy { it.target }
+        val next = milestones.firstOrNull { safeOwned < it.target } ?: milestones.last()
+        return next.copy(unlocked = safeOwned >= next.target)
     }
 
     fun nextAction(dailyGoals: List<ProgressGoal>, weeklyGoals: List<ProgressGoal>): ProgressGoal? =

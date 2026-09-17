@@ -8,6 +8,7 @@ The tool never scans or deletes:
 
 - `competitionRunSubmissions/*`
 - `competitionRunVerifications/*`
+- `weeklyCupCompetitionWalletLocks/*`
 - `weeklyCupConfigs/*`
 - `weeklyCupFundingChecks/*`
 - `weeklyCupResults/*`
@@ -197,6 +198,31 @@ Only after reviewing the exact dry-run result, repeat the same command with:
 ```
 
 A rejected receipt uses `--decision REJECTED --evidence-ref ... --reason ...`; it can never become placement eligible. Trusted decisions are immutable through this tool.
+
+## Phase 12G competition-wallet lock
+
+For public prize Cups, one Firebase/Radiant Circle account is bound to one competition wallet per ISO Cup week. The first successfully persisted Ranked competition receipt creates an immutable document at:
+
+```text
+weeklyCupCompetitionWalletLocks/{weekKey}/accounts/{firebaseUid}
+```
+
+The lock and first receipt are created atomically by Android, but Firestore Security Rules are authoritative: the client may create only its own correctly shaped lock, only together with the matching first receipt, and can never update or delete it. Later receipts for that account/week must use the same wallet. Ordinary wallet switching elsewhere in Radiant Circle remains allowed.
+
+For the normal app path, if that account later connects a different wallet, a would-be Ranked result is saved as Casual before Ranked leaderboard/attempt state is updated. This avoids misleading extra tournament entries while the backend lock still protects modified-client cases.
+
+The trusted Admin path independently validates the lock before a receipt can be VERIFIED, before Cup finalization, and again before payout-manifest preparation. Phase 12G payout manifests freeze the account-to-wallet lock reference so later payout execution cannot silently substitute another account/wallet mapping. Historical Phase 12F payout batches such as the already-paid W38 batch remain readable through the legacy manifest format.
+
+Important rollout rule: deploy the Phase 12G Firestore rules and Phase 12G-capable Android build together **before opening the next prize Cup**. Older Android builds do not create the atomic lock and therefore cannot create new competition receipts once these rules are live. Do not backfill or modify the already-paid W38 historical data.
+
+Run the full Admin regression suite before any live proof:
+
+```bash
+cd scripts/firebase-admin
+npm test
+```
+
+Then use a future/dev OPEN Cup for the live proof: first submit with Wallet A under one Firebase UID, switch that same account to Wallet B, and confirm the second competition receipt fails while Wallet A remains the immutable lock. Never use the already-paid W38 Cup for this proof.
 
 ## Phase 12D trusted Weekly Cup finalization
 

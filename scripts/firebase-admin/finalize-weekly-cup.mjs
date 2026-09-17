@@ -66,10 +66,12 @@ funding, Phase 12E approval, or Phase 12F transfer requirements.
 
 async function loadPlan(db, weekKey, nowEpochMillis, { allowEarlyClose = false, earlyCloseReason = null } = {}) {
   const cupRef = db.collection("weeklyCupConfigs").doc(weekKey);
-  const [cupSnap, receiptQuery, verificationQuery, existingResult] = await Promise.all([
+  const lockAccountsRef = db.collection("weeklyCupCompetitionWalletLocks").doc(weekKey).collection("accounts");
+  const [cupSnap, receiptQuery, verificationQuery, lockQuery, existingResult] = await Promise.all([
     cupRef.get(),
     db.collection("competitionRunSubmissions").where("utcWeekKey", "==", weekKey).get(),
     db.collection("competitionRunVerifications").where("weekKey", "==", weekKey).get(),
+    lockAccountsRef.get(),
     db.collection("weeklyCupResults").doc(weekKey).get(),
   ]);
   if (existingResult.exists) throw new Error(`weeklyCupResults/${weekKey} already exists; finalization is immutable.`);
@@ -78,11 +80,12 @@ async function loadPlan(db, weekKey, nowEpochMillis, { allowEarlyClose = false, 
     weekKey,
     receiptDocuments: receiptQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
     verificationDocuments: verificationQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+    competitionWalletLockDocuments: lockQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
     nowEpochMillis,
     allowEarlyClose,
     earlyCloseReason,
   });
-  return { cupRef, plan };
+  return { cupRef, lockAccountsRef, plan };
 }
 
 async function main() {
@@ -108,7 +111,7 @@ async function main() {
   initializeApp({ credential: applicationDefault(), projectId });
   const db = getFirestore();
   const cutoffMs = Date.now();
-  const { cupRef, plan } = await loadPlan(db, weekKey, cutoffMs, {
+  const { cupRef, lockAccountsRef, plan } = await loadPlan(db, weekKey, cutoffMs, {
     allowEarlyClose: forceCloseEarly,
     earlyCloseReason,
   });
@@ -126,6 +129,7 @@ async function main() {
   console.log(`Cup: ${weekKey}`);
   console.log(`Source receipts: ${plan.sourceReceiptCount}`);
   console.log(`Trusted eligible receipts: ${plan.eligibleReceiptCount}`);
+  console.log(`Eligible accounts with valid Cup wallet locks: ${plan.eligibleAccountCount}`);
   console.log(`Eligible wallets after best-result dedupe: ${plan.eligibleWalletCount}`);
   console.log(`Funding at close: ${plan.fundingVerificationStatusAtClose}`);
   console.log(`Closed early: ${plan.closedEarly ? "YES" : "NO"}`);
@@ -156,6 +160,7 @@ async function main() {
     const freshResultSnap = await transaction.get(resultRef);
     const freshReceiptQuery = await transaction.get(receiptQueryRef);
     const freshVerificationQuery = await transaction.get(verificationQueryRef);
+    const freshLockQuery = await transaction.get(lockAccountsRef);
     if (freshResultSnap.exists) throw new Error("Result appeared during finalization; refusing duplicate close.");
 
     const freshPlan = buildFinalizationPlan({
@@ -163,6 +168,7 @@ async function main() {
       weekKey,
       receiptDocuments: freshReceiptQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
       verificationDocuments: freshVerificationQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+      competitionWalletLockDocuments: freshLockQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
       nowEpochMillis: cutoffMs,
       allowEarlyClose: forceCloseEarly,
       earlyCloseReason,
@@ -206,6 +212,10 @@ async function main() {
         trustedEvidenceRef: receipt.trustedEvidenceRef,
         trustedVerificationAuditRef: receipt.trustedVerificationAuditRef,
         trustedVerificationDecidedAt: Timestamp.fromMillis(receipt.trustedVerificationDecidedAtEpochMillis),
+        competitionWalletLockRef: receipt.competitionWalletLockRef,
+        competitionWalletLockAuthority: receipt.competitionWalletLockAuthority,
+        competitionWalletAddress: receipt.competitionWalletAddress,
+        competitionWalletFirstReceiptId: receipt.competitionWalletFirstReceiptId,
         selectedForWalletRanking: receipt.selectedForWalletRanking,
         finalRank: receipt.finalRank,
         snapshotAuthority: RESULT_FINALIZATION_AUTHORITY,
@@ -219,8 +229,12 @@ async function main() {
         resultVersion: RESULT_VERSION,
         weekKey,
         placement: winner.placement,
+        ownerUid: winner.ownerUid,
         walletAddress: winner.walletAddress,
         receiptId: winner.receiptId,
+        competitionWalletLockRef: winner.competitionWalletLockRef,
+        competitionWalletLockAuthority: winner.competitionWalletLockAuthority,
+        competitionWalletAddress: winner.competitionWalletAddress,
         score: winner.score,
         maxCombo: winner.maxCombo,
         perfectHits: winner.perfectHits,

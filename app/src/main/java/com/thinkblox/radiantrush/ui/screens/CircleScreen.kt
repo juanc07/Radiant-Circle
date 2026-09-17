@@ -54,6 +54,19 @@ import com.thinkblox.radiantrush.ui.components.ShakeToDiscoverEffect
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 
+private fun playerFacingCircleMessage(raw: String): String {
+    val text = raw.trim()
+    if (text.isBlank()) return text
+    val lower = text.lowercase()
+    return when {
+        "permission_denied" in lower ||
+            "missing or insufficient permissions" in lower ||
+            "firebasefirestore" in lower ->
+            "Circle couldn't complete that right now. Refresh and try again."
+        else -> text
+    }
+}
+
 @Composable
 fun CircleScreen(
     contentPadding: PaddingValues,
@@ -221,7 +234,7 @@ fun CircleScreen(
             }
         }
 
-        val message = localMessage ?: state.message
+        val message = playerFacingCircleMessage(localMessage ?: state.message)
         if (message.isNotBlank()) {
             item {
                 Surface(

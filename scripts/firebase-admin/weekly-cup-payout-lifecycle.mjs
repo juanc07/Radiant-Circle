@@ -13,6 +13,11 @@ import {
   WINNER_PAYOUT_STATUS,
   trustedFundingStatusAtClose,
 } from "./weekly-cup-finalization.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+  assertCompetitionWalletLock,
+} from "./competition-wallet-lock.mjs";
 
 export const PAYOUT_SCHEMA_VERSION = 1;
 export const PAYOUT_LIFECYCLE_VERSION = 1;
@@ -151,14 +156,23 @@ function assertTrustedCup(cup, result, weekKey) {
   if (String(result.rankingDigestSha256 ?? "").match(SHA256) == null) {
     throw new Error("Result rankingDigestSha256 is invalid.");
   }
+  if (result.competitionWalletLockRequired !== true ||
+      Number(result.competitionWalletLockSchemaVersion) !== COMPETITION_WALLET_LOCK_SCHEMA_VERSION ||
+      String(result.competitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY) {
+    throw new Error("Trusted result is missing required Phase 12G competition-wallet lock evidence.");
+  }
 }
 
-export function buildPayoutPreparationPlan({ cup, result, winnerDocuments, weekKey }) {
+export function buildPayoutPreparationPlan({ cup, result, winnerDocuments, competitionWalletLockDocuments, weekKey }) {
   const cleanWeek = requiredString(weekKey, "weekKey", 16);
   assertTrustedCup(cup, result, cleanWeek);
 
   const placements = placementMap(result.placementAllocationsBps);
   const winners = winnerByPlacement(winnerDocuments);
+  const lockByOwner = new Map((competitionWalletLockDocuments ?? []).map((doc) => [
+    String(doc?.id ?? doc?.data?.ownerUid ?? ""),
+    doc?.data ?? doc,
+  ]));
   const resultWinnerCount = Number(result.winnerCount);
   if (!Number.isInteger(resultWinnerCount) || resultWinnerCount !== placements.size || winners.size !== placements.size) {
     throw new Error("Trusted result winner count does not match configured placements.");
@@ -192,6 +206,20 @@ export function buildPayoutPreparationPlan({ cup, result, winnerDocuments, weekK
     if (seenWallets.has(walletAddress)) throw new Error("Trusted winners must use distinct full wallet addresses.");
     seenWallets.add(walletAddress);
 
+    const ownerUid = requiredString(winner.ownerUid, `Winner #${placement} ownerUid`, 128);
+    const walletLock = assertCompetitionWalletLock({
+      weekKey: cleanWeek,
+      ownerUid,
+      walletAddress,
+      lockDocId: ownerUid,
+      lock: lockByOwner.get(ownerUid),
+    });
+    if (String(winner.competitionWalletLockRef ?? "") !== walletLock.ref ||
+        String(winner.competitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY ||
+        String(winner.competitionWalletAddress ?? "") !== walletAddress) {
+      throw new Error(`Winner #${placement} competition-wallet lock snapshot is invalid.`);
+    }
+
     const receiptId = requiredString(winner.receiptId, `Winner #${placement} receiptId`, 100);
     const amountAtomic = atomic(winner.prizeAmountAtomic, `Winner #${placement} prizeAmountAtomic`);
     const expectedNumerator = prizeAtomic * BigInt(bps);
@@ -208,8 +236,11 @@ export function buildPayoutPreparationPlan({ cup, result, winnerDocuments, weekK
       lifecycleVersion: PAYOUT_LIFECYCLE_VERSION,
       weekKey: cleanWeek,
       placement,
+      ownerUid,
       walletAddress,
       receiptId,
+      competitionWalletLockRef: walletLock.ref,
+      competitionWalletLockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
       amountAtomic: amountAtomic.toString(),
       prizeAssetSymbol: "SKR",
       status: PAYOUT_ITEM_STATUS_READY_FOR_REVIEW,
@@ -233,9 +264,12 @@ export function buildPayoutPreparationPlan({ cup, result, winnerDocuments, weekK
     `rankingDigest=${String(result.rankingDigestSha256).toLowerCase()}`,
     ...items.map((item) => [
       item.placement,
+      item.ownerUid,
       item.walletAddress,
       item.receiptId,
       item.amountAtomic,
+      item.competitionWalletLockRef,
+      item.competitionWalletLockAuthority,
     ].join("|")),
   ]);
 
@@ -248,6 +282,9 @@ export function buildPayoutPreparationPlan({ cup, result, winnerDocuments, weekK
       weekKey: cleanWeek,
       status: PAYOUT_STATUS_READY_FOR_REVIEW,
       authority: PAYOUT_AUTHORITY,
+      competitionWalletLockRequired: true,
+      competitionWalletLockSchemaVersion: COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+      competitionWalletLockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
       sourceResultRef: `weeklyCupResults/${cleanWeek}`,
       sourceResultVersion: RESULT_VERSION,
       sourceResultAuthority: RESULT_FINALIZATION_AUTHORITY,
@@ -284,6 +321,12 @@ export function buildPayoutApprovalPlan({ batch, itemDocuments, weekKey, reviewR
   }
   if (String(batch.transferStatus ?? "").toUpperCase() !== TRANSFER_STATUS_NOT_STARTED) {
     throw new Error("Phase 12E requires transferStatus=NOT_STARTED.");
+  }
+  const lockRequired = batch.competitionWalletLockRequired === true;
+  if (lockRequired && (
+      Number(batch.competitionWalletLockSchemaVersion) !== COMPETITION_WALLET_LOCK_SCHEMA_VERSION ||
+      String(batch.competitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY)) {
+    throw new Error("Payout batch competition-wallet lock contract is invalid.");
   }
   if (String(batch.sourceResultRef ?? "") !== `weeklyCupResults/${cleanWeek}` ||
       Number(batch.sourceResultVersion) !== RESULT_VERSION ||
@@ -333,6 +376,13 @@ export function buildPayoutApprovalPlan({ batch, itemDocuments, weekKey, reviewR
     if (seenWallets.has(wallet)) throw new Error("Payout items must use distinct full wallet addresses.");
     seenWallets.add(wallet);
     requiredString(item.receiptId, `Payout item #${placement} receiptId`, 100);
+    if (lockRequired) {
+      requiredString(item.ownerUid, `Payout item #${placement} ownerUid`, 128);
+      requiredString(item.competitionWalletLockRef, `Payout item #${placement} competitionWalletLockRef`, 300);
+      if (String(item.competitionWalletLockAuthority ?? "") !== COMPETITION_WALLET_LOCK_AUTHORITY) {
+        throw new Error(`Payout item #${placement} competition-wallet lock authority is invalid.`);
+      }
+    }
     if (String(item.prizeAssetSymbol ?? "").toUpperCase() !== "SKR" ||
         String(item.sourceWinnerRef ?? "") !== `weeklyCupResults/${cleanWeek}/winners/${placement}`) {
       throw new Error(`Payout item #${placement} source/prize contract is invalid.`);
@@ -348,12 +398,20 @@ export function buildPayoutApprovalPlan({ batch, itemDocuments, weekKey, reviewR
     `total=${totalAmountAtomic}`,
     `fundingWallet=${canonicalWallet(batch.fundingWalletAddress, "Payout batch fundingWalletAddress")}`,
     `rankingDigest=${sourceRankingDigest}`,
-    ...items.map((item) => [
+    ...items.map((item) => (lockRequired ? [
+      Number(item.placement),
+      String(item.ownerUid ?? "").trim(),
+      String(item.walletAddress).trim(),
+      String(item.receiptId).trim(),
+      String(item.amountAtomic).trim(),
+      String(item.competitionWalletLockRef ?? "").trim(),
+      String(item.competitionWalletLockAuthority ?? "").trim(),
+    ] : [
       Number(item.placement),
       String(item.walletAddress).trim(),
       String(item.receiptId).trim(),
       String(item.amountAtomic).trim(),
-    ].join("|")),
+    ]).join("|")),
   ]);
   if (recomputedDigest !== expectedDigest) throw new Error("Payout manifest digest mismatch. Refusing approval.");
 

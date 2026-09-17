@@ -8,7 +8,12 @@ import {
   exactPrizeAllocations,
 } from "./weekly-cup-finalization.mjs";
 import { CONFIGURATION_AUTHORITY, OFFICIAL_SKR_MINT } from "./weekly-cup-config.mjs";
-import { RUN_VERIFICATION_AUTHORITY, RUN_VERIFICATION_METHOD } from "./competition-run-verification.mjs";
+import { RUN_VERIFICATION_AUTHORITY, RUN_VERIFICATION_METHOD, RUN_VERIFICATION_SCHEMA_VERSION } from "./competition-run-verification.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+  competitionWalletLockRefPath,
+} from "./competition-wallet-lock.mjs";
 
 const startMs = Date.parse("2026-09-07T00:00:00.000Z");
 const endMs = Date.parse("2026-09-14T00:00:00.000Z");
@@ -41,12 +46,14 @@ function cup(overrides = {}) {
 }
 function verifiedReceipt(id, wallet, score, overrides = {}) {
   const completed = startMs + 86_400_000;
+  const ownerUid = overrides.ownerUid ?? `uid-${id}`;
+  const lockRef = competitionWalletLockRefPath("2026-W37", ownerUid);
   return {
     id,
     data: {
       schemaVersion: 1,
       receiptId: id,
-      ownerUid: `uid-${id}`,
+      ownerUid,
       walletAddress: wallet,
       utcWeekKey: "2026-W37",
       mode: "Ranked",
@@ -60,14 +67,32 @@ function verifiedReceipt(id, wallet, score, overrides = {}) {
       submittedAt: ts(completed + 1000),
       verificationStatus: "VERIFIED",
       trustedPlacementEligible: true,
-      trustedVerificationSchemaVersion: 1,
+      trustedVerificationSchemaVersion: RUN_VERIFICATION_SCHEMA_VERSION,
       trustedVerificationAuthority: RUN_VERIFICATION_AUTHORITY,
       trustedVerificationMethod: RUN_VERIFICATION_METHOD,
       trustedEvidenceRef: `evidence-${id}`,
       trustedVerificationRef: `competitionRunVerifications/${id}`,
+      trustedCompetitionWalletLockRef: lockRef,
+      trustedCompetitionWalletAddress: wallet,
+      trustedCompetitionWalletLockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
       trustedVerifiedAt: ts(endMs + 1000),
       payoutEligible: false,
       payoutStatus: "NOT_ELIGIBLE",
+      ...overrides,
+    },
+  };
+}
+function competitionWalletLockFor(receipt, overrides = {}) {
+  const data = receipt.data;
+  return {
+    id: data.ownerUid,
+    data: {
+      schemaVersion: COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+      weekKey: data.utcWeekKey,
+      ownerUid: data.ownerUid,
+      walletAddress: data.walletAddress,
+      firstReceiptId: receipt.id,
+      lockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
       ...overrides,
     },
   };
@@ -77,7 +102,7 @@ function verificationFor(receipt, overrides = {}) {
   return {
     id: receipt.id,
     data: {
-      schemaVersion: 1,
+      schemaVersion: RUN_VERIFICATION_SCHEMA_VERSION,
       receiptId: receipt.id,
       weekKey: data.utcWeekKey,
       decision: "VERIFIED",
@@ -92,6 +117,9 @@ function verificationFor(receipt, overrides = {}) {
       evidenceRef: data.trustedEvidenceRef,
       verificationAuthority: RUN_VERIFICATION_AUTHORITY,
       verificationMethod: RUN_VERIFICATION_METHOD,
+      competitionWalletLockRef: data.trustedCompetitionWalletLockRef,
+      competitionWalletAddress: data.trustedCompetitionWalletAddress,
+      competitionWalletLockAuthority: data.trustedCompetitionWalletLockAuthority,
       payoutEnabled: false,
       decidedAt: ts(endMs + 1000),
       ...overrides,
@@ -99,11 +127,18 @@ function verificationFor(receipt, overrides = {}) {
   };
 }
 function trustedInputs(receipts) {
+  const lockByOwner = new Map();
+  for (const receipt of receipts) {
+    if (!lockByOwner.has(receipt.data.ownerUid)) {
+      lockByOwner.set(receipt.data.ownerUid, competitionWalletLockFor(receipt));
+    }
+  }
   return {
     receiptDocuments: receipts,
     verificationDocuments: receipts
       .filter((receipt) => receipt.data.verificationStatus === "VERIFIED")
       .map((receipt) => verificationFor(receipt)),
+    competitionWalletLockDocuments: [...lockByOwner.values()],
   };
 }
 function planFor(receipts, overrides = {}) {
@@ -157,7 +192,8 @@ test("UNVERIFIED and REJECTED receipts are excluded", () => {
 test("VERIFIED receipt without matching immutable verification audit is excluded", () => {
   const receipts = [verifiedReceipt("a", walletA, 3000), verifiedReceipt("b", walletB, 2000), verifiedReceipt("c", walletC, 1000), verifiedReceipt("no-audit", walletD, 9999)];
   const verificationDocuments = receipts.slice(0, 3).map((receipt) => verificationFor(receipt));
-  const plan = buildFinalizationPlan({ cup: cup(), weekKey: "2026-W37", receiptDocuments: receipts, verificationDocuments, nowEpochMillis: afterEnd });
+  const competitionWalletLockDocuments = receipts.map((receipt) => competitionWalletLockFor(receipt));
+  const plan = buildFinalizationPlan({ cup: cup(), weekKey: "2026-W37", receiptDocuments: receipts, verificationDocuments, competitionWalletLockDocuments, nowEpochMillis: afterEnd });
   assert.equal(plan.eligibleReceiptCount, 3);
   assert.equal(plan.winners[0].receiptId, "a");
 });
@@ -166,7 +202,8 @@ test("mismatched verification audit cannot authorize placement", () => {
   const receipts = [verifiedReceipt("a", walletA, 3000), verifiedReceipt("b", walletB, 2000), verifiedReceipt("c", walletC, 1000), verifiedReceipt("mismatch", walletD, 9999)];
   const verificationDocuments = receipts.map((receipt) => verificationFor(receipt));
   verificationDocuments[3] = verificationFor(receipts[3], { score: 1111 });
-  const plan = buildFinalizationPlan({ cup: cup(), weekKey: "2026-W37", receiptDocuments: receipts, verificationDocuments, nowEpochMillis: afterEnd });
+  const competitionWalletLockDocuments = receipts.map((receipt) => competitionWalletLockFor(receipt));
+  const plan = buildFinalizationPlan({ cup: cup(), weekKey: "2026-W37", receiptDocuments: receipts, verificationDocuments, competitionWalletLockDocuments, nowEpochMillis: afterEnd });
   assert.equal(plan.eligibleReceiptCount, 3);
 });
 
@@ -175,6 +212,31 @@ test("VERIFIED string without trusted Phase 12D attestation is excluded", () => 
   const receipts = [forged, verifiedReceipt("a", walletA, 3000), verifiedReceipt("b", walletB, 2000), verifiedReceipt("c", walletC, 1000)];
   const plan = planFor(receipts);
   assert.equal(plan.eligibleReceiptCount, 3);
+});
+
+test("same Firebase account cannot produce trusted eligible receipts from two Cup wallets", () => {
+  const sameUid = "shared-firebase-account";
+  const a = verifiedReceipt("a-lock", walletA, 5000, { ownerUid: sameUid });
+  const b = verifiedReceipt("b-switch", walletB, 9999, { ownerUid: sameUid });
+  const c = verifiedReceipt("c", walletC, 3000);
+  const d = verifiedReceipt("d", walletD, 2000);
+  const receipts = [a, b, c, d];
+  const verificationDocuments = receipts.map((receipt) => verificationFor(receipt));
+  const competitionWalletLockDocuments = [
+    competitionWalletLockFor(a),
+    competitionWalletLockFor(c),
+    competitionWalletLockFor(d),
+  ];
+  const plan = buildFinalizationPlan({
+    cup: cup(),
+    weekKey: "2026-W37",
+    receiptDocuments: receipts,
+    verificationDocuments,
+    competitionWalletLockDocuments,
+    nowEpochMillis: afterEnd,
+  });
+  assert.equal(plan.eligibleReceiptCount, 3);
+  assert.equal(plan.winners.some((winner) => winner.receiptId === "b-switch"), false);
 });
 
 test("one best eligible result per wallet uses existing deterministic tiebreak order", () => {
@@ -237,6 +299,7 @@ test("admin early close requires an explicit audit reason", () => {
     weekKey: "2026-W37",
     receiptDocuments: receipts,
     verificationDocuments,
+    competitionWalletLockDocuments: receipts.map((receipt) => competitionWalletLockFor(receipt)),
     nowEpochMillis: earlyNow,
     allowEarlyClose: true,
   }), /audit reason/);
@@ -265,6 +328,7 @@ test("admin early close freezes only trusted runs at or before the forced cutoff
     weekKey: "2026-W37",
     receiptDocuments: receipts,
     verificationDocuments,
+    competitionWalletLockDocuments: receipts.map((receipt) => competitionWalletLockFor(receipt)),
     nowEpochMillis: earlyNow,
     allowEarlyClose: true,
     earlyCloseReason: "Operator-authorized live payout test",

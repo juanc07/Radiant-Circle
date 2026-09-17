@@ -10,6 +10,11 @@ import {
   buildPayoutPreparationPlan,
 } from "./weekly-cup-payout-lifecycle.mjs";
 import { OFFICIAL_SKR_MINT } from "./weekly-cup-config.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+  competitionWalletLockRefPath,
+} from "./competition-wallet-lock.mjs";
 
 const weekKey = "2026-W38";
 const walletA = "J86vtTs7twTUuS4xfo8H8zaUeFyMNHWPPeEXyL5DscPg";
@@ -61,6 +66,9 @@ function result(overrides = {}) {
     placementAllocationsBps: { "1": 5000, "2": 3000, "3": 2000 },
     fundingVerificationStatusAtClose: "VERIFIED",
     winnerCount: 3,
+    competitionWalletLockRequired: true,
+    competitionWalletLockSchemaVersion: COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+    competitionWalletLockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
     rankingDigestSha256: "a".repeat(64),
     payoutEnabled: false,
     payoutReady: false,
@@ -68,6 +76,7 @@ function result(overrides = {}) {
   };
 }
 function winner(placement, walletAddress, amountAtomic, overrides = {}) {
+  const ownerUid = overrides.ownerUid ?? `uid-${placement}`;
   return {
     id: String(placement),
     data: {
@@ -75,8 +84,12 @@ function winner(placement, walletAddress, amountAtomic, overrides = {}) {
       resultVersion: 1,
       weekKey,
       placement,
+      ownerUid,
       walletAddress,
       receiptId: `receipt-${placement}`,
+      competitionWalletLockRef: competitionWalletLockRefPath(weekKey, ownerUid),
+      competitionWalletLockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
+      competitionWalletAddress: walletAddress,
       prizeAmountAtomic: amountAtomic,
       prizeAssetSymbol: "SKR",
       payoutStatus: "NOT_ENABLED",
@@ -95,8 +108,30 @@ function winners() {
     winner(3, walletC, "200000000"),
   ];
 }
+function competitionWalletLocks(winnerDocuments = winners()) {
+  return winnerDocuments.map((entry) => ({
+    id: entry.data.ownerUid,
+    data: {
+      schemaVersion: COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+      weekKey,
+      ownerUid: entry.data.ownerUid,
+      walletAddress: entry.data.walletAddress,
+      firstReceiptId: entry.data.receiptId,
+      lockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
+    },
+  }));
+}
 function preparedPlan(overrides = {}) {
-  return buildPayoutPreparationPlan({ cup: cup(), result: result(), winnerDocuments: winners(), weekKey, ...overrides });
+  const winnerDocuments = overrides.winnerDocuments ?? winners();
+  return buildPayoutPreparationPlan({
+    cup: cup(),
+    result: result(),
+    winnerDocuments,
+    competitionWalletLockDocuments: overrides.competitionWalletLockDocuments ?? competitionWalletLocks(winnerDocuments),
+    weekKey,
+    ...overrides,
+    winnerDocuments,
+  });
 }
 
 test("preparation requires a trusted CLOSED Phase 12D Cup/result", () => {
@@ -127,6 +162,14 @@ test("preparation validates exact winner allocation and distinct wallets", () =>
   const duplicateWallet = winners();
   duplicateWallet[2].data.walletAddress = walletA;
   assert.throws(() => preparedPlan({ winnerDocuments: duplicateWallet }), /distinct full wallet/);
+});
+
+test("preparation requires winner wallet to match the immutable account Cup lock", () => {
+  assert.throws(() => preparedPlan({ competitionWalletLockDocuments: [] }), /Missing Phase 12G/);
+  const winnerDocuments = winners();
+  const locks = competitionWalletLocks(winnerDocuments);
+  locks[0].data.walletAddress = walletC;
+  assert.throws(() => preparedPlan({ winnerDocuments, competitionWalletLockDocuments: locks }), /different competition wallet/);
 });
 
 test("preparation emits deterministic review-only manifest with no transfer authority", () => {

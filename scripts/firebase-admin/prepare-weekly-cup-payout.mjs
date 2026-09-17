@@ -49,10 +49,12 @@ async function sourceSnapshots(db, weekKey) {
   const cupRef = db.collection("weeklyCupConfigs").doc(weekKey);
   const resultRef = db.collection("weeklyCupResults").doc(weekKey);
   const payoutRef = db.collection("weeklyCupPayouts").doc(weekKey);
-  const [cupSnap, resultSnap, winnerQuery, payoutSnap] = await Promise.all([
+  const lockAccountsRef = db.collection("weeklyCupCompetitionWalletLocks").doc(weekKey).collection("accounts");
+  const [cupSnap, resultSnap, winnerQuery, lockQuery, payoutSnap] = await Promise.all([
     cupRef.get(),
     resultRef.get(),
     resultRef.collection("winners").orderBy("placement").get(),
+    lockAccountsRef.get(),
     payoutRef.get(),
   ]);
   if (payoutSnap.exists) throw new Error(`weeklyCupPayouts/${weekKey} already exists. Payout preparation is immutable and cannot be repeated.`);
@@ -60,9 +62,10 @@ async function sourceSnapshots(db, weekKey) {
     cup: cupSnap.exists ? cupSnap.data() : null,
     result: resultSnap.exists ? resultSnap.data() : null,
     winnerDocuments: winnerQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+    competitionWalletLockDocuments: lockQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
     weekKey,
   });
-  return { cupRef, resultRef, payoutRef, plan };
+  return { cupRef, resultRef, payoutRef, lockAccountsRef, plan };
 }
 
 async function main() {
@@ -77,7 +80,7 @@ async function main() {
 
   initializeApp({ credential: applicationDefault(), projectId });
   const db = getFirestore();
-  const { cupRef, resultRef, payoutRef, plan } = await sourceSnapshots(db, weekKey);
+  const { cupRef, resultRef, payoutRef, lockAccountsRef, plan } = await sourceSnapshots(db, weekKey);
 
   console.log("Radiant Circle Phase 12E trusted payout lifecycle — PREPARE");
   console.log(`Project: ${projectId}`);
@@ -105,12 +108,14 @@ async function main() {
     const freshResultSnap = await tx.get(resultRef);
     const freshPayoutSnap = await tx.get(payoutRef);
     const freshWinnerQuery = await tx.get(resultRef.collection("winners").orderBy("placement"));
+    const freshLockQuery = await tx.get(lockAccountsRef);
     if (freshPayoutSnap.exists) throw new Error("Payout batch appeared during preparation. Refusing duplicate prepare.");
 
     const freshPlan = buildPayoutPreparationPlan({
       cup: freshCupSnap.exists ? freshCupSnap.data() : null,
       result: freshResultSnap.exists ? freshResultSnap.data() : null,
       winnerDocuments: freshWinnerQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
+      competitionWalletLockDocuments: freshLockQuery.docs.map((doc) => ({ id: doc.id, data: doc.data() })),
       weekKey,
     });
     if (freshPlan.manifestDigestSha256 !== plan.manifestDigestSha256) {

@@ -15,6 +15,7 @@ object RadiantGameRules {
     const val CHEST_TICKET_REWARD = 2
     const val RUN_TICKET_COST = 1
     const val RUN_SECONDS = 20
+    const val COLLECTION_TOTAL = 12
 
     data class CollectibleDefinition(
         val id: String,
@@ -57,6 +58,16 @@ object RadiantGameRules {
             rarityXp = 12,
         ),
         CollectibleDefinition(
+            id = "pulse-core",
+            title = "Pulse Core",
+            rarity = "Common",
+            symbol = "◈",
+            description = "A compact core that hums with the rhythm of a finished Rush.",
+            power = 2,
+            duplicateShards = 5,
+            rarityXp = 13,
+        ),
+        CollectibleDefinition(
             id = "solar-shard",
             title = "Solar Shard",
             rarity = "Uncommon",
@@ -65,6 +76,26 @@ object RadiantGameRules {
             power = 3,
             duplicateShards = 8,
             rarityXp = 18,
+        ),
+        CollectibleDefinition(
+            id = "flux-crystal",
+            title = "Flux Crystal",
+            rarity = "Uncommon",
+            symbol = "✧",
+            description = "A restless crystal that shifts as your combo climbs.",
+            power = 4,
+            duplicateShards = 9,
+            rarityXp = 20,
+        ),
+        CollectibleDefinition(
+            id = "echo-fragment",
+            title = "Echo Fragment",
+            rarity = "Uncommon",
+            symbol = "◫",
+            description = "A fragment that carries the echo of a near-perfect run.",
+            power = 4,
+            duplicateShards = 10,
+            rarityXp = 22,
         ),
         CollectibleDefinition(
             id = "nova-prism",
@@ -77,6 +108,26 @@ object RadiantGameRules {
             rarityXp = 28,
         ),
         CollectibleDefinition(
+            id = "orbit-sigil",
+            title = "Orbit Sigil",
+            rarity = "Rare",
+            symbol = "◎",
+            description = "A precise orbital mark that appears after disciplined runs.",
+            power = 6,
+            duplicateShards = 14,
+            rarityXp = 32,
+        ),
+        CollectibleDefinition(
+            id = "aurora-lens",
+            title = "Aurora Lens",
+            rarity = "Rare",
+            symbol = "◐",
+            description = "A luminous lens that catches the color of your strongest streaks.",
+            power = 7,
+            duplicateShards = 16,
+            rarityXp = 36,
+        ),
+        CollectibleDefinition(
             id = "phantom-halo",
             title = "Phantom Halo",
             rarity = "Epic",
@@ -85,6 +136,16 @@ object RadiantGameRules {
             power = 8,
             duplicateShards = 20,
             rarityXp = 45,
+        ),
+        CollectibleDefinition(
+            id = "seeker-relic",
+            title = "Seeker Relic",
+            rarity = "Epic",
+            symbol = "✺",
+            description = "A rare Seeker relic resonating with repeated mastery of the Rush.",
+            power = 10,
+            duplicateShards = 25,
+            rarityXp = 55,
         ),
         CollectibleDefinition(
             id = "radiant-crown",
@@ -121,17 +182,20 @@ object RadiantGameRules {
         val seed = "$userSeed|$runSerial|$safeScore|$safeCombo".hashCode() and Int.MAX_VALUE
         val roll = seed % 10_000
 
-        val index = when {
-            // A strong run gets a real shot at the showcase items.
-            safeScore >= 3_500 && roll < 850 -> 5
-            safeScore >= 2_600 && roll < 1_550 -> 4
-            safeScore >= 2_000 && roll < 2_900 -> 3
-            safeScore >= 1_300 && roll < 4_400 -> 2
-            roll < 7_100 -> 1
-            else -> 0
+        // Preserve the original rarity curve while widening each tier's collection pool.
+        // Expanding the Vault should create more variety, not silently make high-rarity
+        // rewards easier to obtain.
+        val rarity = when {
+            safeScore >= 3_500 && roll < 850 -> "Legendary"
+            safeScore >= 2_600 && roll < 1_550 -> "Epic"
+            safeScore >= 2_000 && roll < 2_900 -> "Rare"
+            safeScore >= 1_300 && roll < 4_400 -> "Uncommon"
+            else -> "Common"
         }
-
-        val collectible = collectibles[index]
+        val rarityPool = collectibles.filter { it.rarity == rarity }
+        check(rarityPool.isNotEmpty()) { "Radiant collectible rarity pool must not be empty: $rarity" }
+        val itemSeed = "$userSeed|$runSerial|$safeScore|$safeCombo|$rarity|collectible".hashCode() and Int.MAX_VALUE
+        val collectible = rarityPool[itemSeed % rarityPool.size]
         val oldCount = ownedCounts[collectible.id] ?: 0
         val duplicate = oldCount > 0
         val comboBonus = (safeCombo.coerceAtMost(30) * 2)
@@ -162,6 +226,15 @@ object RadiantGameRules {
 
     fun ownedUniqueCount(ownedCounts: Map<String, Int>): Int =
         collectibles.count { (ownedCounts[it.id] ?: 0) > 0 }
+
+    init {
+        check(collectibles.size == COLLECTION_TOTAL) {
+            "Radiant Vault definition mismatch: expected $COLLECTION_TOTAL collectibles, found ${collectibles.size}"
+        }
+        check(collectibles.map { it.id }.distinct().size == COLLECTION_TOTAL) {
+            "Radiant Vault collectible IDs must be unique."
+        }
+    }
 }
 
 data class RadiantRunResult(

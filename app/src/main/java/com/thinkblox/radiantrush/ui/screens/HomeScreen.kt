@@ -2,6 +2,7 @@ package com.thinkblox.radiantrush.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
@@ -90,54 +92,76 @@ fun HomeScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                shape = RoundedCornerShape(
+                    topStart = 30.dp,
+                    topEnd = 10.dp,
+                    bottomEnd = 30.dp,
+                    bottomStart = 10.dp,
                 ),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             ) {
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.colorScheme.surface,
+                                    MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.82f),
+                                ),
+                            ),
+                        )
                         .padding(if (responsive.isTiny) 16.dp else 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Surface(
-                        modifier = Modifier.size(if (responsive.isTiny) 58.dp else 68.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.secondaryContainer,
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Surface(
+                            modifier = Modifier.size(if (responsive.isTiny) 58.dp else 68.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.80f),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = avatar.symbol,
+                                    style = MaterialTheme.typography.headlineMedium,
+                                )
+                            }
+                        }
+
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
                             Text(
-                                text = avatar.symbol,
-                                style = MaterialTheme.typography.headlineMedium,
+                                text = "RADIANT CIRCLE // YOUR SIGNAL",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Black,
+                            )
+                            Text(
+                                text = user.displayName,
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Black,
+                                maxLines = 1,
+                                overflow = TextOverflow.Clip,
+                            )
+                            Text(
+                                text = "${user.skrTier} • Lv. ${user.level}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                            )
+                            Text(
+                                text = if (uiState.isWalletConnected) "Wallet signal linked" else "Your Circle is ready",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                maxLines = 1,
                             )
                         }
-                    }
-
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Text(
-                            text = user.displayName,
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Black,
-                            maxLines = 1,
-                            overflow = TextOverflow.Clip,
-                        )
-                        Text(
-                            text = "${user.skrTier} • Lv. ${user.level}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
-                            maxLines = 1,
-                        )
-                        Text(
-                            text = if (uiState.isWalletConnected) "Wallet connected" else "Welcome to your Circle",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1,
-                        )
                     }
                 }
             }

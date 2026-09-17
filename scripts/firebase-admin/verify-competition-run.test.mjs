@@ -7,6 +7,11 @@ import {
   buildVerifiedRunDecision,
 } from "./competition-run-verification.mjs";
 import { CONFIGURATION_AUTHORITY } from "./weekly-cup-config.mjs";
+import {
+  COMPETITION_WALLET_LOCK_AUTHORITY,
+  COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+  competitionWalletLockRefPath,
+} from "./competition-wallet-lock.mjs";
 
 const wallet = "J86vtTs7twTUuS4xfo8H8zaUeFyMNHWPPeEXyL5DscPg";
 const startMs = Date.parse("2026-09-07T00:00:00.000Z");
@@ -51,6 +56,21 @@ function receipt(overrides = {}) {
     ...overrides,
   };
 }
+
+function competitionWalletLock(overrides = {}) {
+  return {
+    id: "firebase-uid",
+    data: {
+      schemaVersion: COMPETITION_WALLET_LOCK_SCHEMA_VERSION,
+      weekKey: "2026-W37",
+      ownerUid: "firebase-uid",
+      walletAddress: wallet,
+      firstReceiptId: receipt().receiptId,
+      lockAuthority: COMPETITION_WALLET_LOCK_AUTHORITY,
+      ...overrides,
+    },
+  };
+}
 function verifiedDecision(overrides = {}) {
   return buildVerifiedRunDecision({
     cup: cup(),
@@ -58,6 +78,7 @@ function verifiedDecision(overrides = {}) {
     receiptId: receipt().receiptId,
     receipt: receipt(),
     evidenceRef: "independent-capture-run-001",
+    competitionWalletLock: competitionWalletLock(),
     expected: {
       walletAddress: wallet,
       score: 4200,
@@ -78,6 +99,8 @@ test("VERIFIED requires an OPEN trusted Cup and exact independent facts", () => 
   assert.equal(decision.update.trustedVerificationAuthority, RUN_VERIFICATION_AUTHORITY);
   assert.equal(decision.update.trustedVerificationMethod, RUN_VERIFICATION_METHOD);
   assert.equal(decision.update.trustedVerificationRef, `competitionRunVerifications/${receipt().receiptId}`);
+  assert.equal(decision.update.trustedCompetitionWalletLockRef, competitionWalletLockRefPath("2026-W37", "firebase-uid"));
+  assert.equal(decision.update.trustedCompetitionWalletAddress, wallet);
   assert.equal(decision.update.payoutEligible, false);
 });
 
@@ -88,7 +111,7 @@ test("independent evidence mismatch fails closed", () => {
 test("already-decided receipt cannot be promoted again", () => {
   assert.throws(() => buildVerifiedRunDecision({
     cup: cup(), weekKey: "2026-W37", receiptId: receipt().receiptId,
-    receipt: receipt({ verificationStatus: "VERIFIED" }), evidenceRef: "evidence",
+    receipt: receipt({ verificationStatus: "VERIFIED" }), evidenceRef: "evidence", competitionWalletLock: competitionWalletLock(),
     expected: { walletAddress: wallet, score: 4200, maxCombo: 18, perfectHits: 7, radiantHits: 25, corruptedHits: 2, clientCompletedAtEpochMillis: completedAt },
   }), /already VERIFIED/);
 });
@@ -96,9 +119,19 @@ test("already-decided receipt cannot be promoted again", () => {
 test("receipt outside Cup window is rejected", () => {
   assert.throws(() => buildVerifiedRunDecision({
     cup: cup(), weekKey: "2026-W37", receiptId: receipt().receiptId,
-    receipt: receipt({ clientCompletedAtEpochMillis: endMs }), evidenceRef: "evidence",
+    receipt: receipt({ clientCompletedAtEpochMillis: endMs }), evidenceRef: "evidence", competitionWalletLock: competitionWalletLock(),
     expected: { walletAddress: wallet, score: 4200, maxCombo: 18, perfectHits: 7, radiantHits: 25, corruptedHits: 2, clientCompletedAtEpochMillis: endMs },
   }), /outside the Cup window/);
+});
+
+
+test("VERIFIED fails closed when account tries a different Cup wallet", () => {
+  assert.throws(() => buildVerifiedRunDecision({
+    cup: cup(), weekKey: "2026-W37", receiptId: receipt().receiptId,
+    receipt: receipt(), evidenceRef: "evidence",
+    competitionWalletLock: competitionWalletLock({ walletAddress: "HbyQrE2N1V8TPs5HJ9wGDq3M85Zm1i21RmgbLFk39xkS" }),
+    expected: { walletAddress: wallet, score: 4200, maxCombo: 18, perfectHits: 7, radiantHits: 25, corruptedHits: 2, clientCompletedAtEpochMillis: completedAt },
+  }), /different competition wallet/);
 });
 
 test("REJECTED stays placement-ineligible and payout-disabled", () => {
