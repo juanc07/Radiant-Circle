@@ -1,3 +1,14 @@
+## Phase 12A trusted competition receipt boundary
+
+- A Radiant Rush Android score is still client-reported and is **not** payout-grade proof.
+- Ranked runs may create `competitionRunSubmissions/{receiptId}` only as `UNVERIFIED`.
+- Client Firestore rules require `trustedPlacementEligible=false`, `payoutEligible=false`, and `payoutStatus=NOT_ELIGIBLE`, and deny all client updates/deletes on the receipt.
+- The exact client schema is allow-listed so Android cannot smuggle trusted fields such as `trustedScore`, `verifiedAt`, winner state, funding state, or a confirmed payout into the initial write.
+- `VERIFIED` / `REJECTED`, trusted placement, sponsor funding, winner snapshots, and payout lifecycle are trusted Admin/server responsibilities only.
+- Receipt score/time/week/wallet fields are still client-visible inputs; a trusted verifier must independently validate them rather than accepting them because Firestore stored them.
+- Receipt failure must not block the existing prototype leaderboard/reward path. A missing receipt means there is nothing trusted to verify; it never implies eligibility.
+- No treasury/private key, entry fee, wagering, automatic SKR transfer, fake funding, or fake confirmation is added. Mainnet SKR remains read-only.
+
 ## Rebrand compatibility boundary
 
 The product name is `Radiant Circle` and the in-app game is `Radiant Rush`. Rebranding must not silently change security/storage identifiers. `com.thinkblox.radiantrush`, the existing MWA identity URI, Firestore paths/fields, and the `radiant-rush:daily-memo-proof` protocol string remain stable unless a separately planned migration provides backward compatibility. Wallet display identity may show `Radiant Circle`.
@@ -365,3 +376,26 @@ Radiant Rush target-color changes are presentation only and do not change ranked
 
 Weekly/All-Time personal stats may be read across multiple anonymous-auth UIDs by matching the same connected public wallet address. This is a presentation/prototype competition identity rule, not a trusted reward authority.
 
+
+
+## Phase 12B trusted sponsor configuration boundary
+
+- Android has public read-only access to `weeklyCupConfigs/{weekKey}` and no client create/update/delete authority.
+- A Cup config is presentation metadata, not proof of funding, score validity, winner status, or payout authority.
+- The config must identify the official SKR mint (`SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3`) and 6 decimals. Prize amounts are stored as exact atomic-unit strings to avoid floating-point ambiguity.
+- A configured funding wallet is a public address only. Phase 12B records it as `NOT_VERIFIED`; it does not prove ownership or balance. Phase 12C must independently verify funding on-chain from trusted infrastructure.
+- `trustedResultsRequired` remains true and Android hard-codes `payoutEnabled=false` in presentation regardless of remote fields. Client-reported Ranked scores remain UNVERIFIED receipts until a trusted verifier says otherwise.
+- No service-account JSON, treasury key, private key, seed phrase, payout signer, or automatic SKR transfer may be shipped in the APK or committed to the repository.
+- No player wagering or paid entry is introduced.
+
+## Phase 12C trusted SKR funding verification
+
+- Funding verification runs only in trusted Firebase Admin tooling, never inside the Android APK.
+- The verifier reads Solana `mainnet-beta` with `finalized` commitment and filters by the official SKR mint.
+- Prize coverage uses exact raw integer token amounts; no floating-point token arithmetic is used.
+- Only liquid, non-frozen SKR token accounts count toward prize funding. Active staked/unstaking SKR is not funding evidence because it is not immediately transferable prize liquidity.
+- RPC/network failures fail without writing a new funding result. Insufficient balance records `NOT_VERIFIED`, not fake `VERIFIED`.
+- Each applied check creates an immutable Admin-only receipt under `weeklyCupFundingChecks/{weekKey}/checks/{checkId}`. Client Firestore access is explicitly denied.
+- Android treats a remote `VERIFIED` string as insufficient by itself. It requires the Phase 12C authority/version, official mint, mainnet network, finalized commitment, exact required amount, sufficient observed amount, positive slot, and trusted timestamps.
+- `payoutEnabled` stays false. Phase 12C does not sign or transfer tokens and is not escrow. A future payout phase must re-check funding immediately before transfer and keep signing authority outside Android.
+- Service-account JSON, RPC API secrets, treasury keys, seed phrases, and private keys must never be committed. Custom RPC URLs containing API keys should be supplied through `SOLANA_MAINNET_RPC_URL`, not copied into source.

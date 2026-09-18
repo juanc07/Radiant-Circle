@@ -99,6 +99,7 @@ data class ResponsiveUiSpec(
     val screenPadding: Dp,
     val cardPadding: Dp,
     val buttonHeight: Dp,
+    val compactButtonHeight: Dp,
     val buttonHorizontalPadding: Dp,
     val buttonTextSize: TextUnit,
     val navTextSize: TextUnit,
@@ -132,11 +133,12 @@ fun rememberResponsiveUiSpec(): ResponsiveUiSpec {
             compact -> 16.dp
             else -> 18.dp
         },
-        buttonHeight = when {
-            tiny -> 62.dp
-            compact -> 58.dp
-            else -> 54.dp
-        },
+        // Primary/secondary actions use one stable touch target across phones.
+        // Text adapts instead of making the physical button jump between screens.
+        buttonHeight = 56.dp,
+        // Utility actions (Copy/View/etc.) are deliberately smaller, but equally
+        // consistent wherever they appear.
+        compactButtonHeight = 44.dp,
         buttonHorizontalPadding = when {
             tiny -> 10.dp
             compact -> 14.dp
@@ -337,49 +339,97 @@ fun MetricCard(
 
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(if (responsive.isCompact) 20.dp else 24.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surface,
         ),
     ) {
-        Column(
-            modifier = Modifier.padding(responsive.cardPadding),
-            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 8.dp else 10.dp),
-        ) {
-            Surface(
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer,
+        if (responsive.isCompact || responsive.hasLargeText) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    modifier = Modifier
-                        .padding(9.dp)
-                        .size(20.dp),
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                Surface(
+                    modifier = Modifier.size(42.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = supportingText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.82f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Clip,
+                    )
+                }
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.End,
+                    softWrap = true,
+                    overflow = TextOverflow.Clip,
                 )
             }
-            Text(
-                modifier = Modifier.fillMaxWidth(),
-                text = value,
-                style = when {
-                    responsive.isTiny -> MaterialTheme.typography.titleLarge
-                    responsive.isCompact -> MaterialTheme.typography.headlineSmall
-                    else -> MaterialTheme.typography.headlineSmall
-                },
-                softWrap = true,
-                overflow = TextOverflow.Clip,
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = supportingText,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        } else {
+            Column(
+                modifier = Modifier.padding(responsive.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                ) {
+                    Icon(
+                        modifier = Modifier
+                            .padding(9.dp)
+                            .size(20.dp),
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+                Text(
+                    modifier = Modifier.fillMaxWidth(),
+                    text = value,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    softWrap = true,
+                    overflow = TextOverflow.Clip,
+                )
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = supportingText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -390,6 +440,7 @@ fun QuestCard(
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
     actionEnabled: Boolean = false,
+    allowCompletedAction: Boolean = false,
     onClick: () -> Unit = {},
     onActionClick: () -> Unit = {},
 ) {
@@ -478,9 +529,14 @@ fun QuestCard(
             }
             if (actionLabel != null) {
                 var lastAcceptedClickMs by remember(quest.id) { mutableLongStateOf(0L) }
-                val buttonEnabled = actionEnabled && quest.status == QuestStatus.Ready
+                val completedActionAvailable = allowCompletedAction && quest.status == QuestStatus.Completed
+                val buttonEnabled = actionEnabled && (quest.status == QuestStatus.Ready || completedActionAvailable)
                 val visibleLabel = when (quest.status) {
-                    QuestStatus.Completed -> responsive.chooseLabel("Done Today", "Done", "Done")
+                    QuestStatus.Completed -> if (completedActionAvailable) {
+                        actionLabel
+                    } else {
+                        responsive.chooseLabel("Done Today", "Done", "Done")
+                    }
                     QuestStatus.Syncing -> actionLabel
                     QuestStatus.Blocked -> responsive.chooseLabel("Connect Wallet First", "Connect First", "Wallet")
                     QuestStatus.Locked -> quest.status.label
@@ -1213,98 +1269,81 @@ fun SyncStatusCard(
     modifier: Modifier = Modifier,
     onRetry: (() -> Unit)? = null,
 ) {
-    val responsive = rememberResponsiveUiSpec()
+    // Successful cloud sync is infrastructure, not content. Once ready, stay
+    // quiet and let the product UI take over.
+    if (status == FirebaseStatus.Ready) return
+
+    val isProblem = status == FirebaseStatus.NotConfigured || status == FirebaseStatus.Error
+    val title = when (status) {
+        FirebaseStatus.Loading -> "Syncing in background"
+        FirebaseStatus.NotConfigured -> "Cloud progress unavailable"
+        FirebaseStatus.Error -> "Couldn’t sync progress"
+        FirebaseStatus.Ready -> return
+    }
+    val detail = when (status) {
+        FirebaseStatus.Loading -> "You can keep browsing while we load your progress."
+        FirebaseStatus.NotConfigured, FirebaseStatus.Error -> message ?: status.detail
+        FirebaseStatus.Ready -> ""
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(
-            containerColor = when (status) {
-                FirebaseStatus.Ready -> MaterialTheme.colorScheme.primaryContainer
-                FirebaseStatus.Loading -> MaterialTheme.colorScheme.surfaceVariant
-                FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.errorContainer
+            containerColor = if (isProblem) {
+                MaterialTheme.colorScheme.errorContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceVariant
             },
         ),
     ) {
-        if (responsive.isCompact || responsive.hasLargeText) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = status.icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (isProblem) {
+                    MaterialTheme.colorScheme.onErrorContainer
+                } else {
+                    MaterialTheme.colorScheme.primary
+                },
+            )
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(responsive.cardPadding),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = status.icon,
-                        contentDescription = null,
-                        tint = when (status) {
-                            FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
-                            else -> MaterialTheme.colorScheme.primary
-                        },
-                    )
-                    Text(
-                        modifier = Modifier.weight(1f),
-                        text = status.label,
-                        style = MaterialTheme.typography.titleMedium,
-                        softWrap = true,
-                    )
-                }
                 Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = message ?: status.detail,
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                )
+                Text(
+                    text = detail,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    softWrap = true,
-                )
-                if (onRetry != null) {
-                    TextButton(
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = onRetry,
-                    ) {
-                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.size(6.dp))
-                        AdaptiveButtonText("Retry")
-                    }
-                }
-            }
-        } else {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(responsive.cardPadding),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    imageVector = status.icon,
-                    contentDescription = null,
-                    tint = when (status) {
-                        FirebaseStatus.NotConfigured, FirebaseStatus.Error -> MaterialTheme.colorScheme.onErrorContainer
-                        else -> MaterialTheme.colorScheme.primary
+                    color = if (isProblem) {
+                        MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.82f)
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
                     },
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip,
                 )
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(text = status.label, style = MaterialTheme.typography.titleMedium, softWrap = true)
-                    Text(
-                        text = message ?: status.detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        softWrap = true,
+            }
+            if (isProblem && onRetry != null) {
+                TextButton(onClick = onRetry) {
+                    Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
+                    Spacer(modifier = Modifier.size(4.dp))
+                    AdaptiveButtonText(
+                        text = "Retry",
+                        compactText = "Retry",
+                        tinyText = "Retry",
                     )
-                }
-                if (onRetry != null) {
-                    TextButton(onClick = onRetry) {
-                        Icon(imageVector = Icons.Filled.Refresh, contentDescription = null)
-                        Spacer(modifier = Modifier.size(6.dp))
-                        AdaptiveButtonText("Retry")
-                    }
                 }
             }
         }
@@ -1322,39 +1361,59 @@ fun ProgressCard(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(if (responsive.isCompact) 20.dp else 24.dp),
         colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(
-            modifier = Modifier.padding(responsive.cardPadding),
-            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 12.dp),
+            modifier = Modifier.padding(
+                horizontal = if (responsive.isCompact) 14.dp else responsive.cardPadding,
+                vertical = if (responsive.isCompact) 12.dp else responsive.cardPadding,
+            ),
+            verticalArrangement = Arrangement.spacedBy(if (responsive.isCompact) 8.dp else 12.dp),
         ) {
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Bolt,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    softWrap = true,
-                )
+                Surface(
+                    modifier = Modifier.size(36.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Bolt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(1.dp),
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        softWrap = true,
+                    )
+                    Text(
+                        text = caption,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        softWrap = true,
+                    )
+                }
             }
             LinearProgressIndicator(
                 progress = { progress.coerceIn(0f, 1f) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(10.dp)
+                    .height(if (responsive.isCompact) 6.dp else 8.dp)
                     .clip(RoundedCornerShape(100.dp)),
-            )
-            Text(
-                text = caption,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
@@ -1371,7 +1430,7 @@ fun BadgeMedallion(
 
     Card(
         modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (unlocked) {
                 MaterialTheme.colorScheme.primaryContainer
@@ -1382,31 +1441,50 @@ fun BadgeMedallion(
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(if (responsive.isTiny) 12.dp else 16.dp),
-            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 8.dp else 10.dp),
+                .fillMaxSize()
+                .padding(horizontal = if (responsive.isTiny) 10.dp else 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             RadiantBadgeCrest(
                 glyph = RadiantBadgeGlyph.forTitle(title),
                 unlocked = unlocked,
-                modifier = Modifier.size(if (responsive.isTiny) 68.dp else 76.dp),
+                modifier = Modifier.size(if (responsive.isTiny) 62.dp else 68.dp),
             )
-            Text(
-                text = title,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.titleMedium,
-                textAlign = TextAlign.Center,
-                softWrap = true,
-            )
-            Text(
-                text = description,
-                modifier = Modifier.fillMaxWidth(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
-                softWrap = true,
-            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = title,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    softWrap = true,
+                    overflow = TextOverflow.Clip,
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Text(
+                    text = description,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 3,
+                    softWrap = true,
+                    overflow = TextOverflow.Clip,
+                )
+            }
         }
     }
 }

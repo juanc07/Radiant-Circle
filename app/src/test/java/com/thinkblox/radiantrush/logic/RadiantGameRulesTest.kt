@@ -84,4 +84,61 @@ class RadiantGameRulesTest {
         assertEquals(2, preview.first { it.id == ownedId }.count)
         assertTrue(preview.any { !it.discovered })
     }
+    @Test
+    fun vaultContainsTwelveUniqueCollectiblesWithStableRarityCurve() {
+        assertEquals(12, RadiantGameRules.collectibles.size)
+        assertEquals(12, RadiantGameRules.collectibles.map { it.id }.distinct().size)
+
+        val counts = RadiantGameRules.collectibles.groupingBy { it.rarity }.eachCount()
+        assertEquals(3, counts["Common"])
+        assertEquals(3, counts["Uncommon"])
+        assertEquals(3, counts["Rare"])
+        assertEquals(2, counts["Epic"])
+        assertEquals(1, counts["Legendary"])
+    }
+
+    @Test
+    fun legacyCollectibleIdsRemainAvailableAfterVaultExpansion() {
+        val ids = RadiantGameRules.collectibles.map { it.id }.toSet()
+        assertTrue(ids.contains("spark-bit"))
+        assertTrue(ids.contains("neon-circuit"))
+        assertTrue(ids.contains("solar-shard"))
+        assertTrue(ids.contains("nova-prism"))
+        assertTrue(ids.contains("phantom-halo"))
+        assertTrue(ids.contains("radiant-crown"))
+    }
+
+    @Test
+    fun `vault catalog is exactly twelve unique collectibles and keeps legacy ids`() {
+        assertEquals(12, RadiantGameRules.COLLECTION_TOTAL)
+        assertEquals(RadiantGameRules.COLLECTION_TOTAL, RadiantGameRules.collectibles.size)
+        assertEquals(
+            RadiantGameRules.COLLECTION_TOTAL,
+            RadiantGameRules.collectibles.map { it.id }.distinct().size,
+        )
+
+        val ids = RadiantGameRules.collectibles.map { it.id }.toSet()
+        assertTrue("spark-bit" in ids)
+        assertTrue("neon-circuit" in ids)
+        assertTrue("solar-shard" in ids)
+        assertTrue("nova-prism" in ids)
+        assertTrue("phantom-halo" in ids)
+        assertTrue("radiant-crown" in ids)
+    }
+
+    @Test
+    fun `collection preview always exposes all twelve slots for old profiles`() {
+        val preview = RadiantGameRules.collectionPreview(
+            mapOf(
+                "spark-bit" to 2,
+                "nova-prism" to 1,
+            ),
+        )
+
+        assertEquals(RadiantGameRules.COLLECTION_TOTAL, preview.size)
+        assertEquals(2, preview.first { it.id == "spark-bit" }.count)
+        assertEquals(1, preview.first { it.id == "nova-prism" }.count)
+        assertEquals(0, preview.first { it.id == "pulse-core" }.count)
+    }
+
 }

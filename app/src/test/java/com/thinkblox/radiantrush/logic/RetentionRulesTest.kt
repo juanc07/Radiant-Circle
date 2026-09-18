@@ -46,4 +46,20 @@ class RetentionRulesTest {
         val collection = RetentionRules.nextCollectionMilestone(6, 6)
         assertTrue(collection.unlocked)
     }
+
+    @Test
+    fun twelveItemVaultUsesMidCollectionMilestone() {
+        val early = RetentionRules.nextCollectionMilestone(collectionOwned = 2, collectionTotal = 12)
+        assertEquals(3, early.target)
+        assertEquals("Collector Crest", early.title)
+
+        val middle = RetentionRules.nextCollectionMilestone(collectionOwned = 3, collectionTotal = 12)
+        assertEquals(6, middle.target)
+        assertEquals("Vault Seeker", middle.title)
+
+        val final = RetentionRules.nextCollectionMilestone(collectionOwned = 6, collectionTotal = 12)
+        assertEquals(12, final.target)
+        assertEquals("Radiant Vault Complete", final.title)
+    }
+
 }

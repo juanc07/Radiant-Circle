@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Lock
@@ -37,6 +38,29 @@ enum class QuestStatus(val label: String, val icon: ImageVector) {
     Locked("Later", Icons.Filled.Lock),
     Syncing("Syncing", Icons.Filled.HourglassTop),
 }
+
+data class AccountIdentityPreview(
+    val isTemporary: Boolean = true,
+    val providerLabel: String = "This device",
+    val email: String? = null,
+)
+
+data class AccountLinkResult(
+    val success: Boolean,
+    val restoredExistingAccount: Boolean = false,
+    val message: String,
+)
+
+data class DailyRadiancePreview(
+    val dayKey: String = "local-preview",
+    val messageId: String = "",
+    val category: String = "",
+    val message: String = "",
+    val revealedToday: Boolean = false,
+    val currentStreak: Int = 0,
+    val longestStreak: Int = 0,
+    val opening: Boolean = false,
+)
 
 data class RadiantChestPreview(
     val status: RadiantChestStatus = RadiantChestStatus.Locked,
@@ -80,13 +104,14 @@ data class RadiantRunPreview(
     val totalRuns: Int = 0,
     val lastScore: Int = 0,
     val lastMaxCombo: Int = 0,
+    val lastCapsuleTier: String? = null,
     val lastRewardTitle: String? = null,
     val lastRewardRarity: String? = null,
     val lastRewardXp: Int = 0,
     val lastRewardShards: Int = 0,
     val radiantShards: Int = 0,
     val collectionOwned: Int = 0,
-    val collectionTotal: Int = 6,
+    val collectionTotal: Int = 12,
 ) {
     val totalPlayableTickets: Int
         get() = (rushTickets + skrCasualRushTickets).coerceAtLeast(0)
@@ -115,8 +140,6 @@ data class LeaderboardPreview(
     val isCurrentUser: Boolean = false,
 )
 
-
-
 data class RunLeaderboardPreview(
     val rank: Int,
     val name: String,
@@ -129,9 +152,17 @@ data class RunLeaderboardPreview(
     val isCurrentUser: Boolean = false,
 )
 
+data class WeeklyCupWinnerPreview(
+    val placement: Int,
+    val walletLabel: String,
+    val score: Int,
+    val prizeLabel: String,
+)
+
 data class WeeklyCupPreview(
     val title: String = "Weekly Radiant Cup",
     val seasonKey: String = "",
+    val seasonStartsAtEpochMillis: Long = 0L,
     val seasonEndsAtEpochMillis: Long = 0L,
     val participantCount: Int = 0,
     val personalRank: Int? = null,
@@ -146,9 +177,19 @@ data class WeeklyCupPreview(
     val sponsoredPrizeStatus: String = "No sponsored prize this week",
     val sponsorNote: String? = null,
     val sponsoredPrizeActive: Boolean = false,
+    val trustedSponsorConfig: Boolean = false,
+    val cupStatusCode: String = "UNCONFIGURED",
+    val cupStatusLabel: String = "No trusted Cup config",
+    val fundingVerificationStatus: String = "NOT_CONFIGURED",
+    val fundingVerificationLabel: String = "Funding wallet not configured",
+    val placementAllocationLabel: String? = null,
+    val trustedResultsRequired: Boolean = true,
     val payoutEnabled: Boolean = false,
+    val finalResultWeekKey: String? = null,
+    val finalResultFundingStatus: String? = null,
+    val finalResultFundingLabel: String? = null,
+    val finalWinners: List<WeeklyCupWinnerPreview> = emptyList(),
 )
-
 
 data class RetentionGoalPreview(
     val id: String,
@@ -265,8 +306,10 @@ data class UserPreview(
 
 data class RushUiState(
     val firebaseStatus: FirebaseStatus = FirebaseStatus.NotConfigured,
+    val accountIdentity: AccountIdentityPreview = AccountIdentityPreview(),
     val user: UserPreview = PreviewContent.user,
     val quests: List<QuestPreview> = PreviewContent.quests,
+    val dailyRadiance: DailyRadiancePreview = PreviewContent.dailyRadiance,
     val radiantChest: RadiantChestPreview = PreviewContent.radiantChest,
     val radiantRun: RadiantRunPreview = PreviewContent.radiantRun,
     val collection: List<RadiantCollectiblePreview> = PreviewContent.collection,
@@ -278,6 +321,7 @@ data class RushUiState(
     val lastMessage: String? = null,
     val walletActionInProgress: Boolean = false,
     val activeQuestId: String? = null,
+    val backgroundSyncInProgress: Boolean = false,
 ) {
     val isFirebaseReady: Boolean
         get() = firebaseStatus == FirebaseStatus.Ready
@@ -323,11 +367,12 @@ enum class AppDestination(
     val label: String,
     val icon: ImageVector,
 ) {
-    Home("Today", Icons.Filled.Home),
-    Quests("Quests", Icons.Filled.Route),
+    Home("Home", Icons.Filled.Home),
+    Quests("Today", Icons.Filled.Route),
+    Circle("Circle", Icons.Filled.Groups),
     Badges("Badges", Icons.Filled.MilitaryTech),
     Leaderboard("Ranks", Icons.Filled.EmojiEvents),
-    Profile("Profile", Icons.Filled.AccountCircle),
+    Profile("You", Icons.Filled.AccountCircle),
     Demo("Guide", Icons.Filled.CheckCircle),
 }
 
@@ -395,6 +440,7 @@ object PreviewContent {
         ),
     )
 
+    val dailyRadiance = DailyRadiancePreview()
     val radiantChest = RadiantChestPreview()
     val radiantRun = RadiantRunPreview()
     val collection = emptyList<RadiantCollectiblePreview>()

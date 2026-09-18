@@ -1,0 +1,5 @@
+node_modules/
+.cleanup/
+*.service-account.json
+*serviceAccount*.json
+*service-account*.json

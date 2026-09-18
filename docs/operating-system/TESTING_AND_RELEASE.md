@@ -1,3 +1,33 @@
+## Phase 12A trusted competition-verification gate
+
+Deploy the updated Firestore rules before testing the Phase 12A app:
+
+```bash
+npx.cmd firebase-tools deploy --only firestore:rules --project radiant-rush-10a9c
+```
+
+Then run the normal Android gate:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Manual security/regression QA:
+
+- Connect a wallet and finish one Ranked Radiant Rush. Weekly/All-Time, XP, reward/capsule, profile, and ranked-attempt behavior must remain unchanged.
+- Confirm the Ranked result message explicitly reports whether the receipt was `CREATED`, `ALREADY EXISTS`, or `FAILED`; no receipt failure may be silent.
+- Confirm exactly one `competitionRunSubmissions/{receiptId}` receipt is created with `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, and `payoutStatus=NOT_ELIGIBLE`.
+- Retry the same completed result when possible and confirm the same receipt id is reused without creating a duplicate.
+- Confirm the receipt carries `scoreAuthority=client-reported-prototype-not-payout-authority` and a Firestore server timestamp.
+- Confirm a normal client cannot update or delete the receipt, cannot create it as `VERIFIED`, cannot set placement/payout eligibility true, and cannot add extra trusted fields.
+- Confirm a Casual run still works and does not create a trusted-Cup receipt.
+- If receipt persistence is unavailable, the existing game/prototype leaderboard path must still complete; the run simply lacks a receipt eligible for future verification.
+- Recheck wallet connect, signed daily proof, Devnet memo proof, Mainnet read-only SKR Passport/staking display, Daily Radiant Chest, public profile, all leaderboard tabs, and retention surfaces.
+- Repeat high-risk Ranks/Radiant Rush screens at larger Android font scale; required copy must not clip, bleed, overlap, or ellipsize.
+
 ## Phase 11F.4 responsive UI regression gate
 
 Run the normal four-command gate:
@@ -698,3 +728,153 @@ Version decision: updated to `versionCode 19` / `1.1.4-phase11c2` because this i
 - Verify `runWalletDaily/{utcDay}/wallets/{walletAddress}` contains `attemptsUsed`, `gameplayXpEarnedToday`, and `payoutEligible=false`.
 - Test My Stats at compact width and increased Android font scale; labels/values must wrap/stack without clipping, ellipsis, or bleed.
 
+
+
+## Phase 12B test gate — trusted sponsor / Cup configuration
+
+Run the normal Android gate:
+
+```bash
+./gradlew --stop
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Run the Firebase Admin tool tests:
+
+```bash
+cd scripts/firebase-admin
+npm install
+npm test
+```
+
+Before writing a real weekly config, generate temporary Admin credentials outside the repository, set `GOOGLE_APPLICATION_CREDENTIALS`, then run `manage-weekly-cup.mjs` without `--apply`. Review the exact week, sponsor, official SKR mint, exact atomic prize amount, 100% placement split, UTC start/end, funding state, and `payoutEnabled=false`. Apply only with the exact same arguments plus `--apply --confirm-project radiant-rush-10a9c`.
+
+Manual QA on Seeker:
+
+1. With no current schema-v2 config, Weekly Cup remains usable and does not invent a sponsored/funded prize.
+2. With a DRAFT config, the app does not present the prize as active.
+3. With ANNOUNCED/OPEN config, sponsor, SKR prize, prize split, Cup status, and funding status wrap cleanly on compact widths and large font scale.
+4. `NOT_CONFIGURED` and `NOT_VERIFIED` funding must never read as funded/paid/confirmed.
+5. Wrong mint/schema/week/allocation/authority fails closed to the non-trusted fallback.
+6. Ranked result receipts remain `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, `NOT_ELIGIBLE`.
+7. Existing MWA connect/sign, Devnet Memo proof, Mainnet SKR Passport, Weekly/All-Time/My Stats/XP, Daily Chest, and Radiant Rush flows regress cleanly.
+8. Verify Firestore client rules still deny writes to `weeklyCupConfigs/*`; Admin SDK tooling is the only configuration write path.
+
+Version: `27 / 1.2.2-phase12b`.
+
+## Phase 12C test gate — trusted SKR funding verification
+
+Run Firebase Admin tests first:
+
+```bash
+cd scripts/firebase-admin
+npm test
+```
+
+Run the Android gate:
+
+```bash
+cd /c/2026/SolanaHackaton/RadiantRushPhase1Android
+./gradlew --stop
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+./gradlew :app:connectedDebugAndroidTest
+./gradlew :app:installDebug
+```
+
+Because Phase 12C adds an explicit deny rule for funding-check audit receipts, redeploy Firestore rules:
+
+```bash
+npx.cmd firebase-tools deploy --only firestore:rules --project radiant-rush-10a9c
+```
+
+Live verification procedure:
+
+1. Generate temporary Firebase Admin credentials outside the repository and set `GOOGLE_APPLICATION_CREDENTIALS`.
+2. Keep/create a Phase 12B Cup in `DRAFT`, `ANNOUNCED`, or `OPEN` with `payoutEnabled=false`.
+3. Run `verify-weekly-cup-funding.mjs` **without** `--apply` and review wallet, required SKR, observed liquid SKR, frozen-account count, RPC slot, and result.
+4. If the wallet has less than the configured prize, expect `NOT_VERIFIED`; no fake success.
+5. If the wallet holds at least the required transferable liquid SKR, expect `VERIFIED`.
+6. Apply only with the exact same arguments plus `--apply --confirm-project radiant-rush-10a9c`.
+7. Confirm `weeklyCupConfigs/{weekKey}` contains the Phase 12C evidence fields and `payoutEnabled=false`.
+8. Confirm a new `weeklyCupFundingChecks/{weekKey}/checks/{checkId}` audit receipt exists.
+9. For an `ANNOUNCED`/`OPEN` Cup, verify the Seeker UI shows only concise product copy: `Funding pending` or `Funding verified`; no RPC slot, authority, schema, or payout-boundary narration.
+10. Tamper-test in a development project if needed: a bare `fundingVerificationStatus=VERIFIED` without valid evidence must display as pending.
+11. Regression-check MWA, signed proof, Devnet Memo, SKR Passport, Daily Chest, Radiant Rush, Weekly/All-Time/My Stats, and Phase 12A receipt creation.
+
+Version: `28 / 1.2.3-phase12c`.
+
+
+## Phase 12D trusted close + winners gate
+
+Before any Phase 12D commit/tag, run the Firebase Admin suite (`cd scripts/firebase-admin && npm test`) and the normal Android gate (`./gradlew --stop`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:connectedDebugAndroidTest`, `:app:installDebug`). Deploy the changed Firestore rules explicitly.
+
+Live Admin proof must use temporary credentials outside the repository, dry-run every operation first, and keep W37's existing Phase 12C `NOT_VERIFIED` funding truth intact. The Cup must be `OPEN` for trusted run attestation and finalization must refuse to run before `endsAt`. Attest only runs backed by independently checked evidence. Finalization must show the intended exact-wallet dedupe, deterministic tiebreak order, exact SKR split, `payoutEnabled=false`, and `payoutReady=false`; then apply once and prove the second close is rejected.
+
+On a Seeker, confirm the current board says `Live standings`; only validated finalized Phase 12D records appear under `Final winners`; W37 with `NOT_VERIFIED` funding uses clean `Funding pending` copy and never claims payout readiness. Android client writes to verification/result/winner/snapshot collections must be denied.
+
+Version: `29 / 1.2.4-phase12d` (implementation; live proof pending).
+
+### Phase 12 Admin command reference
+
+Use `docs/PHASE_12_ADMIN_OPERATOR_RUNBOOK.md` for the exact dry-run/apply operator sequence, Git Bash-safe Firestore inspection commands, trusted run-attestation workflow, fail-closed finalization checks, duplicate-close proof, and temporary credential cleanup. Do not substitute copied client receipt fields for independent run evidence.
+
+Live W37 Phase 12D proof on 2026-09-14: 5 source receipts / 2 distinct wallets / 0 trusted-placement-eligible VERIFIED receipts. After the configured end boundary, `finalize-weekly-cup.mjs` correctly refused with `No trusted-placement-eligible VERIFIED receipts exist for this Cup. Refusing to invent winners.` Treat that refusal as a PASS for the fail-closed gate.
+
+
+### Phase 12D wallet-gating regression
+
+Before the Phase 12D commit/tag, test these states on Seeker:
+
+1. Disconnect the wallet while W38 (or another trusted Cup) is `OPEN` and inside its configured window.
+2. Confirm signed proof, on-chain memo proof, and SKR Passport actions remain blocked/disabled until wallet connection.
+3. Confirm Daily Check-In remains available without a wallet.
+4. On the Radiant Rush launcher, confirm the live-Cup warning clearly says a walletless run is Casual and will not count.
+5. Tap `Connect Wallet` and confirm the normal MWA connection flow opens.
+6. Repeat while disconnected, choose `Play Casual`, and confirm the game briefing again labels the run Casual/not in the Cup.
+7. Finish that walletless run and confirm it does not create a Ranked trusted competition entry.
+8. Connect a wallet, play with a standard ticket and available Ranked attempt, and confirm the normal Ranked path still works.
+9. Change/test a Cup outside its configured time window and confirm an expired `OPEN` document does not falsely claim a live tournament warning.
+10. Re-run `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:connectedDebugAndroidTest`, and `:app:installDebug`.
+
+
+## Phase 12E trusted payout lifecycle gate
+
+Phase 12E is Admin-only payout preparation/approval. It does not transfer SKR. Before commit/tag:
+
+1. Run `cd scripts/firebase-admin && npm test`.
+2. Deploy the updated Firestore rules and verify Android cannot read/write `weeklyCupPayouts`.
+3. Use a Cup that has successfully completed Phase 12D and whose Phase 12C funding was VERIFIED before close.
+4. Run `prepare-weekly-cup-payout.mjs` dry-run and verify the exact three winner wallets, atomic amounts, funding wallet, total, and manifest SHA-256.
+5. Apply preparation only with `--apply --confirm-project ...`; prove a second prepare is rejected.
+6. Run `approve-weekly-cup-payout.mjs` dry-run with a non-secret `--review-ref`.
+7. Apply approval only with the exact dry-run `--confirm-digest`; prove a wrong digest is rejected and a second approval is rejected.
+8. Verify Firestore root/item/event records all retain `payoutEnabled=false`, `transferEnabled=false`, and `transferStatus=NOT_STARTED`.
+9. Verify no transaction signature, private key, seed phrase, or token-transfer code exists in Phase 12E.
+10. Keep the normal Android regression gate green even though Phase 12E adds no player-facing payout controls.
+
+If funding was NOT_VERIFIED at Phase 12D close, payout preparation must fail closed. Do not manually rewrite the finalized result or downgrade this requirement.
+
+## Phase 12F real SKR transfer gate
+
+Phase 12F introduces real-value transfer capability and therefore has a stricter gate.
+
+1. Run `cd scripts/firebase-admin && npm test`; all Phase 12A–12F pure tests must pass.
+2. Run `node --check` for all Phase 12F Admin scripts.
+3. Keep the normal Android regression gate green even though Phase 12F adds no Android signer/payout controls.
+4. Confirm Firestore still denies Android access to `weeklyCupPayouts`.
+5. Before any real transfer, require a Phase 12E `APPROVED` manifest produced from a VERIFIED-funded, finalized Phase 12D Cup.
+6. Dry-run placement #1 and verify exact official mint, manifest digest, funding wallet, winner wallet, atomic amount, remaining amount, and live liquid funding.
+7. Prefer external/Seed Vault intent + signature reconciliation when the sponsor wallet is hardware-backed. Never export a Seed Vault secret merely to satisfy the CLI signer path.
+8. For CLI signer mode, confirm `solana-keygen pubkey` exactly matches the funding wallet before any send.
+9. Execute only one placement per command and in placement order.
+10. Require `finalized` Solana status plus exact on-chain funding-wallet debit and winner-wallet credit before `PAID`.
+11. Test ambiguous submission handling: it must lock for reconciliation rather than automatically retry.
+12. Test a known finalized failed transaction path before production use if a safe development fixture is available; only a proven on-chain failure may reset for retry.
+13. After all winners are finalized PAID, dry-run/apply batch completion and prove duplicate completion is refused.
+14. No seed phrase/private key may appear in Git, Firestore, Android, logs uploaded to chat, or docs.
+
+W38 real transfer remains blocked until its Phase 12C–12E prerequisites are genuinely complete.

@@ -1,3 +1,85 @@
+## 2026-09-14 — Phase 12F live W38 proof + end-to-end operator playbook
+
+- Added `PHASE_12_WEEKLY_CUP_END_TO_END_COMMAND_PLAYBOOK.md` with the exact dry-run/apply sequence from Cup opening through Phase 12C funding verification, Phase 12D run attestation/finalization, Phase 12E payout preparation/approval, Phase 12F transfer intent/reconciliation, and final batch completion.
+- Recorded the controlled W38 live proof: prize amended to 300 SKR, funding wallet `EqLUDQpfZrCJcQ5obVWzjuBn1v4sHH8PxVfcCg4rppzj`, 399.926445 liquid SKR observed, fresh funding `VERIFIED`, three distinct trusted winners, and early-close finalization applied.
+- Frozen W38 allocations are 150 / 90 / 60 SKR with ranking digest `bd0ff48ff5b4e9e4fd866c177a5544a90ec11eb471f5644283bfd5d4f9c322f5`.
+- Phase 12E payout manifest was prepared and applied in `READY_FOR_REVIEW`; approval dry-run reviewed the exact manifest digest `d2a5cfeabcb83311af32ec68dd0460e2e345afb273a6394e2e61d72af0a9aea4`.
+- At this checkpoint no SKR transfer has occurred; approval apply and sequential Phase 12F on-chain transfer/reconciliation remain.
+
+## 2026-09-14 — Phase 12E trusted payout lifecycle (implementation; live proof pending)
+## 2026-09-14 — Phase 12D admin early-close override
+
+- Added an explicit Admin-only `--force-close-early` path to trusted Weekly Cup finalization.
+- Early close requires an audit reason and, on apply, exact week plus reviewed ranking-digest confirmation.
+- Early finalization uses the invocation time as the effective competition cutoff, excluding runs completed/submitted after that cutoff while preserving the originally configured `endsAt` for audit.
+- The Cup records `competitionEndedAt`, `earlyClosed`, reason, and trusted authority; the frozen result records scheduled/effective end metadata.
+- Prize configuration, trusted-run requirements, funding verification, payout approval, and SKR transfer safeguards remain unchanged.
+- Admin test suite expanded from 58 to 60 passing tests.
+
+
+- Added Admin-only `weeklyCupPayouts/{weekKey}` payout manifests derived only from immutable Phase 12D winners.
+- Payout preparation requires a CLOSED trusted Cup, Phase 12D FINALIZED result, and complete Phase 12C funding evidence that was VERIFIED at close.
+- Added deterministic payout-manifest SHA-256 covering the official SKR identity, total amount, funding wallet, Phase 12D ranking digest, winner wallets, receipt ids, and exact atomic allocations.
+- Added explicit `READY_FOR_REVIEW -> APPROVED` lifecycle with review reference, digest confirmation, transactional re-read, duplicate protection, and immutable prepared/approved audit events.
+- Firestore denies Android read/write access to payout lifecycle internals; normal player UI still reads only Phase 12D final results.
+- `payoutEnabled=false`, `transferEnabled=false`, and `transferStatus=NOT_STARTED` remain enforced. No signer/private key or SKR transfer exists in Phase 12E.
+- Added payout lifecycle pure tests and Admin operator documentation.
+
+## 2026-09-13 — Phase 12D trusted season close + winners (implementation; live proof pending)
+
+- Audited Phase 12A–12C trust boundaries and confirmed there was no trusted run verifier/promotion path; raw Android `UNVERIFIED` receipts remain non-authoritative.
+- Added dry-run-by-default Admin-only run attestation requiring exact independently checked run facts and an evidence reference; writes an immutable `competitionRunVerifications/{receiptId}` decision while payout stays disabled.
+- Added trusted Cup finalization that requires matching verified receipt + immutable verification audit, dedupes by exact wallet, reuses the existing score/combo/PERFECT/earlier-completion/receipt-id tiebreak order, and calculates exact configured SKR allocations.
+- Added frozen `weeklyCupResults/{weekKey}` parent, Admin-only eligible-receipt snapshots, public read-only winner records, snapshot digests, duplicate-finalization refusal, and transactional input re-read.
+- Phase 12B tooling now refuses to reopen/mutate Phase 12D-finalized Cups; cleanup protection includes all Phase 12 trusted collections.
+- Android validates finalized result/winner schema read-only, labels the prototype board `Live standings`, and displays clean final-winner copy without trust/security jargon.
+- Phase 12C funding remains independent: `NOT_VERIFIED` can coexist with frozen competitive results but never means payout-ready. `payoutEnabled=false`; no SKR transfer exists.
+- Firebase Admin pure tests: 40/40 pass in patch environment. Full Gradle/device/rules/live Firestore proof still required before commit/tag.
+- Bumped Android version to `1.2.4-phase12d` (`versionCode 29`).
+
+## 2026-09-13 — Phase 12C trusted SKR funding verification
+
+- Added trusted Firebase Admin `verify-weekly-cup-funding.mjs` with dry-run-by-default Mainnet verification.
+- Added exact integer SKR balance aggregation from `getTokenAccountsByOwner` for the official SKR mint; frozen token accounts are excluded from transferable funding.
+- Added Phase 12C funding evidence to `weeklyCupConfigs/{weekKey}` plus immutable admin-only receipts under `weeklyCupFundingChecks/{weekKey}/checks/{checkId}`.
+- Android now refuses to display `VERIFIED` from a bare status string; complete Phase 12C Mainnet evidence is required.
+- Player-facing Weekly Cup copy remains concise: `Funding pending`, `Funding verified`, or `Prize unavailable`; RPC/security implementation details stay out of normal UI.
+- Hardened Phase 12B admin configuration tooling so safe status/presentation updates preserve Phase 12C evidence while prize/funding-wallet changes that would invalidate it are rejected.
+- Payout remains disabled and no SKR transfer/escrow is introduced.
+- Bumped Android version to `1.2.3-phase12c` (`versionCode 28`).
+
+# 2026-09-13 — Phase 12B trusted sponsor / Weekly Cup configuration
+
+- Added a schema-v2 trusted `weeklyCupConfigs/{weekKey}` contract for sponsor identity, exact SKR prize amount, ISO-week bounds, placement split, optional public funding wallet, and explicit funding-verification state.
+- Android remains read-only for Cup configuration and hard-disables payout even when future trusted infrastructure marks funding verified.
+- Added strict Android-side config validation against the official SKR mint, 6 decimals, trusted admin authority marker, 100% placement allocation, exact atomic prize amount, and current week key. Malformed or unexpected config fails closed.
+- Added mobile-first Weekly Cup presentation for trusted config status, sponsor, SKR prize, prize split, and funding state without implying that funding/results/payout are already verified.
+- Polished Cup copy so internal trust/security implementation wording stays in engineering/admin surfaces rather than player UI; DRAFT sponsor cards are hidden and published Cups use concise product labels such as `Weekly prize` and `Funding pending`.
+- Added `scripts/firebase-admin/manage-weekly-cup.mjs`, dry-run by default with exact project confirmation required for writes. It refuses to overwrite future VERIFIED funding/newer schema/payout state.
+- Added JVM and Node tests for config validation, ISO week bounds, SKR atomic conversion, placement totals, and trust-boundary behavior.
+- No funding verification, winner selection, player wagering, treasury/private key, or SKR transfer was added; those remain Phase 12C+ trusted infrastructure.
+- Version: `versionCode = 27`, `versionName = 1.2.2-phase12b`.
+
+# 2026-09-13 — Phase 12A.1 receipt observability + idempotency fix
+
+- Fixed the Phase 12A receipt path so Ranked result UI no longer hides a failed `competitionRunSubmissions` write.
+- Ranked results now report receipt `CREATED`, `ALREADY EXISTS`, or `FAILED` while keeping the already-committed score/reward/XP/leaderboard result intact.
+- Retrying the exact same completed run is idempotent: an existing immutable same-owner receipt is treated as success instead of a duplicate/update failure.
+- Simplified non-authoritative client metadata validation in Firestore rules. Wallet/day/week/score remain untrusted assertions; the hard security boundary still requires `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, `NOT_ELIGIBLE`, and denies all client updates/deletes.
+- Firestore rules changed and must be redeployed before retesting Ranked receipt creation.
+
+# 2026-09-13 — Phase 12A trusted competition-verification foundation
+
+- Added stable UUID receipt identity to completed Radiant Rush results so the same result object keeps the same identity across sanitizing copies/retries.
+- Added `competitionRunSubmissions/{receiptId}` as a separate best-effort Ranked-run receipt inbox; existing Weekly/All-Time/XP persistence remains the prototype gameplay path and does not depend on trusted-Cup availability.
+- Android-created receipts are explicitly `UNVERIFIED`, `trustedPlacementEligible=false`, `payoutEligible=false`, and `payoutStatus=NOT_ELIGIBLE`.
+- Firestore rules allow clients to create only the strict unverified receipt schema and deny all client updates/deletes; future `VERIFIED` / `REJECTED`, winner, funding, and payout authority remains trusted Admin/server responsibility.
+- Tightened Weekly Cup fallback copy so it no longer implies sponsored rewards are already confirmed.
+- Added Phase 12A unit coverage and implementation/QA documentation.
+- Firestore rules changed and must be deployed before testing receipt creation.
+- No player wagering/entry fee, treasury key, automatic SKR transfer, fake funding/balance/confirmation, or Mainnet SKR write path was added.
+- Android version remains `versionCode = 26`, `versionName = 1.2.1-phase11f4`; this is a trust-foundation patch, not a release handoff.
+
 # 2026-09-13 — Phase 11F.4 responsive UI hardening
 
 - Re-audited the Compose UI after retention/profile/rebrand changes and moved phone layouts to earlier stacking breakpoints so required text grows vertically instead of clipping, bleeding, or being squeezed into desktop-like rows.
@@ -455,3 +537,33 @@ All meaningful changes should be recorded here. Keep exactly one `[Unreleased]` 
 - Daily chest uses the exact perk values persisted by today's Passport scan, preserving staking bonus without changing the deterministic base rarity roll.
 - Ranked raw score and three daily ranked attempts remain unchanged by liquid/staked SKR wealth.
 - Version bumped to `1.1.3-phase11c1` (`versionCode 18`).
+
+## Phase 12F — real sponsor-funded SKR transfer (implementation, live proof pending)
+
+- Added one-placement-at-a-time trusted SKR transfer planning/execution for Phase 12E `APPROVED` manifests.
+- Added external-wallet/Seed Vault transfer-intent mode so sponsor keys do not need to be exported.
+- Added optional trusted CLI signer mode with signer-pubkey equality check against the configured funding wallet.
+- Added exact manifest, funding wallet, winner wallet, atomic amount, official mint/program, and live-liquid-funding preflight validation.
+- Added Solana finalized transaction verification using exact SKR source debit and recipient credit deltas before marking `PAID`.
+- Added reconciliation and fail-closed handling for submitted/ambiguous transfers; automatic retry is prohibited when outcome is uncertain.
+- Added explicit reset only for transactions proven failed on-chain.
+- Added payout-batch completion only after every configured winner has a unique finalized transaction signature.
+- No Android signer or payout authority added.
+### Phase 12F operator-controlled prize amendment safety
+
+- Added an explicit pre-close sponsored Cup prize-amendment tool for exceptional operator-authorized corrections/reduced-value live payout tests.
+- Amendment is dry-run first and digest-confirmed on apply, records old/new prize and funding wallet in immutable Admin audit data, and is refused after Cup close/finalization or when payout is enabled.
+- Any amendment invalidates/resets current Phase 12C funding evidence so the new prize/wallet must be independently re-verified before trusted close/payout.
+- No transfer occurs and `payoutEnabled` remains false.
+
+
+## 2026-09-14 — Phase 12F W38 live payout proof complete
+
+- Completed the controlled `2026-W38` trusted Weekly Cup payout lifecycle end to end on Solana mainnet.
+- Final approved payout manifest: `d2a5cfeabcb83311af32ec68dd0460e2e345afb273a6394e2e61d72af0a9aea4`.
+- Verified and reconciled three unique finalized SKR transfers: `150 SKR`, `90 SKR`, and `60 SKR`, totaling `300 SKR`.
+- Finalized slots: `447015792`, `447017547`, and `447018185`.
+- Each payout item reached `PAID` only after exact official-SKR amount verification from finalized transaction evidence.
+- Final completion succeeded with all three unique signatures and `weeklyCupPayouts/2026-W38` is `PAID`.
+- No payout private key was added to Android, Git, Firestore, or documentation; W38 used the external-wallet intent + reconciliation path.
+- Updated the Phase 12 operator runbook and end-to-end command playbook with the completed live proof.

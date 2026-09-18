@@ -43,7 +43,6 @@ class RadiantRushSmokeTest {
         if (hasTag(UiTestTags.WELCOME_OPEN_RUSH)) {
             composeRule
                 .onNodeWithTag(UiTestTags.WELCOME_OPEN_RUSH)
-                .performScrollTo()
                 .assertIsDisplayed()
                 .performClick()
         }
@@ -67,11 +66,32 @@ class RadiantRushSmokeTest {
     }
 
     @Test
+    fun circleDiscoveryRouteIsReachableFromHome() {
+        enterShell()
+
+        composeRule
+            .onNodeWithTag(UiTestTags.HOME_OPEN_CIRCLE)
+            .performScrollTo()
+            .performClick()
+
+        composeRule.onNodeWithTag(UiTestTags.CIRCLE_SCREEN).assertIsDisplayed()
+        composeRule.onNodeWithTag(UiTestTags.CIRCLE_SHAKE_PROMPT).assertIsDisplayed()
+
+        // Circle is a nested social destination, so it must always have an obvious
+        // escape back to the main Radiant Circle shell.
+        composeRule.onNodeWithTag(UiTestTags.CIRCLE_TOP_BACK).performClick()
+        composeRule.waitUntil(timeoutMillis = 10_000L) {
+            hasTag(UiTestTags.HOME_SCREEN)
+        }
+        composeRule.onNodeWithTag(UiTestTags.HOME_SCREEN).assertIsDisplayed()
+    }
+
+    @Test
     fun demoTabIsReachableForJudgeWalkthrough() {
         enterShell()
 
         composeRule.onNodeWithTag(UiTestTags.NAV_DEMO).performClick()
         composeRule.onNodeWithTag(UiTestTags.DEMO_SCREEN).assertIsDisplayed()
-        composeRule.onNodeWithText("How to play", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Welcome to Radiant Circle", substring = true).assertIsDisplayed()
     }
 }

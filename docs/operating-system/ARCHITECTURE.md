@@ -1,3 +1,19 @@
+## Phase 12C — trusted SKR funding-verification boundary
+
+`verify-weekly-cup-funding.mjs` is a developer/admin-side trust boundary. It reads `weeklyCupConfigs/{weekKey}`, queries Solana Mainnet for liquid accounts of the official SKR mint, sums exact raw token amounts, excludes frozen accounts, and writes a funding snapshot only through Firebase Admin after an explicit reviewed `--apply`. Android never performs the trusted promotion.
+
+Applied checks also create immutable admin-only audit receipts at `weeklyCupFundingChecks/{weekKey}/checks/{checkId}`. Client Firestore rules deny direct access to that audit collection. `weeklyCupConfigs/*` remains public-readable/client-write-denied so the app can present only the resulting product state.
+
+Android accepts `VERIFIED` only when the complete Phase 12C evidence shape matches the configured prize: mainnet-beta, official SKR mint, finalized commitment, Phase 12C authority/version, exact required amount, sufficient observed amount, positive RPC slot, and trusted timestamps. A bare `VERIFIED` string fails closed to pending. `payoutEnabled` remains false.
+
+Phase 12C is a balance snapshot, not escrow. It moves no SKR and does not guarantee the funding wallet cannot later change. Real transfer/escrow remains a later trusted phase.
+
+## Phase 12A — trusted competition-verification boundary
+
+`RadiantRunResult` now carries a stable client UUID receipt identity. `FirebaseRadiantRepository` keeps the existing Phase 11 gameplay/progression transaction unchanged as the prototype source for Weekly, All-Time, XP, rewards, and profile state. After a successful Ranked run, it separately attempts to create `competitionRunSubmissions/{receiptId}`. Receipt persistence is intentionally non-blocking so trusted-Cup infrastructure cannot make the game unusable.
+
+`Phase12CompetitionVerificationRules` defines explicit `UNVERIFIED / VERIFIED / REJECTED` vocabulary and a fixed Android initial state of `UNVERIFIED`, not placement eligible, not payout eligible, and `NOT_ELIGIBLE`. Firestore rules enforce an exact client-create schema and deny client updates/deletes. A future trusted Firebase Admin/Cloud Functions/Cloud Run service may verify receipts and add trusted score/decision fields; ordinary Android writes never cross that boundary. Existing `runWeekly`, `runAllTime`, and `runWalletDaily` remain client-reported prototype data and must never be treated as payout proof.
+
 ## Phase 11F.4 — phone-first responsive presentation boundary
 
 `rememberResponsiveUiSpec()` is the shared presentation breakpoint authority. Normal portrait phones are intentionally classified as compact so cards stack before dynamic identity, wallet, streak, tier, leaderboard, or reward text is forced into clipping or micro-font scaling. Required text is allowed to increase component height; horizontal density is reserved for wider layouts.
@@ -482,3 +498,12 @@ Radiant Rush keeps one visual contract for tappable objects: green circles are v
 
 The existing `runWalletDaily/{utcDay}/wallets/{walletAddress}` document also mirrors capped `gameplayXpEarnedToday`, keeping both ranked-attempt usage and the 300 XP/day gameplay cap consistent across phones/reinstalls. This shared record remains prototype fairness state only and has no economic or payout authority.
 
+
+
+## Phase 12B trusted Weekly Cup configuration
+
+`weeklyCupConfigs/{weekKey}` is now the trusted, Admin-written configuration source for the current Weekly Radiant Cup. The Android app may read the document but Firestore rules deny all client writes. Schema v2 contains sponsor presentation, exact SKR prize amount in atomic units, official SKR mint/decimals, ISO-week start/end, placement allocation, optional public funding wallet, funding-verification status, `trustedResultsRequired=true`, `payoutEnabled=false`, and an explicit trusted-admin authority marker.
+
+`Phase12WeeklyCupConfigRules` is a fail-closed presentation parser: malformed schema, wrong week, wrong mint/decimals, invalid allocation, invalid time window, or wrong authority marker is not presented as a trusted sponsor config. `FirebaseRadiantRepository` retains a legacy Phase 11 announcement fallback but never labels it trusted. Android never promotes funding state, winner state, or payout eligibility.
+
+`scripts/firebase-admin/manage-weekly-cup.mjs` is developer/admin tooling, not app code. It is dry-run by default and writes only after exact project confirmation. It refuses to overwrite future verified-funding, enabled-payout, or newer-schema state so Phase 12B tooling cannot accidentally roll back Phase 12C+ trust.

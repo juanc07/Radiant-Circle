@@ -11,10 +11,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EmojiEvents
-import androidx.compose.material.icons.filled.Token
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -53,15 +53,66 @@ fun DemoScreen(
     ) {
         item {
             SectionTitle(
-                title = "How to play",
-                body = "Build your daily streak, earn tickets, play Radiant Rush, and grow your Passport.",
+                title = "Welcome to Radiant Circle",
+                body = "Start with your daily ritual, discover people through shared interests, chat with accepted Circle members, play Radiant Rush, and connect Solana when you want on-chain features.",
             )
         }
-        item { GuideStep(Icons.Filled.AccountBalanceWallet, "1. Connect", "Connect your Solana wallet to unlock wallet quests.") }
-        item { GuideStep(Icons.Filled.CheckCircle, "2. Finish quests", "Complete today’s quests to earn XP and Rush Tickets.") }
-        item { GuideStep(Icons.Filled.Bolt, "3. Play Radiant Rush", "Use a ticket, hit Radiant targets, avoid red Corruption, and build your combo.") }
-        item { GuideStep(Icons.Filled.EmojiEvents, "4. Open your chest", "Finish all daily quests to unlock your Daily Radiant Chest.") }
-        item { GuideStep(Icons.Filled.Token, "5. Grow your SKR Passport", "Liquid and active staked SKR unlock casual-play perks, chest boosts, and cosmetics.") }
+        item {
+            GuideStep(
+                Icons.Filled.AccountCircle,
+                "1. Protect your Circle identity",
+                "Set your public name and avatar in You. Continue with Google to make your Radiant Circle account easier to restore after reinstalling. Your social identity stays separate from whichever wallet you connect.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.CheckCircle,
+                "2. Begin with Daily Radiance",
+                "Open your Daily Radiance from Home and build its own streak. Today also keeps your Daily Plan, Daily Radiant Chest, quests, and quick actions together.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.Bolt,
+                "3. Shake to discover",
+                "Open Circle and physically shake your phone. Discovery uses approximate location only, stays active for about two minutes, and quietly widens the search when nobody is nearby.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.AccountCircle,
+                "4. Connect through Shared Sparks",
+                "See optional public interests you already share, then Send Spark. When the other person accepts, they join Your Circle and you can view each other's public social profile.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.CheckCircle,
+                "5. Chat with accepted Circle members",
+                "Private 1-to-1 chat unlocks only after a mutual Circle connection. Chat includes unread and read state, typing presence, profile identity, and safety actions for report, block, or remove.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.Bolt,
+                "6. Play Radiant Rush and fill your Vault",
+                "Radiant Rush is the quick skill game inside Radiant Circle. Runs open score-based capsules that reveal collectibles for your 12-item Radiant Vault. Duplicate collectibles become Radiant Shards.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.AccountBalanceWallet,
+                "7. Connect Solana when useful",
+                "A wallet is optional for the social experience. Connect with Mobile Wallet Adapter for wallet proofs, SKR Passport, on-chain activity, and Ranked Weekly Cup entry. The first wallet used for Ranked is kept as that Cup's competition wallet.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.EmojiEvents,
+                "8. Build your presence",
+                "Badges, Ranks, Radiance streaks, your public profile, Vault collection, and SKR Passport show the progress tied to your Radiant Circle identity.",
+            )
+        }
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -72,15 +123,21 @@ fun DemoScreen(
                     modifier = Modifier.padding(responsive.cardPadding),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("Your progress", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Your Circle right now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
                         modifier = Modifier.fillMaxWidth(),
-                        text = "${uiState.completedQuestCount}/${uiState.quests.size} quests • ${uiState.user.xp} XP",
+                        text = "${uiState.user.displayName} • Lv. ${uiState.user.level} • ${uiState.user.xp} XP",
                         softWrap = true,
                     )
                     Text(
                         modifier = Modifier.fillMaxWidth(),
-                        text = "${uiState.user.currentStreak}-day streak",
+                        text = "Radiance ${uiState.dailyRadiance.currentStreak}d • ${uiState.completedQuestCount}/${uiState.quests.size} Daily Plan complete",
+                        softWrap = true,
+                    )
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = "Radiant Vault: ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} • ${uiState.radiantRun.radiantShards} shards",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         softWrap = true,
                     )
                     Text(

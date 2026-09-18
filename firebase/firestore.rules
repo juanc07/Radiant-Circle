@@ -9,6 +9,96 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+
+    function isCircleEdgeMember(edgeId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/circleEdges/$(edgeId))
+        && request.auth.uid in get(/databases/$(database)/documents/circleEdges/$(edgeId)).data.memberUids;
+    }
+
+    function isAcceptedCircleEdge(edgeId) {
+      return isCircleEdgeMember(edgeId)
+        && get(/databases/$(database)/documents/circleEdges/$(edgeId)).data.status == "ACCEPTED";
+    }
+
+    function validCircleChatSendUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "lastMessageText",
+          "lastMessageSenderUid",
+          "lastMessageAt",
+          "updatedAt",
+          "memberALastReadAt",
+          "memberBLastReadAt"
+        ])
+        && request.resource.data.lastMessageText is string
+        && request.resource.data.lastMessageText.size() >= 1
+        && request.resource.data.lastMessageText.size() <= 500
+        && request.resource.data.lastMessageSenderUid == request.auth.uid
+        && request.resource.data.lastMessageAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.time >= resource.data.lastMessageAt + duration.value(1, 's')
+        && (
+          (
+            request.auth.uid == resource.data.memberAUid
+            && request.resource.data.memberALastReadAt == request.time
+            && request.resource.data.memberBLastReadAt == resource.data.memberBLastReadAt
+          )
+          ||
+          (
+            request.auth.uid == resource.data.memberBUid
+            && request.resource.data.memberBLastReadAt == request.time
+            && request.resource.data.memberALastReadAt == resource.data.memberALastReadAt
+          )
+        );
+    }
+
+    function validCircleChatReadUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "memberALastReadAt",
+          "memberBLastReadAt",
+          "updatedAt"
+        ])
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.auth.uid == resource.data.memberAUid
+            && request.resource.data.memberALastReadAt == request.time
+            && request.resource.data.memberBLastReadAt == resource.data.memberBLastReadAt
+          )
+          ||
+          (
+            request.auth.uid == resource.data.memberBUid
+            && request.resource.data.memberBLastReadAt == request.time
+            && request.resource.data.memberALastReadAt == resource.data.memberALastReadAt
+          )
+        );
+    }
+
+    // Phase 12G: one Radiant Circle account may use only one competition wallet
+    // per Weekly Cup. The first Ranked receipt creates this immutable lock in the
+    // same atomic Firestore transaction. Modified clients cannot switch it later.
+    function validCompetitionWalletLockAfter(weekKey, walletAddress) {
+      return signedIn()
+        && existsAfter(
+          /databases/$(database)/documents/weeklyCupCompetitionWalletLocks/$(weekKey)/accounts/$(request.auth.uid)
+        )
+        && getAfter(
+          /databases/$(database)/documents/weeklyCupCompetitionWalletLocks/$(weekKey)/accounts/$(request.auth.uid)
+        ).data.schemaVersion == 1
+        && getAfter(
+          /databases/$(database)/documents/weeklyCupCompetitionWalletLocks/$(weekKey)/accounts/$(request.auth.uid)
+        ).data.weekKey == weekKey
+        && getAfter(
+          /databases/$(database)/documents/weeklyCupCompetitionWalletLocks/$(weekKey)/accounts/$(request.auth.uid)
+        ).data.ownerUid == request.auth.uid
+        && getAfter(
+          /databases/$(database)/documents/weeklyCupCompetitionWalletLocks/$(weekKey)/accounts/$(request.auth.uid)
+        ).data.walletAddress == walletAddress
+        && getAfter(
+          /databases/$(database)/documents/weeklyCupCompetitionWalletLocks/$(weekKey)/accounts/$(request.auth.uid)
+        ).data.lockAuthority == "firestore-first-ranked-entry-phase12g";
+    }
+
     // Phase 11B.1 prototype fairness helper. A wallet/day ranked-attempt
     // document may be updated by any authenticated installation whose own
     // post-write profile carries that same public wallet address. This is not
@@ -16,6 +106,73 @@ service cloud.firestore {
     function profileWalletAfterIs(walletAddress) {
       return signedIn()
         && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.walletAddress == walletAddress;
+    }
+
+    // Phase 12A client submissions are receipts, not trusted results. A normal
+    // Android client may create exactly one UNVERIFIED/non-payout-eligible shape.
+    // Client wallet/date/score metadata is intentionally treated as an assertion,
+    // not proof; the future trusted verifier must validate it independently.
+    // Trusted Admin/server infrastructure (Admin SDK bypasses client rules) is
+    // the only authority that may later add verification/winner/payout fields.
+    function validClientCompetitionSubmission(runId) {
+      return signedIn()
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "receiptId",
+          "ownerUid",
+          "walletAddress",
+          "utcDayKey",
+          "utcWeekKey",
+          "mode",
+          "score",
+          "maxCombo",
+          "perfectHits",
+          "radiantHits",
+          "corruptedHits",
+          "clientCompletedAtEpochMillis",
+          "scoreAuthority",
+          "verificationStatus",
+          "trustedPlacementEligible",
+          "payoutEligible",
+          "payoutStatus",
+          "submittedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.receiptId is string
+        && request.resource.data.receiptId == runId
+        && request.resource.data.receiptId.size() >= 16
+        && request.resource.data.receiptId.size() <= 80
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.walletAddress is string
+        && request.resource.data.walletAddress.size() >= 32
+        && request.resource.data.walletAddress.size() <= 64
+        && request.resource.data.utcDayKey is string
+        && request.resource.data.utcDayKey.size() == 10
+        && request.resource.data.utcWeekKey is string
+        && request.resource.data.utcWeekKey.size() == 8
+        && request.resource.data.mode == "Ranked"
+        && request.resource.data.score is int
+        && request.resource.data.score >= 0
+        && request.resource.data.maxCombo is int
+        && request.resource.data.maxCombo >= 0
+        && request.resource.data.perfectHits is int
+        && request.resource.data.perfectHits >= 0
+        && request.resource.data.radiantHits is int
+        && request.resource.data.radiantHits >= 0
+        && request.resource.data.corruptedHits is int
+        && request.resource.data.corruptedHits >= 0
+        && request.resource.data.clientCompletedAtEpochMillis is int
+        && request.resource.data.clientCompletedAtEpochMillis > 0
+        && request.resource.data.scoreAuthority == "client-reported-prototype-not-payout-authority"
+        && request.resource.data.verificationStatus == "UNVERIFIED"
+        && request.resource.data.trustedPlacementEligible == false
+        && request.resource.data.payoutEligible == false
+        && request.resource.data.payoutStatus == "NOT_ELIGIBLE"
+        && request.resource.data.submittedAt == request.time
+        && validCompetitionWalletLockAfter(
+          request.resource.data.utcWeekKey,
+          request.resource.data.walletAddress
+        );
     }
 
     match /users/{userId} {
@@ -32,6 +189,323 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if owns(userId);
       allow delete: if false;
+    }
+
+    // Phase 13C social profiles. This is intentionally a small, public-to-signed-in
+    // social card only. Exact location, wallet data, email, auth ids, and trusted
+    // competition fields never belong here. Owners control only their own profile.
+    match /circleProfiles/{userId} {
+      allow read: if signedIn();
+
+      allow create, update: if owns(userId)
+        && request.resource.data.keys().hasOnly([
+          "ownerUid",
+          "displayName",
+          "avatarId",
+          "motto",
+          "favoriteFood",
+          "music",
+          "games",
+          "hobbies",
+          "books",
+          "pets",
+          "currentlyInto",
+          "weekendVibe",
+          "talkAbout",
+          "updatedAt"
+        ])
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 20
+        && request.resource.data.avatarId is string
+        && request.resource.data.avatarId.size() >= 1
+        && request.resource.data.avatarId.size() <= 32
+        && (!request.resource.data.keys().hasAny(["motto"])
+          || (request.resource.data.motto is string && request.resource.data.motto.size() <= 100))
+        && (!request.resource.data.keys().hasAny(["favoriteFood"])
+          || (request.resource.data.favoriteFood is string && request.resource.data.favoriteFood.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["music"])
+          || (request.resource.data.music is string && request.resource.data.music.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["games"])
+          || (request.resource.data.games is string && request.resource.data.games.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["hobbies"])
+          || (request.resource.data.hobbies is string && request.resource.data.hobbies.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["books"])
+          || (request.resource.data.books is string && request.resource.data.books.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["pets"])
+          || (request.resource.data.pets is string && request.resource.data.pets.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["currentlyInto"])
+          || (request.resource.data.currentlyInto is string && request.resource.data.currentlyInto.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["weekendVibe"])
+          || (request.resource.data.weekendVibe is string && request.resource.data.weekendVibe.size() <= 60))
+        && (!request.resource.data.keys().hasAny(["talkAbout"])
+          || (request.resource.data.talkAbout is string && request.resource.data.talkAbout.size() <= 90))
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if owns(userId);
+    }
+
+    // Phase 13B social discovery. Presence is opt-in, short-lived and contains
+    // coarse area/time buckets only — never raw latitude/longitude or wallet data.
+    // Any signed-in Radiant Circle member may read active candidates; only the
+    // owner can publish or replace their own temporary discovery presence.
+    match /circleDiscovery/{userId} {
+      allow read: if signedIn();
+
+      allow create, update: if owns(userId)
+        && request.resource.data.keys().hasOnly([
+          "ownerUid",
+          "displayName",
+          "avatarId",
+          "radianceStreak",
+          "level",
+          "localWindowKeys",
+          "regionalWindowKeys",
+          "broadWindowKeys",
+          "countryWindowKeys",
+          "globalWindowKeys",
+          "expiresAtEpochMillis",
+          "expiresAt",
+          "updatedAt"
+        ])
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 1
+        && request.resource.data.displayName.size() <= 20
+        && request.resource.data.avatarId is string
+        && request.resource.data.avatarId.size() >= 1
+        && request.resource.data.avatarId.size() <= 32
+        && request.resource.data.radianceStreak is int
+        && request.resource.data.radianceStreak >= 0
+        && request.resource.data.level is int
+        && request.resource.data.level >= 1
+        && request.resource.data.localWindowKeys is list
+        && request.resource.data.localWindowKeys.size() == 2
+        && request.resource.data.regionalWindowKeys is list
+        && request.resource.data.regionalWindowKeys.size() == 2
+        && request.resource.data.broadWindowKeys is list
+        && request.resource.data.broadWindowKeys.size() == 2
+        && request.resource.data.countryWindowKeys is list
+        && request.resource.data.countryWindowKeys.size() == 2
+        && request.resource.data.globalWindowKeys is list
+        && request.resource.data.globalWindowKeys.size() == 2
+        && request.resource.data.expiresAtEpochMillis is int
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt >= request.time - duration.value(15, 'm')
+        && request.resource.data.expiresAt <= request.time + duration.value(15, 'm')
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if owns(userId);
+    }
+
+    // One deterministic document represents a Spark relationship between two
+    // Firebase UIDs. The initiator can create only PENDING; only the recipient
+    // can turn that request into ACCEPTED or IGNORED. Wallet identity is not used.
+    match /circleEdges/{edgeId} {
+      allow read: if signedIn()
+        && request.auth.uid in resource.data.memberUids;
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          "memberUids",
+          "initiatorUid",
+          "recipientUid",
+          "status",
+          "initiatorDisplayName",
+          "initiatorAvatarId",
+          "recipientDisplayName",
+          "recipientAvatarId",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.memberUids is list
+        && request.resource.data.memberUids.size() == 2
+        && request.resource.data.initiatorUid == request.auth.uid
+        && request.resource.data.recipientUid is string
+        && request.resource.data.recipientUid != request.auth.uid
+        && request.resource.data.initiatorUid in request.resource.data.memberUids
+        && request.resource.data.recipientUid in request.resource.data.memberUids
+        && request.resource.data.status == "PENDING"
+        && request.resource.data.initiatorDisplayName is string
+        && request.resource.data.initiatorDisplayName.size() >= 1
+        && request.resource.data.initiatorDisplayName.size() <= 20
+        && request.resource.data.recipientDisplayName is string
+        && request.resource.data.recipientDisplayName.size() >= 1
+        && request.resource.data.recipientDisplayName.size() <= 20
+        && request.resource.data.initiatorAvatarId is string
+        && request.resource.data.initiatorAvatarId.size() <= 32
+        && request.resource.data.recipientAvatarId is string
+        && request.resource.data.recipientAvatarId.size() <= 32
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if signedIn()
+        && (
+          (
+            resource.data.recipientUid == request.auth.uid
+            && resource.data.status == "PENDING"
+            && request.resource.data.status in ["ACCEPTED", "IGNORED"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+            && request.resource.data.updatedAt == request.time
+          )
+          ||
+          (
+            request.auth.uid in resource.data.memberUids
+            && resource.data.status == "ACCEPTED"
+            && request.resource.data.status in ["REMOVED", "BLOCKED"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+            && request.resource.data.updatedAt == request.time
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // Phase 13D private mutual-friend chat. A thread is keyed by the deterministic
+    // Circle edge id. Only ACCEPTED Circle members may create/update a thread or
+    // read/write messages. Message writes must atomically advance the thread's
+    // last-message fields, and the server clock enforces a one-second send floor.
+    match /circleChats/{edgeId} {
+      // Read authorization comes from the accepted Circle edge rather than the
+      // chat document itself. This is important for the very first message:
+      // the client transaction must be allowed to read a non-existent chat doc
+      // before atomically creating the thread + first message.
+      allow read: if isAcceptedCircleEdge(edgeId);
+
+      allow create: if isAcceptedCircleEdge(edgeId)
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "edgeId",
+          "memberUids",
+          "memberAUid",
+          "memberBUid",
+          "lastMessageText",
+          "lastMessageSenderUid",
+          "lastMessageAt",
+          "memberALastReadAt",
+          "memberBLastReadAt",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.edgeId == edgeId
+        && request.resource.data.memberUids == get(/databases/$(database)/documents/circleEdges/$(edgeId)).data.memberUids
+        && request.resource.data.memberUids.size() == 2
+        && request.resource.data.memberAUid is string
+        && request.resource.data.memberBUid is string
+        && request.resource.data.memberAUid != request.resource.data.memberBUid
+        && request.resource.data.memberAUid in request.resource.data.memberUids
+        && request.resource.data.memberBUid in request.resource.data.memberUids
+        && request.resource.data.lastMessageText is string
+        && request.resource.data.lastMessageText.size() >= 1
+        && request.resource.data.lastMessageText.size() <= 500
+        && request.resource.data.lastMessageSenderUid == request.auth.uid
+        && request.resource.data.lastMessageAt == request.time
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.auth.uid == request.resource.data.memberAUid
+            && request.resource.data.memberALastReadAt == request.time
+            && request.resource.data.memberBLastReadAt is timestamp
+            && request.resource.data.memberBLastReadAt <= request.time
+          )
+          ||
+          (
+            request.auth.uid == request.resource.data.memberBUid
+            && request.resource.data.memberBLastReadAt == request.time
+            && request.resource.data.memberALastReadAt is timestamp
+            && request.resource.data.memberALastReadAt <= request.time
+          )
+        );
+
+      allow update: if isAcceptedCircleEdge(edgeId)
+        && request.auth.uid in resource.data.memberUids
+        && request.resource.data.schemaVersion == resource.data.schemaVersion
+        && request.resource.data.edgeId == resource.data.edgeId
+        && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.memberAUid == resource.data.memberAUid
+        && request.resource.data.memberBUid == resource.data.memberBUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (validCircleChatSendUpdate() || validCircleChatReadUpdate());
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAcceptedCircleEdge(edgeId);
+
+        allow create: if isAcceptedCircleEdge(edgeId)
+          && request.resource.data.keys().hasOnly([
+            "schemaVersion",
+            "edgeId",
+            "senderUid",
+            "text",
+            "sentAt"
+          ])
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.edgeId == edgeId
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() >= 1
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.sentAt == request.time
+          && existsAfter(/databases/$(database)/documents/circleChats/$(edgeId))
+          && getAfter(/databases/$(database)/documents/circleChats/$(edgeId)).data.lastMessageText == request.resource.data.text
+          && getAfter(/databases/$(database)/documents/circleChats/$(edgeId)).data.lastMessageSenderUid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/circleChats/$(edgeId)).data.lastMessageAt == request.time;
+
+        allow update, delete: if false;
+      }
+    }
+
+    // Phase 13D.4 lightweight typing presence. Presence is ephemeral UI state,
+    // scoped to an ACCEPTED Circle edge. Each member may write only their own
+    // presence row; the server timestamp prevents clients from forging freshness.
+    match /circleChatPresence/{edgeId}/members/{userId} {
+      allow read: if isAcceptedCircleEdge(edgeId);
+
+      allow create, update: if owns(userId)
+        && isAcceptedCircleEdge(edgeId)
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "edgeId",
+          "ownerUid",
+          "typing",
+          "updatedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.edgeId == edgeId
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.typing is bool
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    // Safety reports are write-only from the app. They intentionally contain no
+    // message body, wallet address, exact location, or private account fields.
+    match /circleReports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "reporterUid",
+          "targetUid",
+          "edgeId",
+          "reason",
+          "createdAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetUid != request.auth.uid
+        && request.resource.data.edgeId is string
+        && isCircleEdgeMember(request.resource.data.edgeId)
+        && request.resource.data.targetUid in get(/databases/$(database)/documents/circleEdges/$(request.resource.data.edgeId)).data.memberUids
+        && request.resource.data.reason in ["Spam", "Harassment", "Unsafe behavior", "Other"]
+        && request.resource.data.createdAt == request.time;
+
+      allow read, update, delete: if false;
     }
 
 
@@ -95,6 +569,63 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+
+
+    // Phase 12G account -> competition-wallet lock. Android may create exactly
+    // one lock for itself, and only atomically with the first matching Ranked
+    // competition receipt. Clients can read only their own lock and can never
+    // update/delete it. Admin SDK independently validates the lock before a run
+    // can become trusted-placement eligible or reach payout preparation.
+    match /weeklyCupCompetitionWalletLocks/{weekKey}/accounts/{userId} {
+      allow read: if owns(userId);
+      allow create: if owns(userId)
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "weekKey",
+          "ownerUid",
+          "walletAddress",
+          "firstReceiptId",
+          "lockAuthority",
+          "lockedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.weekKey == weekKey
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.walletAddress is string
+        && request.resource.data.walletAddress.size() >= 32
+        && request.resource.data.walletAddress.size() <= 64
+        && request.resource.data.firstReceiptId is string
+        && request.resource.data.firstReceiptId.size() >= 16
+        && request.resource.data.firstReceiptId.size() <= 80
+        && request.resource.data.lockAuthority == "firestore-first-ranked-entry-phase12g"
+        && request.resource.data.lockedAt == request.time
+        && !exists(
+          /databases/$(database)/documents/competitionRunSubmissions/$(request.resource.data.firstReceiptId)
+        )
+        && existsAfter(
+          /databases/$(database)/documents/competitionRunSubmissions/$(request.resource.data.firstReceiptId)
+        )
+        && getAfter(
+          /databases/$(database)/documents/competitionRunSubmissions/$(request.resource.data.firstReceiptId)
+        ).data.ownerUid == userId
+        && getAfter(
+          /databases/$(database)/documents/competitionRunSubmissions/$(request.resource.data.firstReceiptId)
+        ).data.utcWeekKey == weekKey
+        && getAfter(
+          /databases/$(database)/documents/competitionRunSubmissions/$(request.resource.data.firstReceiptId)
+        ).data.walletAddress == request.resource.data.walletAddress;
+      allow update, delete: if false;
+    }
+
+    // Phase 12A immutable client receipt inbox. Android can create only the
+    // strict UNVERIFIED shape above. It cannot edit a receipt into VERIFIED,
+    // payout-eligible, PAID/CONFIRMED, or any other trusted state.
+    match /competitionRunSubmissions/{runId} {
+      allow read: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow create: if validClientCompetitionSubmission(runId);
+      allow update, delete: if false;
+    }
+
     // Phase 11D sponsor-ready Weekly Radiant Cup metadata.
     // Android clients may read a published weekly sponsor announcement but can
     // never create/update it. Future sponsor funding, winner verification, and
@@ -102,6 +633,52 @@ service cloud.firestore {
     match /weeklyCupConfigs/{weekKey} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // Phase 12C trusted funding-verification audit receipts. These records are
+    // written only by Firebase Admin tooling after a live Solana Mainnet read.
+    // Android clients do not need direct access; Admin SDK bypasses client rules.
+    match /weeklyCupFundingChecks/{weekKey}/checks/{checkId} {
+      allow read, write: if false;
+    }
+
+    // Phase 12D manual-evidence run-verification audit records. Android cannot
+    // read or write these internal attestations; Admin SDK is the only writer.
+    match /competitionRunVerifications/{receiptId} {
+      allow read, write: if false;
+    }
+
+    // Phase 12D finalized Cup result summary and winner records are public read-only
+    // product data. The complete frozen eligible-receipt snapshot stays admin-only.
+    match /weeklyCupResults/{weekKey} {
+      allow read: if true;
+      allow write: if false;
+
+      match /winners/{placementId} {
+        allow read: if true;
+        allow write: if false;
+      }
+
+      match /eligibleReceipts/{receiptId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Phase 12E trusted payout lifecycle is Admin-only. It contains the exact
+    // winner wallets, amounts, review state, and immutable audit events that a
+    // future trusted transfer service may consume. Android cannot read or write
+    // this internal operational state; normal player UI continues to use the
+    // read-only Phase 12D result/winner documents.
+    match /weeklyCupPayouts/{weekKey} {
+      allow read, write: if false;
+
+      match /items/{placementId} {
+        allow read, write: if false;
+      }
+
+      match /events/{eventId} {
+        allow read, write: if false;
+      }
     }
 
     match /quests/{questId} {

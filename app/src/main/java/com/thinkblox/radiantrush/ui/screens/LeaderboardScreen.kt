@@ -35,6 +35,7 @@ import com.thinkblox.radiantrush.data.LeaderboardPreview
 import com.thinkblox.radiantrush.data.RunCompetitionPreview
 import com.thinkblox.radiantrush.data.RunLeaderboardPreview
 import com.thinkblox.radiantrush.data.WeeklyCupPreview
+import com.thinkblox.radiantrush.data.WeeklyCupWinnerPreview
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.SectionTitle
@@ -88,8 +89,16 @@ fun LeaderboardScreen(
                             walletConnected = uiState.isWalletConnected,
                         )
                     }
-                    item {
-                        WeeklyCupSponsorCard(uiState.runCompetition.weeklyCup)
+                    if (
+                        uiState.runCompetition.weeklyCup.sponsoredPrizeActive ||
+                        !uiState.runCompetition.weeklyCup.trustedSponsorConfig
+                    ) {
+                        item {
+                            WeeklyCupSponsorCard(uiState.runCompetition.weeklyCup)
+                        }
+                    }
+                    if (uiState.runCompetition.weeklyCup.finalWinners.isNotEmpty()) {
+                        item { FinalCupWinnersCard(uiState.runCompetition.weeklyCup) }
                     }
                     if (uiState.runCompetition.weeklyLeaderboard.isEmpty()) {
                         item {
@@ -104,17 +113,17 @@ fun LeaderboardScreen(
                     } else {
                         item {
                             SectionTitle(
-                                title = "Cup podium",
-                                body = "Raw Ranked score wins. Combo and PERFECT hits break ties.",
+                                title = "Live standings",
+                                body = "Current Ranked scores. Combo and PERFECT hits break ties.",
                             )
                         }
                         item {
-                            CupPodium(uiState.runCompetition.weeklyLeaderboard.take(3))
+                            LiveCupTopThree(uiState.runCompetition.weeklyLeaderboard.take(3))
                         }
                         if (uiState.runCompetition.weeklyLeaderboard.size > 3) {
                             item {
                                 SectionTitle(
-                                    title = "Standings",
+                                    title = "More standings",
                                     body = "Keep improving your weekly personal best before the season closes.",
                                 )
                             }
@@ -204,6 +213,9 @@ private fun WeeklyCupHeaderCard(
                 fontWeight = FontWeight.Black,
                 textAlign = TextAlign.Center,
             )
+            if (cup.trustedSponsorConfig || cup.cupStatusCode != "UNCONFIGURED") {
+                StatusPill(cup.cupStatusLabel)
+            }
             Text(
                 text = countdown,
                 style = MaterialTheme.typography.titleMedium,
@@ -278,7 +290,7 @@ private fun WeeklyCupHeaderCard(
             cup.previousRewardTitle?.let { reward ->
                 Text(
                     text = buildString {
-                        append("Last season • ")
+                        append(if (cup.finalResultWeekKey != null) "Last Cup • " else "Previous board • ")
                         cup.previousSeasonRank?.let { append("#$it • ") }
                         append(reward)
                     },
@@ -303,58 +315,138 @@ private fun WeeklyCupSponsorCard(cup: WeeklyCupPreview) {
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Text(
-                text = "Sponsor prize",
+                text = if (cup.trustedSponsorConfig) "Weekly prize" else "Sponsor prize",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center,
             )
-            if (cup.sponsoredPrizeActive) {
-                Text(
-                    text = cup.sponsoredPrizeLabel ?: cup.sponsoredPrizeStatus,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center,
-                )
-                cup.sponsorName?.let {
+
+            when {
+                cup.sponsoredPrizeActive -> {
                     Text(
-                        text = "Presented by $it",
+                        text = cup.sponsoredPrizeLabel ?: cup.sponsoredPrizeStatus,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center,
+                    )
+                    cup.sponsorName?.let {
+                        Text(
+                            text = "Presented by $it",
+                            style = MaterialTheme.typography.bodyMedium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                    if (cup.trustedSponsorConfig) {
+                        val publicFundingLabel = when (cup.fundingVerificationStatus) {
+                            "VERIFIED" -> "Funding verified"
+                            "REJECTED" -> "Prize unavailable"
+                            else -> "Funding pending"
+                        }
+                        StatusPill(publicFundingLabel)
+                        cup.placementAllocationLabel?.let { allocation ->
+                            Text(
+                                text = allocation,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+                }
+                else -> {
+                    Text(
+                        text = cup.sponsoredPrizeStatus,
                         style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
                 }
-                Text(
-                    text = cup.sponsorNote ?: "Sponsored rewards are confirmed after the Cup closes.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
-            } else {
-                Text(
-                    text = cup.sponsoredPrizeStatus,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                )
             }
         }
     }
 }
 
 @Composable
-private fun CupPodium(rows: List<RunLeaderboardPreview>) {
+private fun FinalCupWinnersCard(cup: WeeklyCupPreview) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.tertiaryContainer),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = "Final winners",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+            )
+            cup.finalResultWeekKey?.let { week ->
+                Text(
+                    text = week,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
+                )
+            }
+            cup.finalResultFundingLabel?.let { StatusPill(it) }
+            cup.finalWinners.forEach { winner ->
+                FinalWinnerRow(winner)
+            }
+        }
+    }
+}
+
+@Composable
+private fun FinalWinnerRow(winner: WeeklyCupWinnerPreview) {
+    val placementLabel = when (winner.placement) {
+        1 -> "1st"
+        2 -> "2nd"
+        3 -> "3rd"
+        else -> "#${winner.placement}"
+    }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = "$placementLabel • ${winner.walletLabel}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+            )
+            Text(
+                text = "Score ${winner.score} • ${winner.prizeLabel}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiveCupTopThree(rows: List<RunLeaderboardPreview>) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         rows.forEach { row ->
             val title = when (row.rank) {
-                1 -> "CHAMPION"
-                2 -> "2ND PLACE"
-                else -> "3RD PLACE"
+                1 -> "LIVE LEADER"
+                2 -> "LIVE #2"
+                else -> "LIVE #3"
             }
             Card(
                 modifier = Modifier.fillMaxWidth(),

@@ -1,15 +1,35 @@
 package com.thinkblox.radiantrush.firebase
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import com.google.firebase.FirebaseApp
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.thinkblox.radiantrush.data.AccountIdentityPreview
+import com.thinkblox.radiantrush.data.AccountLinkResult
+import com.thinkblox.radiantrush.data.ApproximateCircleLocation
+import com.thinkblox.radiantrush.data.CircleActionResult
+import com.thinkblox.radiantrush.data.CircleChatMessagePreview
+import com.thinkblox.radiantrush.data.CircleChatMetaPreview
+import com.thinkblox.radiantrush.data.CircleDiscoveryResult
+import com.thinkblox.radiantrush.data.CircleMemberPreview
+import com.thinkblox.radiantrush.data.CircleMemberProfilePreview
+import com.thinkblox.radiantrush.data.CircleProfilePreview
+import com.thinkblox.radiantrush.data.CircleSocialSnapshot
+import com.thinkblox.radiantrush.data.CircleSparkPreview
 import com.thinkblox.radiantrush.data.BadgePreview
+import com.thinkblox.radiantrush.data.DailyRadiancePreview
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.LeaderboardPreview
 import com.thinkblox.radiantrush.data.PreviewContent
@@ -22,18 +42,31 @@ import com.thinkblox.radiantrush.data.RetentionPreview
 import com.thinkblox.radiantrush.data.RunCompetitionPreview
 import com.thinkblox.radiantrush.data.RunLeaderboardPreview
 import com.thinkblox.radiantrush.data.WeeklyCupPreview
+import com.thinkblox.radiantrush.data.WeeklyCupWinnerPreview
 import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
+import com.thinkblox.radiantrush.logic.CircleDiscoveryRules
+import com.thinkblox.radiantrush.logic.CircleChatRules
+import com.thinkblox.radiantrush.logic.DailyRadianceRules
 import com.thinkblox.radiantrush.logic.LeaderboardCandidate
 import com.thinkblox.radiantrush.logic.LeaderboardRules
+import com.thinkblox.radiantrush.logic.GameplayXpAward
 import com.thinkblox.radiantrush.logic.Phase11CompetitionRules
+import com.thinkblox.radiantrush.logic.Phase12CompetitionVerificationRules
+import com.thinkblox.radiantrush.logic.Phase12CompetitionWalletLockRules
+import com.thinkblox.radiantrush.logic.Phase12WeeklyCupConfigRules
+import com.thinkblox.radiantrush.logic.Phase12WeeklyCupResultRules
+import com.thinkblox.radiantrush.logic.TrustedWeeklyCupResultState
+import com.thinkblox.radiantrush.logic.TrustedWeeklyCupWinnerInput
 import com.thinkblox.radiantrush.logic.PublicProfileRules
+import com.thinkblox.radiantrush.logic.SharedSparkRules
 import com.thinkblox.radiantrush.logic.RetentionRules
 import com.thinkblox.radiantrush.logic.RunCompetitionMode
 import com.thinkblox.radiantrush.logic.RunLeaderboardCandidate
 import com.thinkblox.radiantrush.logic.RunPersonalBest
+import com.thinkblox.radiantrush.logic.RunScoreRecord
 import com.thinkblox.radiantrush.logic.WeeklyRunStats
 import com.thinkblox.radiantrush.logic.WalletRunPersonalStats
 import com.thinkblox.radiantrush.logic.WeeklyRadiantCupRules
@@ -45,6 +78,7 @@ import com.thinkblox.radiantrush.solana.SkrBalanceSnapshot
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Date
 import java.util.Locale
 
 /**
@@ -103,6 +137,169 @@ class FirebaseRadiantRepository(
             }
     }
 
+    fun currentAccountIdentity(): AccountIdentityPreview {
+        val app = ensureFirebaseApp() ?: return AccountIdentityPreview()
+        val user = FirebaseAuth.getInstance(app).currentUser ?: return AccountIdentityPreview()
+        val googleLinked = user.providerData.any { provider -> provider.providerId == GoogleAuthProvider.PROVIDER_ID }
+        return AccountIdentityPreview(
+            isTemporary = user.isAnonymous || !googleLinked,
+            providerLabel = if (googleLinked) "Google" else "This device",
+            email = user.email?.trim()?.takeIf { it.isNotBlank() },
+        )
+    }
+
+    /**
+     * Upgrades the current anonymous Firebase account in-place when possible.
+     * If this Google account already owns a Radiant Circle UID (for example after reinstall),
+     * switch back to that existing UID so its profile/Circle/Radiance state is restored.
+     */
+    fun linkOrRestoreGoogleAccount(
+        idToken: String,
+        connectedWalletAddress: String? = null,
+        onResult: (AccountLinkResult) -> Unit,
+    ) {
+        val app = ensureFirebaseApp()
+        if (app == null) {
+            onResult(AccountLinkResult(false, message = "Account recovery is unavailable right now."))
+            return
+        }
+        val auth = FirebaseAuth.getInstance(app)
+        val currentUser = auth.currentUser
+        if (currentUser == null) {
+            onResult(AccountLinkResult(false, message = "Your Circle account is still getting ready."))
+            return
+        }
+        if (idToken.isBlank()) {
+            onResult(AccountLinkResult(false, message = "Google sign-in did not finish. Please try again."))
+            return
+        }
+
+        val credential = GoogleAuthProvider.getCredential(idToken, null)
+        val alreadyLinked = currentUser.providerData.any { provider ->
+            provider.providerId == GoogleAuthProvider.PROVIDER_ID
+        }
+        if (!currentUser.isAnonymous && alreadyLinked) {
+            onResult(AccountLinkResult(true, message = "Your Circle is already protected with Google."))
+            return
+        }
+
+        currentUser.linkWithCredential(credential)
+            .addOnSuccessListener {
+                onResult(
+                    AccountLinkResult(
+                        success = true,
+                        restoredExistingAccount = false,
+                        message = "Your Circle is protected. Your profile can now return after reinstall.",
+                    ),
+                )
+            }
+            .addOnFailureListener { error ->
+                if (error is FirebaseAuthUserCollisionException) {
+                    // The Google account is already linked to the user's older durable UID.
+                    // This is the expected recovery path after uninstall/reinstall.
+                    auth.signInWithCredential(credential)
+                        .addOnSuccessListener { result ->
+                            val restoredUid = result.user?.uid
+                            if (restoredUid.isNullOrBlank()) {
+                                onResult(
+                                    AccountLinkResult(
+                                        false,
+                                        message = "We couldn't restore your saved Circle right now. Please try again.",
+                                    ),
+                                )
+                                return@addOnSuccessListener
+                            }
+
+                            // Google recovery can switch Firebase UIDs. The currently connected
+                            // Solana wallet is a live app/session choice, not the social identity,
+                            // so carry that public address onto the restored account instead of
+                            // making the player reconnect. This does not grant a wallet quest reward
+                            // and does not change the immutable Phase 12G Cup competition-wallet lock.
+                            preserveConnectedWalletAfterAccountRestore(
+                                app = app,
+                                restoredUid = restoredUid,
+                                connectedWalletAddress = connectedWalletAddress,
+                            ) { walletPreserved ->
+                                onResult(
+                                    AccountLinkResult(
+                                        success = true,
+                                        restoredExistingAccount = true,
+                                        message = if (walletPreserved) {
+                                            "Welcome back. Your saved Circle was restored and your wallet stayed connected."
+                                        } else {
+                                            "Welcome back. Your saved Circle profile was restored."
+                                        },
+                                    ),
+                                )
+                            }
+                        }
+                        .addOnFailureListener {
+                            onResult(
+                                AccountLinkResult(
+                                    false,
+                                    message = "We couldn't restore your saved Circle right now. Please try again.",
+                                ),
+                            )
+                        }
+                } else {
+                    onResult(
+                        AccountLinkResult(
+                            false,
+                            message = "We couldn't protect your Circle right now. Please try again.",
+                        ),
+                    )
+                }
+            }
+    }
+
+    private fun preserveConnectedWalletAfterAccountRestore(
+        app: FirebaseApp,
+        restoredUid: String,
+        connectedWalletAddress: String?,
+        onComplete: (Boolean) -> Unit,
+    ) {
+        val cleanWallet = connectedWalletAddress?.trim().orEmpty()
+        if (cleanWallet.isBlank()) {
+            onComplete(false)
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(app)
+        val userRef = db.collection(USERS).document(restoredUid)
+        val leaderboardRef = db.collection(LEADERBOARD).document(restoredUid)
+        val batch = db.batch()
+
+        // Preserve only the current public wallet connection. Do not copy anonymous
+        // account progression, do not mint rewards, and do not touch trusted Cup locks.
+        batch.set(
+            userRef,
+            mapOf(
+                "walletAddress" to cleanWallet,
+                "walletAddressShort" to shortenAddress(cleanWallet),
+                "walletAccountLabel" to null,
+                "walletStatus" to "Wallet connected",
+                "updatedAt" to FieldValue.serverTimestamp(),
+            ),
+            SetOptions.merge(),
+        )
+        batch.set(
+            leaderboardRef,
+            mapOf(
+                "walletAddress" to cleanWallet,
+                "walletAddressShort" to shortenAddress(cleanWallet),
+                "updatedAt" to FieldValue.serverTimestamp(),
+            ),
+            SetOptions.merge(),
+        )
+
+        batch.commit()
+            .addOnSuccessListener { onComplete(true) }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Circle account restored, but connected wallet could not be preserved", error)
+                onComplete(false)
+            }
+    }
+
     fun completeDailyFirebaseCheckIn(
         quest: QuestPreview,
         onState: (RushUiState) -> Unit,
@@ -123,8 +320,64 @@ class FirebaseRadiantRepository(
             ),
             loadingMessage = "Saving today’s check-in…",
             successMessage = "Checked in for today.",
+            userExtraFields = mapOf(
+                "lastDailyCheckInDate" to todayKey(),
+            ),
             onState = onState,
         )
+    }
+
+    fun openDailyRadiance(onState: (RushUiState) -> Unit) {
+        val session = currentFirebaseSession(onState) ?: return
+        val db = FirebaseFirestore.getInstance(session.app)
+        val today = todayKey()
+        val userRef = db.collection(USERS).document(session.uid)
+
+        db.runTransaction { transaction ->
+            val snapshot = transaction.get(userRef)
+            val lastOpenedDay = snapshot.getString("dailyRadianceLastOpenedDate")
+            if (lastOpenedDay != today) {
+                val savedStreak = (snapshot.getLong("dailyRadianceCurrentStreak") ?: 0L).toInt()
+                val savedLongest = (snapshot.getLong("dailyRadianceLongestStreak") ?: 0L).toInt()
+                val nextStreak = DailyRadianceRules.nextStreak(
+                    lastOpenedDay = lastOpenedDay,
+                    todayKey = today,
+                    currentStreak = savedStreak,
+                )
+                val content = DailyRadianceRules.contentFor(
+                    accountId = session.uid,
+                    dayKey = today,
+                )
+
+                transaction.set(
+                    userRef,
+                    mapOf(
+                        "dailyRadianceLastOpenedDate" to today,
+                        "dailyRadianceCurrentStreak" to nextStreak.toLong(),
+                        "dailyRadianceLongestStreak" to maxOf(savedLongest, nextStreak).toLong(),
+                        "dailyRadianceMessageId" to content.id,
+                        "dailyRadianceCategory" to content.category,
+                        "dailyRadianceOpenedAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                    SetOptions.merge(),
+                )
+            }
+            Unit
+        }
+            .addOnSuccessListener {
+                loadOrCreateProfile(session.uid, onState, "Today's Radiance is ready.")
+            }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Daily Radiance open failed: ${safeMessage(error)}")
+                // Keep the last known profile/Daily Plan usable instead of replacing the shell
+                // with a default error snapshot after a lightweight social action fails.
+                loadOrCreateProfile(
+                    session.uid,
+                    onState,
+                    "Couldn't open today's Radiance. Please try again.",
+                )
+            }
     }
 
     fun saveWalletConnection(
@@ -697,10 +950,18 @@ class FirebaseRadiantRepository(
             corruptedHits = result.corruptedHits.coerceAtLeast(0),
             perfectHits = result.perfectHits.coerceAtLeast(0),
         )
+        val receiptId = safeResult.receiptId.trim()
+        if (!Phase12CompetitionVerificationRules.isValidReceiptId(receiptId)) {
+            onState(errorState("Could not save Radiant Rush run: invalid competition receipt id."))
+            return
+        }
+
         val db = FirebaseFirestore.getInstance(session.app)
         val userRef = db.collection(USERS).document(session.uid)
         val leaderboardRef = db.collection(LEADERBOARD).document(session.uid)
-        val completedAtMs = System.currentTimeMillis()
+        val completedAtMs = safeResult.completedAtEpochMillis
+            .takeIf { it > 0L }
+            ?: System.currentTimeMillis()
         val utcDayKey = Phase11CompetitionRules.utcDayKey(completedAtMs)
         val utcWeekKey = Phase11CompetitionRules.utcWeekKey(completedAtMs)
         val weeklyRef = db.collection(RUN_WEEKLY)
@@ -708,6 +969,10 @@ class FirebaseRadiantRepository(
             .collection(RUN_ENTRIES)
             .document(session.uid)
         val allTimeRef = db.collection(RUN_ALL_TIME).document(session.uid)
+        val competitionWalletLockRef = db.collection(WEEKLY_CUP_COMPETITION_WALLET_LOCKS)
+            .document(utcWeekKey)
+            .collection(WEEKLY_CUP_LOCK_ACCOUNTS)
+            .document(session.uid)
 
         db.runTransaction { transaction ->
             // Firestore transactions require all reads before writes.
@@ -734,6 +999,7 @@ class FirebaseRadiantRepository(
             val walletDailySnapshot = walletDailyRef?.let { transaction.get(it) }
             val weeklySnapshot = transaction.get(weeklyRef)
             val allTimeSnapshot = transaction.get(allTimeRef)
+            val competitionWalletLockSnapshot = transaction.get(competitionWalletLockRef)
 
             val oldTickets = userSnapshot.getLong("rushTickets")
                 ?: RadiantGameRules.STARTER_TICKETS.toLong()
@@ -743,7 +1009,7 @@ class FirebaseRadiantRepository(
             }
 
             val legacyAttemptsUsed = (userSnapshot.getLong("rankedAttemptsUsedToday") ?: 0L).toInt()
-            val rankedDecision = Phase11CompetitionRules.rankedAttemptDecision(
+            val rankedDecisionCandidate = Phase11CompetitionRules.rankedAttemptDecision(
                 walletConnected = walletConnected,
                 savedDayKey = walletDailySnapshot?.getString("utcDayKey")
                     ?: userSnapshot.getString("rankedRunsDayKey"),
@@ -755,6 +1021,33 @@ class FirebaseRadiantRepository(
                 completedAtEpochMillis = completedAtMs,
                 rankedEntryTicketAvailable = oldTickets >= RadiantGameRules.RUN_TICKET_COST,
             )
+            val competitionWalletLockShapeTrusted = competitionWalletLockSnapshot.exists() &&
+                Phase12CompetitionWalletLockRules.isTrustedLockShape(
+                    schemaVersion = competitionWalletLockSnapshot.getLong("schemaVersion")?.toInt(),
+                    weekKey = competitionWalletLockSnapshot.getString("weekKey"),
+                    ownerUid = competitionWalletLockSnapshot.getString("ownerUid"),
+                    lockAuthority = competitionWalletLockSnapshot.getString("lockAuthority"),
+                    expectedWeekKey = utcWeekKey,
+                    expectedOwnerUid = session.uid,
+                )
+            val competitionWalletLockedOut = rankedDecisionCandidate.mode == RunCompetitionMode.Ranked &&
+                !Phase12CompetitionWalletLockRules.allowsRankedEntry(
+                    lockExists = competitionWalletLockSnapshot.exists(),
+                    trustedLockShape = competitionWalletLockShapeTrusted,
+                    lockedWallet = competitionWalletLockSnapshot.getString("walletAddress"),
+                    candidateWallet = walletAddress,
+                )
+            val rankedDecision = if (competitionWalletLockedOut) {
+                rankedDecisionCandidate.copy(
+                    mode = RunCompetitionMode.Casual,
+                    rankedAttemptsUsedAfter = rankedDecisionCandidate.rankedAttemptsUsedBefore,
+                    rankedAttemptsRemaining = (
+                        Phase11CompetitionRules.DAILY_RANKED_ATTEMPTS - rankedDecisionCandidate.rankedAttemptsUsedBefore
+                    ).coerceAtLeast(0),
+                )
+            } else {
+                rankedDecisionCandidate
+            }
             // Phase 11C.4: gameplay XP uses the same wallet/day scope as ranked
             // attempts. Otherwise reinstalling or using a second phone would reset
             // the 300 XP cap and My Stats would show device-local values. Existing
@@ -833,7 +1126,7 @@ class FirebaseRadiantRepository(
             val collectionOwned = RadiantGameRules.ownedUniqueCount(newCounts)
 
             val runRecord = Phase11CompetitionRules.createRunScoreRecord(
-                runId = "${session.uid}_$completedAtMs",
+                runId = receiptId,
                 ownerUid = session.uid,
                 displayName = displayName,
                 walletAddress = walletAddress,
@@ -972,7 +1265,7 @@ class FirebaseRadiantRepository(
                         "attemptsUsed" to rankedDecision.rankedAttemptsUsedAfter,
                         "gameplayXpEarnedToday" to xpAward.earnedAfter,
                         "lastWriterUid" to session.uid,
-                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
                         "payoutEligible" to false,
                         "updatedAt" to FieldValue.serverTimestamp(),
                     ),
@@ -995,7 +1288,7 @@ class FirebaseRadiantRepository(
                         "perfectHits" to newWeekly.perfectHitsAtBestScore,
                         "runsPlayed" to newWeekly.rankedRunsPlayed,
                         "bestCompletedAtEpochMillis" to newWeekly.bestCompletedAtEpochMillis,
-                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
                         "payoutEligible" to false,
                         "updatedAt" to FieldValue.serverTimestamp(),
                     ),
@@ -1015,7 +1308,7 @@ class FirebaseRadiantRepository(
                         "runsPlayed" to allTimeRuns,
                         "bestCompletedAtEpochMillis" to newAllTime.completedAtEpochMillis,
                         "bestWeekKey" to newAllTime.utcWeekKey,
-                        "scoreAuthority" to "client-reported-prototype-not-payout-authority",
+                        "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
                         "payoutEligible" to false,
                         "updatedAt" to FieldValue.serverTimestamp(),
                     ),
@@ -1023,9 +1316,18 @@ class FirebaseRadiantRepository(
                 )
             }
 
-            Triple(reward, rankedDecision.mode, xpAward)
+            RadiantRunCommitOutcome(
+                reward = reward,
+                mode = rankedDecision.mode,
+                xpAward = xpAward,
+                runRecord = runRecord,
+                competitionWalletLockedOut = competitionWalletLockedOut,
+            )
         }
-            .addOnSuccessListener { (reward, mode, xpAward) ->
+            .addOnSuccessListener { outcome ->
+                val reward = outcome.reward
+                val mode = outcome.mode
+                val xpAward = outcome.xpAward
                 val duplicateText = if (reward.duplicate) {
                     " Duplicate converted to +${reward.duplicateShards} Radiant Shards."
                 } else {
@@ -1037,14 +1339,233 @@ class FirebaseRadiantRepository(
                     "Casual run saved; ranked boards unchanged"
                 }
                 val capText = if (xpAward.wasCapped) " Daily gameplay XP cap reached." else ""
-                loadOrCreateProfile(
-                    session.uid,
-                    onState,
-                    "$modeText • ${reward.capsuleTier}: ${reward.collectible.rarity} ${reward.collectible.title}. +${xpAward.grantedXp} performance XP.$duplicateText$capText",
-                )
+                val walletLockText = if (outcome.competitionWalletLockedOut) {
+                    " This Cup is already linked to the first competition wallet used by this account. " +
+                        "This run was saved as Casual; reconnect that wallet for Ranked."
+                } else {
+                    ""
+                }
+                val savedMessage =
+                    "$modeText • ${reward.capsuleTier}: ${reward.collectible.rarity} ${reward.collectible.title}. " +
+                        "+${xpAward.grantedXp} performance XP.$duplicateText$capText$walletLockText"
+
+                // Phase 12A.1: do not silently hide receipt failures. The normal
+                // run/reward transaction above is already committed, so a receipt
+                // failure can never take away the player's score, XP, ticket use,
+                // collectible, Weekly PB, or All-Time PB. For Ranked runs we wait
+                // only for the separate receipt attempt before refreshing the
+                // profile so the result screen reports CREATED / ALREADY EXISTS /
+                // FAILED explicitly.
+                if (mode == RunCompetitionMode.Ranked) {
+                    Log.d(
+                        TAG,
+                        "Phase12A Ranked run committed; submitting receipt ${outcome.runRecord.runId}",
+                    )
+                    submitUnverifiedCompetitionReceipt(db, outcome.runRecord) { receiptResult ->
+                        val receiptMessage = when (receiptResult.status) {
+                            CompetitionReceiptWriteStatus.CREATED ->
+                                " Competition receipt ${outcome.runRecord.runId.take(8)} created as UNVERIFIED."
+
+                            CompetitionReceiptWriteStatus.ALREADY_EXISTS ->
+                                " Competition receipt ${outcome.runRecord.runId.take(8)} already exists; no duplicate created."
+
+                            CompetitionReceiptWriteStatus.FAILED ->
+                                " Competition receipt FAILED; score/reward are still saved. ${receiptResult.detail}"
+                        }
+                        loadOrCreateProfile(
+                            session.uid,
+                            onState,
+                            savedMessage + receiptMessage,
+                        )
+                    }
+                } else {
+                    Log.d(TAG, "Phase12A receipt skipped because run mode is Casual.")
+                    loadOrCreateProfile(
+                        session.uid,
+                        onState,
+                        "$savedMessage No trusted-Cup receipt is created for Casual runs.",
+                    )
+                }
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not save Radiant Rush: ${safeMessage(error)}")
+            }
+    }
+
+    private enum class CompetitionReceiptWriteStatus {
+        CREATED,
+        ALREADY_EXISTS,
+        FAILED,
+    }
+
+    private data class CompetitionReceiptWriteResult(
+        val status: CompetitionReceiptWriteStatus,
+        val detail: String = "",
+    )
+
+    /**
+     * Creates the Phase 12A client receipt. This write can only create an
+     * UNVERIFIED/non-payout-eligible document; Firestore rules deny all client
+     * updates and deletes. A future trusted Admin/server verifier may transition
+     * the receipt to VERIFIED or REJECTED.
+     *
+     * The callback is diagnostic/UX only. The existing run/reward/leaderboard
+     * transaction is already committed before this method runs, so receipt
+     * persistence never becomes payout authority and never rolls gameplay back.
+     */
+    private fun submitUnverifiedCompetitionReceipt(
+        db: FirebaseFirestore,
+        run: RunScoreRecord,
+        onComplete: (CompetitionReceiptWriteResult) -> Unit,
+    ) {
+        if (run.mode != RunCompetitionMode.Ranked) {
+            onComplete(
+                CompetitionReceiptWriteResult(
+                    status = CompetitionReceiptWriteStatus.FAILED,
+                    detail = "Run was not Ranked.",
+                ),
+            )
+            return
+        }
+
+        val walletAddress = Phase12CompetitionWalletLockRules.normalizedWallet(run.walletAddress)
+        if (walletAddress == null) {
+            val detail = "No connected wallet was attached to the Ranked run."
+            Log.w(TAG, "Competition receipt ${run.runId} not submitted: $detail")
+            onComplete(
+                CompetitionReceiptWriteResult(
+                    status = CompetitionReceiptWriteStatus.FAILED,
+                    detail = detail,
+                ),
+            )
+            return
+        }
+
+        val trust = Phase12CompetitionVerificationRules.clientInitialTrustState()
+        val receiptRef = db.collection(COMPETITION_RUN_SUBMISSIONS).document(run.runId)
+        val walletLockRef = db.collection(WEEKLY_CUP_COMPETITION_WALLET_LOCKS)
+            .document(run.utcWeekKey)
+            .collection(WEEKLY_CUP_LOCK_ACCOUNTS)
+            .document(run.ownerUid)
+        val payload = mapOf(
+            "schemaVersion" to Phase12CompetitionVerificationRules.RECEIPT_SCHEMA_VERSION,
+            "receiptId" to run.runId,
+            "ownerUid" to run.ownerUid,
+            "walletAddress" to walletAddress,
+            "utcDayKey" to run.utcDayKey,
+            "utcWeekKey" to run.utcWeekKey,
+            "mode" to run.mode.name,
+            "score" to run.score,
+            "maxCombo" to run.maxCombo,
+            "perfectHits" to run.perfectHits,
+            "radiantHits" to run.radiantHits,
+            "corruptedHits" to run.corruptedHits,
+            "clientCompletedAtEpochMillis" to run.completedAtEpochMillis,
+            "scoreAuthority" to Phase12CompetitionVerificationRules.CLIENT_REPORTED_SCORE_AUTHORITY,
+            "verificationStatus" to trust.verificationStatus.name,
+            "trustedPlacementEligible" to trust.trustedPlacementEligible,
+            "payoutEligible" to trust.payoutEligible,
+            "payoutStatus" to trust.payoutStatus,
+            "submittedAt" to FieldValue.serverTimestamp(),
+        )
+
+        db.runTransaction { transaction ->
+            val lockSnapshot = transaction.get(walletLockRef)
+            val receiptSnapshot = transaction.get(receiptRef)
+
+            val lockIsTrustedShape = lockSnapshot.exists() &&
+                lockSnapshot.getLong("schemaVersion") == Phase12CompetitionWalletLockRules.LOCK_SCHEMA_VERSION.toLong() &&
+                lockSnapshot.getString("weekKey") == run.utcWeekKey &&
+                lockSnapshot.getString("ownerUid") == run.ownerUid &&
+                lockSnapshot.getString("lockAuthority") == Phase12CompetitionWalletLockRules.LOCK_AUTHORITY
+
+            if (receiptSnapshot.exists()) {
+                val sameReceipt = receiptSnapshot.getString("receiptId") == run.runId &&
+                    receiptSnapshot.getString("ownerUid") == run.ownerUid &&
+                    receiptSnapshot.getString("utcWeekKey") == run.utcWeekKey &&
+                    receiptSnapshot.getString("walletAddress") == walletAddress
+                if (!sameReceipt) {
+                    throw IllegalStateException("A different competition receipt already uses this run id.")
+                }
+                if (!lockIsTrustedShape) {
+                    throw IllegalStateException(
+                        "This Cup entry does not have a valid competition-wallet lock. Please use a new Cup entry after updating the app.",
+                    )
+                }
+                if (!Phase12CompetitionWalletLockRules.walletMatchesLock(
+                        lockSnapshot.getString("walletAddress"),
+                        walletAddress,
+                    )
+                ) {
+                    throw IllegalStateException(
+                        "This Weekly Cup is already linked to another competition wallet. Reconnect the wallet first used for this Cup.",
+                    )
+                }
+                return@runTransaction CompetitionReceiptWriteStatus.ALREADY_EXISTS
+            }
+
+            if (lockSnapshot.exists()) {
+                if (!lockIsTrustedShape) {
+                    throw IllegalStateException("This Cup's competition-wallet lock is invalid. Please try again later.")
+                }
+                if (!Phase12CompetitionWalletLockRules.walletMatchesLock(
+                        lockSnapshot.getString("walletAddress"),
+                        walletAddress,
+                    )
+                ) {
+                    throw IllegalStateException(
+                        "This Weekly Cup is already linked to another competition wallet. Reconnect the wallet first used for this Cup.",
+                    )
+                }
+            } else {
+                transaction.set(
+                    walletLockRef,
+                    mapOf(
+                        "schemaVersion" to Phase12CompetitionWalletLockRules.LOCK_SCHEMA_VERSION,
+                        "weekKey" to run.utcWeekKey,
+                        "ownerUid" to run.ownerUid,
+                        "walletAddress" to walletAddress,
+                        "firstReceiptId" to run.runId,
+                        "lockAuthority" to Phase12CompetitionWalletLockRules.LOCK_AUTHORITY,
+                        "lockedAt" to FieldValue.serverTimestamp(),
+                    ),
+                )
+            }
+
+            transaction.set(receiptRef, payload)
+            CompetitionReceiptWriteStatus.CREATED
+        }
+            .addOnSuccessListener { status ->
+                when (status) {
+                    CompetitionReceiptWriteStatus.CREATED -> {
+                        Log.d(TAG, "Created UNVERIFIED competition receipt ${run.runId} with immutable Cup wallet lock")
+                        onComplete(CompetitionReceiptWriteResult(status = status))
+                    }
+
+                    CompetitionReceiptWriteStatus.ALREADY_EXISTS -> {
+                        Log.d(TAG, "Competition receipt ${run.runId} already exists; retry is idempotent.")
+                        onComplete(CompetitionReceiptWriteResult(status = status))
+                    }
+
+                    CompetitionReceiptWriteStatus.FAILED -> {
+                        onComplete(
+                            CompetitionReceiptWriteResult(
+                                status = CompetitionReceiptWriteStatus.FAILED,
+                                detail = "Competition receipt was not persisted.",
+                            ),
+                        )
+                    }
+                }
+            }
+            .addOnFailureListener { error ->
+                val detail = safeMessage(error).take(180)
+                Log.w(TAG, "Competition receipt ${run.runId} was not persisted: $detail")
+                onComplete(
+                    CompetitionReceiptWriteResult(
+                        status = CompetitionReceiptWriteStatus.FAILED,
+                        detail = detail,
+                    ),
+                )
             }
     }
 
@@ -1123,7 +1644,22 @@ class FirebaseRadiantRepository(
             }
         }
             .addOnSuccessListener {
-                loadOrCreateProfile(session.uid, onState, "Public profile updated.")
+                // Circle identity sync is best-effort. The core public profile save must
+                // never fail just because the optional social-profile collection is not
+                // available yet.
+                db.collection(CIRCLE_PROFILES).document(session.uid)
+                    .set(
+                        mapOf(
+                            "ownerUid" to session.uid,
+                            "displayName" to cleanName,
+                            "avatarId" to cleanAvatar,
+                            "updatedAt" to FieldValue.serverTimestamp(),
+                        ),
+                        SetOptions.merge(),
+                    )
+                    .addOnCompleteListener {
+                        loadOrCreateProfile(session.uid, onState, "Public profile updated.")
+                    }
             }
             .addOnFailureListener { error ->
                 loadOrCreateProfile(session.uid, onState, "Could not update profile: ${safeMessage(error)}")
@@ -1325,6 +1861,11 @@ class FirebaseRadiantRepository(
                         "skrStakeBoostActive" to false,
                         "skrStakeBoostLabel" to "Stake Boost inactive",
                         "skrUnstakingReady" to false,
+                        "dailyRadianceLastOpenedDate" to null,
+                        "dailyRadianceCurrentStreak" to 0L,
+                        "dailyRadianceLongestStreak" to 0L,
+                        "dailyRadianceMessageId" to null,
+                        "dailyRadianceCategory" to null,
                         "xp" to 0L,
                         "level" to 1L,
                         "currentStreak" to 0L,
@@ -1378,168 +1919,278 @@ class FirebaseRadiantRepository(
         message: String?,
     ) {
         val today = todayKey()
+        val currentWalletAddress = userSnapshot.getString("walletAddress")
+            ?.trim()
+            ?.takeIf { it.isNotBlank() }
+        val walletConnected = currentWalletAddress != null
+        val user = profileToUser(userSnapshot)
+        val collection = RadiantGameRules.collectionPreview(collectionCounts(userSnapshot))
+        val radiantRun = RadiantRunPreview(
+            rushTickets = user.rushTickets,
+            skrCasualRushTickets = user.skrCasualRushTickets,
+            bestScore = user.bestRunScore,
+            totalRuns = user.totalRuns,
+            lastScore = user.lastRunScore,
+            lastMaxCombo = user.lastRunMaxCombo,
+            lastCapsuleTier = userSnapshot.getString("lastRunCapsuleTier"),
+            lastRewardTitle = user.lastRunRewardTitle,
+            lastRewardRarity = user.lastRunRewardRarity,
+            lastRewardXp = user.lastRunRewardXp,
+            lastRewardShards = user.lastRunRewardShards,
+            radiantShards = user.radiantShards,
+            collectionOwned = collection.count { it.discovered },
+            // The catalog, not persisted profile data, is authoritative for Vault size.
+            // This prevents older 6-item builds/profile snapshots from leaking a stale total.
+            collectionTotal = RadiantGameRules.COLLECTION_TOTAL,
+        )
+        val dailyRadiance = dailyRadianceState(
+            uid = uid,
+            userSnapshot = userSnapshot,
+            today = today,
+        )
+        val accountIdentity = currentAccountIdentity()
+
+        fun profileFallbackCompletedIds(): MutableSet<String> = mutableSetOf<String>().apply {
+            if (userSnapshot.getString("lastDailyCheckInDate") == today) {
+                add(QuestIds.DAILY_CHECK_IN)
+            }
+            if (userSnapshot.getString("lastSignedProofDate") == today) {
+                add(QuestIds.SIGN_DAILY_PROOF)
+            }
+            if (userSnapshot.getString("lastOnChainProofDate") == today) {
+                add(QuestIds.ON_CHAIN_PROOF)
+            }
+            if (userSnapshot.getString("lastSkrCheckDate") == today) {
+                add(QuestIds.SKR_HOLDER)
+            }
+            if (userSnapshot.getString("lastChestClaimDate") == today) {
+                add(QuestIds.DAILY_RADIANT_CHEST)
+            }
+        }
+
+        fun questState(
+            completedIds: Set<String>,
+            completionHistoryLoaded: Boolean,
+        ): List<QuestPreview> = PreviewContent.quests.map { quest ->
+            when {
+                completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
+                quest.id == QuestIds.WALLET_CONNECT && walletConnected -> quest.copy(status = QuestStatus.Completed)
+                quest.id == QuestIds.DAILY_CHECK_IN && !completionHistoryLoaded -> quest.copy(status = QuestStatus.Syncing)
+                quest.id == QuestIds.DAILY_CHECK_IN -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.SIGN_DAILY_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.ON_CHAIN_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.SKR_HOLDER && walletConnected -> quest.copy(status = QuestStatus.Ready)
+                quest.id == QuestIds.SIGN_DAILY_PROOF -> quest.copy(status = QuestStatus.Blocked)
+                quest.id == QuestIds.ON_CHAIN_PROOF -> quest.copy(status = QuestStatus.Blocked)
+                quest.id == QuestIds.SKR_HOLDER -> quest.copy(status = QuestStatus.Blocked)
+                else -> quest.copy(status = QuestStatus.Locked)
+            }
+        }
+
+        fun chestState(completedIds: Set<String>, quests: List<QuestPreview>): RadiantChestPreview {
+            val chestClaimedToday = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)
+            val questStatuses = quests.associate { it.id to it.status }
+            val chestReady = RewardLoopRules.canClaimDailyChest(
+                questStatuses = questStatuses,
+                alreadyClaimedToday = chestClaimedToday,
+            )
+            return radiantChestState(
+                user = user,
+                completedQuestCount = quests.count { it.status == QuestStatus.Completed },
+                totalQuestCount = quests.size,
+                chestReady = chestReady,
+                chestClaimedToday = chestClaimedToday,
+            )
+        }
+
+        // Phase 12D UX rule: the profile document is the critical bootstrap boundary.
+        // Once it is available the app, Home and MWA are usable. Daily quest history,
+        // ranks and Cup data are enrichment and may hydrate afterward without blocking
+        // the whole product shell.
+        val fallbackCompletedIds = profileFallbackCompletedIds()
+        val fallbackQuests = questState(
+            completedIds = fallbackCompletedIds,
+            completionHistoryLoaded = false,
+        )
+        onState(
+            RushUiState(
+                firebaseStatus = FirebaseStatus.Ready,
+                accountIdentity = accountIdentity,
+                user = user,
+                quests = fallbackQuests,
+                dailyRadiance = dailyRadiance,
+                radiantChest = chestState(fallbackCompletedIds, fallbackQuests),
+                radiantRun = radiantRun,
+                collection = collection,
+                badges = badgeState(user, fallbackCompletedIds),
+                leaderboard = emptyList(),
+                runCompetition = RunCompetitionPreview(),
+                retention = retentionState(
+                    user = user,
+                    radiantRun = radiantRun,
+                    competition = RunCompetitionPreview(),
+                ),
+                todayKey = today,
+                lastMessage = message,
+                backgroundSyncInProgress = true,
+            ),
+        )
+
+        fun continueBackgroundHydration(
+            completedIds: Set<String>,
+            questWarning: String? = null,
+        ) {
+            val quests = questState(
+                completedIds = completedIds,
+                completionHistoryLoaded = true,
+            )
+            val radiantChest = chestState(completedIds, quests)
+            val badges = badgeState(user, completedIds)
+
+            fun finishBackgroundHydration(
+                leaderboard: List<LeaderboardPreview>,
+                leaderboardWarning: String? = null,
+            ) {
+                loadRunCompetition(
+                    db = db,
+                    userSnapshot = userSnapshot,
+                    walletConnected = walletConnected,
+                ) { runCompetition, competitionWarning ->
+                    val retention = retentionState(
+                        user = user,
+                        radiantRun = radiantRun,
+                        competition = runCompetition,
+                    )
+                    val mergedMessage = listOfNotNull(
+                        message,
+                        questWarning,
+                        leaderboardWarning,
+                        competitionWarning,
+                    )
+                        .filter { it.isNotBlank() }
+                        .joinToString(" ")
+                        .takeIf { it.isNotBlank() }
+                    onState(
+                        RushUiState(
+                            firebaseStatus = FirebaseStatus.Ready,
+                            accountIdentity = accountIdentity,
+                            user = user,
+                            quests = quests,
+                            dailyRadiance = dailyRadiance,
+                            radiantChest = radiantChest,
+                            radiantRun = radiantRun,
+                            collection = collection,
+                            badges = badges,
+                            leaderboard = leaderboard,
+                            runCompetition = runCompetition,
+                            retention = retention,
+                            todayKey = today,
+                            lastMessage = mergedMessage,
+                            backgroundSyncInProgress = false,
+                        ),
+                    )
+                }
+            }
+
+            db.collection(LEADERBOARD)
+                .orderBy("xp", Query.Direction.DESCENDING)
+                // Read more than the visible Top 20 so legacy duplicate anonymous
+                // UIDs cannot crowd unique wallets out of the ranking.
+                .limit(100)
+                .get()
+                .addOnSuccessListener { leaderboardQuery ->
+                    val uniqueWalletRows = LeaderboardRules.collapseByWallet(
+                        candidates = leaderboardQuery.documents.map { document ->
+                            LeaderboardCandidate(
+                                sourceId = document.id,
+                                displayName = document.getString("displayName") ?: "Radiant Rookie",
+                                walletAddress = document.getString("walletAddress"),
+                                walletAddressShort = document.getString("walletAddressShort"),
+                                xp = (document.getLong("xp") ?: 0L).toInt(),
+                                streak = (document.getLong("currentStreak") ?: 0L).toInt(),
+                                tier = document.getString("skrTier") ?: "Explorer",
+                                avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
+                                updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
+                            )
+                        },
+                        limit = 20,
+                    )
+                    val currentDisplayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
+                    val currentAvatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
+                    val leaderboard = uniqueWalletRows.mapIndexed { index, row ->
+                        val isCurrentUser = currentWalletAddress != null &&
+                            row.walletAddress?.trim() == currentWalletAddress
+                        LeaderboardPreview(
+                            rank = index + 1,
+                            name = if (isCurrentUser) currentDisplayName else row.displayName,
+                            xp = row.xp,
+                            streak = row.streak,
+                            tier = row.tier,
+                            walletLabel = LeaderboardRules.walletLabel(row),
+                            avatarId = if (isCurrentUser) {
+                                currentAvatarId
+                            } else {
+                                PublicProfileRules.normalizeAvatarId(row.avatarId)
+                            },
+                            isCurrentUser = isCurrentUser,
+                        )
+                    }.ifEmpty {
+                        if (walletConnected) listOf(profileToLeaderboardRow(userSnapshot)) else emptyList()
+                    }
+                    finishBackgroundHydration(leaderboard)
+                }
+                .addOnFailureListener { error ->
+                    // Ranking is enrichment, not an app availability gate.
+                    finishBackgroundHydration(
+                        leaderboard = if (walletConnected) {
+                            listOf(profileToLeaderboardRow(userSnapshot))
+                        } else {
+                            emptyList()
+                        },
+                        leaderboardWarning = "Ranks are temporarily unavailable: ${safeMessage(error)}",
+                    )
+                }
+        }
+
         db.collection(USERS)
             .document(uid)
             .collection(COMPLETED_QUESTS)
             .whereEqualTo("date", today)
             .get()
             .addOnSuccessListener { completedQuery ->
-                val completedIds = completedQuery.documents
-                    .mapNotNull { it.getString("questId") }
-                    .toMutableSet()
-
-                // Defensive fallback: use profile-level proof dates as a second
-                // source of truth. If the app was backgrounded during the wallet
-                // handoff or the subcollection query is delayed, the UI should
-                // still show today's signed/memo proof as completed once the
-                // profile fields were saved.
-                if (userSnapshot.getString("lastSignedProofDate") == today) {
-                    completedIds.add(QuestIds.SIGN_DAILY_PROOF)
-                }
-                if (userSnapshot.getString("lastOnChainProofDate") == today) {
-                    completedIds.add(QuestIds.ON_CHAIN_PROOF)
-                }
-                if (userSnapshot.getString("lastSkrCheckDate") == today) {
-                    completedIds.add(QuestIds.SKR_HOLDER)
+                val completedIds = profileFallbackCompletedIds().apply {
+                    addAll(completedQuery.documents.mapNotNull { it.getString("questId") })
                 }
 
-                val currentWalletAddress = userSnapshot.getString("walletAddress")?.trim()?.takeIf { it.isNotBlank() }
-                val walletConnected = currentWalletAddress != null
-                if (userSnapshot.getString("lastChestClaimDate") == today) {
-                    completedIds.add(QuestIds.DAILY_RADIANT_CHEST)
+                // Older profiles created before the stable-refresh fix may have a valid daily
+                // check-in receipt but no profile-level fallback marker. Backfill the marker once
+                // so later profile-first refreshes can render Done immediately without a CTA flash.
+                if (
+                    completedIds.contains(QuestIds.DAILY_CHECK_IN) &&
+                    userSnapshot.getString("lastDailyCheckInDate") != today
+                ) {
+                    db.collection(USERS)
+                        .document(uid)
+                        .set(
+                            mapOf(
+                                "lastDailyCheckInDate" to today,
+                                "updatedAt" to FieldValue.serverTimestamp(),
+                            ),
+                            SetOptions.merge(),
+                        )
                 }
 
-                db.collection(LEADERBOARD)
-                    .orderBy("xp", Query.Direction.DESCENDING)
-                    // Read more than the visible Top 20 so legacy duplicate anonymous
-                    // UIDs cannot crowd unique wallets out of the ranking.
-                    .limit(100)
-                    .get()
-                    .addOnSuccessListener { leaderboardQuery ->
-                        val uniqueWalletRows = LeaderboardRules.collapseByWallet(
-                            candidates = leaderboardQuery.documents.map { document ->
-                                LeaderboardCandidate(
-                                    sourceId = document.id,
-                                    displayName = document.getString("displayName") ?: "Radiant Rookie",
-                                    walletAddress = document.getString("walletAddress"),
-                                    walletAddressShort = document.getString("walletAddressShort"),
-                                    xp = (document.getLong("xp") ?: 0L).toInt(),
-                                    streak = (document.getLong("currentStreak") ?: 0L).toInt(),
-                                    tier = document.getString("skrTier") ?: "Explorer",
-                                    avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
-                                    updatedAtMs = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
-                                )
-                            },
-                            limit = 20,
-                        )
-                        val currentDisplayName = userSnapshot.getString("displayName") ?: "Radiant Rookie"
-                        val currentAvatarId = PublicProfileRules.normalizeAvatarId(userSnapshot.getString("avatarId"))
-                        val leaderboard = uniqueWalletRows.mapIndexed { index, row ->
-                            val isCurrentUser = currentWalletAddress != null &&
-                                row.walletAddress?.trim() == currentWalletAddress
-                            LeaderboardPreview(
-                                rank = index + 1,
-                                name = if (isCurrentUser) currentDisplayName else row.displayName,
-                                xp = row.xp,
-                                streak = row.streak,
-                                tier = row.tier,
-                                walletLabel = LeaderboardRules.walletLabel(row),
-                                avatarId = if (isCurrentUser) {
-                                    currentAvatarId
-                                } else {
-                                    PublicProfileRules.normalizeAvatarId(row.avatarId)
-                                },
-                                isCurrentUser = isCurrentUser,
-                            )
-                        }.ifEmpty {
-                            if (walletConnected) listOf(profileToLeaderboardRow(userSnapshot)) else emptyList()
-                        }
-
-                        val user = profileToUser(userSnapshot)
-                        val collection = RadiantGameRules.collectionPreview(collectionCounts(userSnapshot))
-                        val radiantRun = RadiantRunPreview(
-                            rushTickets = user.rushTickets,
-                            skrCasualRushTickets = user.skrCasualRushTickets,
-                            bestScore = user.bestRunScore,
-                            totalRuns = user.totalRuns,
-                            lastScore = user.lastRunScore,
-                            lastMaxCombo = user.lastRunMaxCombo,
-                            lastRewardTitle = user.lastRunRewardTitle,
-                            lastRewardRarity = user.lastRunRewardRarity,
-                            lastRewardXp = user.lastRunRewardXp,
-                            lastRewardShards = user.lastRunRewardShards,
-                            radiantShards = user.radiantShards,
-                            collectionOwned = collection.count { it.discovered },
-                            collectionTotal = collection.size,
-                        )
-                        val quests = PreviewContent.quests.map { quest ->
-                            when {
-                                completedIds.contains(quest.id) -> quest.copy(status = QuestStatus.Completed)
-                                quest.id == QuestIds.WALLET_CONNECT && walletConnected -> quest.copy(status = QuestStatus.Completed)
-                                quest.id == QuestIds.DAILY_CHECK_IN -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.WALLET_CONNECT -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.SIGN_DAILY_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.ON_CHAIN_PROOF && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.SKR_HOLDER && walletConnected -> quest.copy(status = QuestStatus.Ready)
-                                quest.id == QuestIds.SIGN_DAILY_PROOF -> quest.copy(status = QuestStatus.Blocked)
-                                quest.id == QuestIds.ON_CHAIN_PROOF -> quest.copy(status = QuestStatus.Blocked)
-                                quest.id == QuestIds.SKR_HOLDER -> quest.copy(status = QuestStatus.Blocked)
-                                else -> quest.copy(status = QuestStatus.Locked)
-                            }
-                        }
-                        val chestClaimedToday = completedIds.contains(QuestIds.DAILY_RADIANT_CHEST)
-                        val questStatuses = quests.associate { it.id to it.status }
-                        val chestReady = RewardLoopRules.canClaimDailyChest(
-                            questStatuses = questStatuses,
-                            alreadyClaimedToday = chestClaimedToday,
-                        )
-                        val radiantChest = radiantChestState(
-                            user = user,
-                            completedQuestCount = quests.count { it.status == QuestStatus.Completed },
-                            totalQuestCount = quests.size,
-                            chestReady = chestReady,
-                            chestClaimedToday = chestClaimedToday,
-                        )
-                        val badges = badgeState(user, completedIds)
-
-                        loadRunCompetition(
-                            db = db,
-                            userSnapshot = userSnapshot,
-                            walletConnected = walletConnected,
-                        ) { runCompetition, competitionWarning ->
-                            val retention = retentionState(
-                                user = user,
-                                radiantRun = radiantRun,
-                                competition = runCompetition,
-                            )
-                            val mergedMessage = listOfNotNull(message, competitionWarning)
-                                .filter { it.isNotBlank() }
-                                .joinToString(" ")
-                                .takeIf { it.isNotBlank() }
-                            onState(
-                                RushUiState(
-                                    firebaseStatus = FirebaseStatus.Ready,
-                                    user = user,
-                                    quests = quests,
-                                    radiantChest = radiantChest,
-                                    radiantRun = radiantRun,
-                                    collection = collection,
-                                    badges = badges,
-                                    leaderboard = leaderboard,
-                                    runCompetition = runCompetition,
-                                    retention = retention,
-                                    todayKey = today,
-                                    lastMessage = mergedMessage,
-                                ),
-                            )
-                        }
-                    }
-                    .addOnFailureListener { error ->
-                        onState(errorState("Could not read leaderboard: ${safeMessage(error)}"))
-                    }
+                continueBackgroundHydration(completedIds)
             }
             .addOnFailureListener { error ->
-                onState(errorState("Could not read completed quests: ${safeMessage(error)}"))
+                // Quest-history availability must not turn a valid profile/session into
+                // a global sync failure. Profile proof-date fallbacks keep wallet-bound
+                // tasks honest until the next successful refresh.
+                continueBackgroundHydration(
+                    completedIds = fallbackCompletedIds,
+                    questWarning = "Daily progress is still catching up: ${safeMessage(error)}",
+                )
             }
     }
 
@@ -1694,118 +2345,276 @@ class FirebaseRadiantRepository(
             }
             val projectedReward = WeeklyRadiantCupRules.rewardForPlacement(personalRank)
 
-            fun loadPreviousSeason(
-                sponsorName: String?,
-                prizeLabel: String?,
-                sponsorStatus: String,
-                sponsorNote: String?,
-                sponsorActive: Boolean,
-            ) {
-                if (!walletConnected || walletAddress == null) {
-                    onDone(
-                        WeeklyCupPreview(
-                            seasonKey = currentWeek,
-                            seasonEndsAtEpochMillis = seasonEndsAt,
-                            participantCount = participantCount,
-                            personalRank = personalRank,
-                            personalBestScore = personal.weeklyBestScore,
-                            projectedRewardTitle = projectedReward.title,
-                            projectedRewardDetail = projectedReward.detail,
-                            previousSeasonKey = previousWeek,
-                            sponsorName = sponsorName,
-                            sponsoredPrizeLabel = prizeLabel,
-                            sponsoredPrizeStatus = sponsorStatus,
-                            sponsorNote = sponsorNote,
-                            sponsoredPrizeActive = sponsorActive,
-                            payoutEnabled = false,
-                        ),
-                    )
-                    return
-                }
+            fun buildCup(
+                sponsor: CupSponsorPresentation,
+                previousRank: Int? = null,
+                previousRewardTitle: String? = null,
+                finalResult: TrustedWeeklyCupResultState? = null,
+            ): WeeklyCupPreview {
+                val trustedWinnerRank = finalResult?.winners
+                    ?.firstOrNull { winner -> walletAddress != null && winner.walletAddress == walletAddress }
+                    ?.placement
+                val trustedWinnerReward = trustedWinnerRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
+                return WeeklyCupPreview(
+                    seasonKey = currentWeek,
+                    seasonStartsAtEpochMillis = sponsor.startsAtEpochMillis ?: 0L,
+                    seasonEndsAtEpochMillis = sponsor.endsAtEpochMillis ?: seasonEndsAt,
+                    participantCount = participantCount,
+                    personalRank = personalRank,
+                    personalBestScore = personal.weeklyBestScore,
+                    projectedRewardTitle = projectedReward.title,
+                    projectedRewardDetail = projectedReward.detail,
+                    previousSeasonKey = previousWeek,
+                    previousSeasonRank = if (finalResult != null) trustedWinnerRank else previousRank,
+                    previousRewardTitle = if (finalResult != null) trustedWinnerReward?.title else previousRewardTitle,
+                    sponsorName = sponsor.sponsorName,
+                    sponsoredPrizeLabel = sponsor.prizeLabel,
+                    sponsoredPrizeStatus = sponsor.sponsorStatus,
+                    sponsorNote = sponsor.sponsorNote,
+                    sponsoredPrizeActive = sponsor.sponsorActive,
+                    trustedSponsorConfig = sponsor.trustedConfig,
+                    cupStatusCode = sponsor.cupStatusCode,
+                    cupStatusLabel = sponsor.cupStatusLabel,
+                    fundingVerificationStatus = sponsor.fundingStatus,
+                    fundingVerificationLabel = sponsor.fundingLabel,
+                    placementAllocationLabel = sponsor.placementAllocationLabel,
+                    trustedResultsRequired = sponsor.trustedResultsRequired,
+                    payoutEnabled = false,
+                    finalResultWeekKey = finalResult?.weekKey,
+                    finalResultFundingStatus = finalResult?.fundingStatusCode,
+                    finalResultFundingLabel = finalResult?.fundingStatusLabel,
+                    finalWinners = finalResult?.winners.orEmpty().map { winner ->
+                        WeeklyCupWinnerPreview(
+                            placement = winner.placement,
+                            walletLabel = winner.walletLabel,
+                            score = winner.score,
+                            prizeLabel = winner.prizeLabel,
+                        )
+                    },
+                )
+            }
 
-                db.collection(RUN_WEEKLY)
-                    .document(previousWeek)
-                    .collection(RUN_ENTRIES)
-                    .orderBy("score", Query.Direction.DESCENDING)
-                    .limit(100)
-                    .get()
-                    .addOnSuccessListener { previousQuery ->
-                        val previousCandidates = previousQuery.documents.map(::runCandidateFromDocument)
-                        val previousRank = Phase11CompetitionRules.walletRank(
-                            walletAddress = walletAddress,
-                            candidates = previousCandidates,
-                            limit = 100,
-                        )
-                        val previousReward = previousRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
-                        onDone(
-                            WeeklyCupPreview(
-                                seasonKey = currentWeek,
-                                seasonEndsAtEpochMillis = seasonEndsAt,
-                                participantCount = participantCount,
-                                personalRank = personalRank,
-                                personalBestScore = personal.weeklyBestScore,
-                                projectedRewardTitle = projectedReward.title,
-                                projectedRewardDetail = projectedReward.detail,
-                                previousSeasonKey = previousWeek,
-                                previousSeasonRank = previousRank,
-                                previousRewardTitle = previousReward?.title,
-                                sponsorName = sponsorName,
-                                sponsoredPrizeLabel = prizeLabel,
-                                sponsoredPrizeStatus = sponsorStatus,
-                                sponsorNote = sponsorNote,
-                                sponsoredPrizeActive = sponsorActive,
-                                payoutEnabled = false,
-                            ),
-                        )
+            fun loadTrustedFinalResult(
+                resultWeekKey: String,
+                onResult: (TrustedWeeklyCupResultState?) -> Unit,
+            ) {
+                val resultRef = db.collection(WEEKLY_CUP_RESULTS).document(resultWeekKey)
+                resultRef.get()
+                    .addOnSuccessListener { resultDocument ->
+                        if (!resultDocument.exists()) {
+                            onResult(null)
+                            return@addOnSuccessListener
+                        }
+
+                        resultRef.collection(WEEKLY_CUP_WINNERS)
+                            .orderBy("placement", Query.Direction.ASCENDING)
+                            .get()
+                            .addOnSuccessListener { winnerQuery ->
+                                fun stringField(name: String): String? = resultDocument.get(name) as? String
+                                fun intField(name: String): Int? = (resultDocument.get(name) as? Number)?.toInt()
+                                fun booleanField(name: String): Boolean? = resultDocument.get(name) as? Boolean
+                                fun timestampMillis(name: String): Long? =
+                                    (resultDocument.get(name) as? Timestamp)?.toDate()?.time
+
+                                val allocations = (resultDocument.get("placementAllocationsBps") as? Map<*, *>)
+                                    .orEmpty()
+                                    .mapNotNull { (rawRank, rawBps) ->
+                                        val rank = rawRank?.toString()?.toIntOrNull()
+                                        val bps = (rawBps as? Number)?.toInt()
+                                        if (rank != null && bps != null) rank to bps else null
+                                    }
+                                    .toMap()
+                                val winnerInputs = winnerQuery.documents.map { winnerDocument ->
+                                    TrustedWeeklyCupWinnerInput(
+                                        schemaVersion = (winnerDocument.get("schemaVersion") as? Number)?.toInt(),
+                                        resultVersion = (winnerDocument.get("resultVersion") as? Number)?.toInt(),
+                                        weekKey = winnerDocument.getString("weekKey"),
+                                        placement = (winnerDocument.getLong("placement") ?: 0L).toInt(),
+                                        walletAddress = winnerDocument.getString("walletAddress"),
+                                        receiptId = winnerDocument.getString("receiptId"),
+                                        score = (winnerDocument.get("score") as? Number)?.toInt(),
+                                        maxCombo = (winnerDocument.get("maxCombo") as? Number)?.toInt(),
+                                        perfectHits = (winnerDocument.get("perfectHits") as? Number)?.toInt(),
+                                        prizeAmountAtomic = winnerDocument.getString("prizeAmountAtomic"),
+                                        prizeAssetSymbol = winnerDocument.getString("prizeAssetSymbol"),
+                                        payoutStatus = winnerDocument.getString("payoutStatus"),
+                                        fundingVerificationStatusAtClose = winnerDocument.getString("fundingVerificationStatusAtClose"),
+                                        resultAuthority = winnerDocument.getString("resultAuthority"),
+                                        payoutEnabled = winnerDocument.get("payoutEnabled") as? Boolean,
+                                        payoutReady = winnerDocument.get("payoutReady") as? Boolean,
+                                    )
+                                }
+
+                                val result = Phase12WeeklyCupResultRules.presentation(
+                                    expectedWeekKey = resultWeekKey,
+                                    schemaVersion = intField("schemaVersion"),
+                                    resultVersion = intField("resultVersion"),
+                                    weekKey = stringField("weekKey"),
+                                    finalizationStatus = stringField("finalizationStatus"),
+                                    finalizationAuthority = stringField("finalizationAuthority"),
+                                    finalizedAtEpochMillis = timestampMillis("finalizedAt"),
+                                    prizeAssetSymbol = stringField("prizeAssetSymbol"),
+                                    prizeMint = stringField("prizeMint"),
+                                    prizeDecimals = intField("prizeDecimals"),
+                                    prizeAmountAtomic = stringField("prizeAmountAtomic"),
+                                    placementAllocationsBps = allocations,
+                                    fundingVerificationStatusAtClose = stringField("fundingVerificationStatusAtClose"),
+                                    payoutEnabled = booleanField("payoutEnabled"),
+                                    payoutReady = booleanField("payoutReady"),
+                                    winnerCount = intField("winnerCount"),
+                                    winners = winnerInputs,
+                                )
+                                onResult(result.takeIf { it.recognized })
+                            }
+                            .addOnFailureListener { onResult(null) }
                     }
-                    .addOnFailureListener {
-                        onDone(
-                            WeeklyCupPreview(
-                                seasonKey = currentWeek,
-                                seasonEndsAtEpochMillis = seasonEndsAt,
-                                participantCount = participantCount,
-                                personalRank = personalRank,
-                                personalBestScore = personal.weeklyBestScore,
-                                projectedRewardTitle = projectedReward.title,
-                                projectedRewardDetail = projectedReward.detail,
-                                previousSeasonKey = previousWeek,
-                                sponsorName = sponsorName,
-                                sponsoredPrizeLabel = prizeLabel,
-                                sponsoredPrizeStatus = sponsorStatus,
-                                sponsorNote = sponsorNote,
-                                sponsoredPrizeActive = sponsorActive,
-                                payoutEnabled = false,
-                            ),
-                        )
+                    .addOnFailureListener { onResult(null) }
+            }
+
+            fun loadPreviousSeason(sponsor: CupSponsorPresentation) {
+                loadTrustedFinalResult(previousWeek) { finalResult ->
+                    if (finalResult != null) {
+                        onDone(buildCup(sponsor = sponsor, finalResult = finalResult))
+                        return@loadTrustedFinalResult
                     }
+                    if (!walletConnected || walletAddress == null) {
+                        onDone(buildCup(sponsor))
+                        return@loadTrustedFinalResult
+                    }
+
+                    db.collection(RUN_WEEKLY)
+                        .document(previousWeek)
+                        .collection(RUN_ENTRIES)
+                        .orderBy("score", Query.Direction.DESCENDING)
+                        .limit(100)
+                        .get()
+                        .addOnSuccessListener { previousQuery ->
+                            val previousCandidates = previousQuery.documents.map(::runCandidateFromDocument)
+                            val previousRank = Phase11CompetitionRules.walletRank(
+                                walletAddress = walletAddress,
+                                candidates = previousCandidates,
+                                limit = 100,
+                            )
+                            val previousReward = previousRank?.let(WeeklyRadiantCupRules::rewardForPlacement)
+                            onDone(
+                                buildCup(
+                                    sponsor = sponsor,
+                                    previousRank = previousRank,
+                                    previousRewardTitle = previousReward?.title,
+                                ),
+                            )
+                        }
+                        .addOnFailureListener {
+                            onDone(buildCup(sponsor))
+                        }
+                }
             }
 
             db.collection(WEEKLY_CUP_CONFIGS)
                 .document(currentWeek)
                 .get()
                 .addOnSuccessListener { sponsorDocument ->
-                    val sponsorState = WeeklyRadiantCupRules.sponsorState(
-                        status = sponsorDocument.getString("status"),
-                        sponsorName = sponsorDocument.getString("sponsorName"),
-                        prizeLabel = sponsorDocument.getString("prizeLabel"),
-                        note = sponsorDocument.getString("note"),
-                    )
-                    loadPreviousSeason(
-                        sponsorName = sponsorState.sponsorName,
-                        prizeLabel = sponsorState.prizeLabel,
-                        sponsorStatus = sponsorState.statusLabel,
-                        sponsorNote = sponsorState.note,
-                        sponsorActive = sponsorState.active,
-                    )
+                    fun stringField(name: String): String? = sponsorDocument.get(name) as? String
+                    fun intField(name: String): Int? = (sponsorDocument.get(name) as? Number)?.toInt()
+                    fun longField(name: String): Long? = (sponsorDocument.get(name) as? Number)?.toLong()
+                    fun booleanField(name: String): Boolean? = sponsorDocument.get(name) as? Boolean
+                    fun timestampMillis(name: String): Long? =
+                        (sponsorDocument.get(name) as? Timestamp)?.toDate()?.time
+
+                    val schemaVersion = intField("schemaVersion")
+                    val trustedPresentation = if (schemaVersion == Phase12WeeklyCupConfigRules.SCHEMA_VERSION) {
+                        val allocationMap = (sponsorDocument.get("placementAllocationsBps") as? Map<*, *>)
+                            .orEmpty()
+                            .mapNotNull { (rawRank, rawBps) ->
+                                val rank = rawRank?.toString()?.toIntOrNull()
+                                val bps = (rawBps as? Number)?.toInt()
+                                if (rank != null && bps != null) rank to bps else null
+                            }
+                            .toMap()
+                        Phase12WeeklyCupConfigRules.presentation(
+                            expectedWeekKey = currentWeek,
+                            schemaVersion = schemaVersion,
+                            weekKey = stringField("weekKey"),
+                            status = stringField("status"),
+                            sponsorName = stringField("sponsorName"),
+                            sponsorNote = stringField("sponsorNote"),
+                            prizeAssetSymbol = stringField("prizeAssetSymbol"),
+                            prizeMint = stringField("prizeMint"),
+                            prizeDecimals = intField("prizeDecimals"),
+                            prizeAmountAtomic = stringField("prizeAmountAtomic"),
+                            placementAllocationsBps = allocationMap,
+                            startsAtEpochMillis = timestampMillis("startsAt"),
+                            endsAtEpochMillis = timestampMillis("endsAt"),
+                            fundingWalletAddress = stringField("fundingWalletAddress"),
+                            fundingVerificationStatus = stringField("fundingVerificationStatus"),
+                            fundingRequiredAmountAtomic = stringField("fundingRequiredAmountAtomic"),
+                            fundingObservedAmountAtomic = stringField("fundingObservedAmountAtomic"),
+                            fundingVerificationSlot = longField("fundingVerificationSlot"),
+                            fundingVerificationNetwork = stringField("fundingVerificationNetwork"),
+                            fundingVerificationMint = stringField("fundingVerificationMint"),
+                            fundingVerificationCommitment = stringField("fundingVerificationCommitment"),
+                            fundingVerificationAuthority = stringField("fundingVerificationAuthority"),
+                            fundingVerificationSchemaVersion = intField("fundingVerificationSchemaVersion"),
+                            fundingCheckedAtEpochMillis = timestampMillis("fundingCheckedAt"),
+                            fundingVerifiedAtEpochMillis = timestampMillis("fundingVerifiedAt"),
+                            configurationAuthority = stringField("configurationAuthority"),
+                            trustedResultsRequired = booleanField("trustedResultsRequired"),
+                        )
+                    } else {
+                        null
+                    }
+
+                    if (trustedPresentation?.recognized == true) {
+                        loadPreviousSeason(
+                            CupSponsorPresentation(
+                                sponsorName = trustedPresentation.sponsorName,
+                                prizeLabel = trustedPresentation.prizeLabel,
+                                sponsorStatus = trustedPresentation.statusLabel,
+                                sponsorNote = trustedPresentation.sponsorNote,
+                                sponsorActive = trustedPresentation.published,
+                                trustedConfig = true,
+                                cupStatusCode = trustedPresentation.statusCode,
+                                cupStatusLabel = trustedPresentation.statusLabel,
+                                startsAtEpochMillis = trustedPresentation.startsAtEpochMillis,
+                                endsAtEpochMillis = trustedPresentation.endsAtEpochMillis,
+                                fundingStatus = trustedPresentation.fundingStatusCode,
+                                fundingLabel = trustedPresentation.fundingStatusLabel,
+                                placementAllocationLabel = trustedPresentation.placementAllocationLabel,
+                                trustedResultsRequired = trustedPresentation.trustedResultsRequired,
+                            ),
+                        )
+                    } else {
+                        // Backward-compatible display for the Phase 11 sponsor announcement shape.
+                        // It is deliberately not labeled as a trusted Phase 12 config.
+                        val legacy = WeeklyRadiantCupRules.sponsorState(
+                            status = stringField("status"),
+                            sponsorName = stringField("sponsorName"),
+                            prizeLabel = stringField("prizeLabel"),
+                            note = stringField("note"),
+                        )
+                        loadPreviousSeason(
+                            CupSponsorPresentation(
+                                sponsorName = legacy.sponsorName,
+                                prizeLabel = legacy.prizeLabel,
+                                sponsorStatus = if (legacy.active) {
+                                    "Legacy sponsor announcement"
+                                } else {
+                                    "No sponsored prize this week"
+                                },
+                                sponsorNote = legacy.note,
+                                sponsorActive = legacy.active,
+                                trustedConfig = false,
+                                cupStatusCode = if (legacy.active) "LEGACY_ANNOUNCED" else "UNCONFIGURED",
+                                cupStatusLabel = if (legacy.active) "Legacy announcement" else "No trusted Cup config",
+                                fundingStatus = Phase12WeeklyCupConfigRules.FUNDING_NOT_VERIFIED,
+                                fundingLabel = if (legacy.active) "Funding not verified" else "Funding wallet not configured",
+                                trustedResultsRequired = true,
+                            ),
+                        )
+                    }
                 }
                 .addOnFailureListener {
-                    loadPreviousSeason(
-                        sponsorName = null,
-                        prizeLabel = null,
-                        sponsorStatus = "No sponsored prize this week",
-                        sponsorNote = null,
-                        sponsorActive = false,
-                    )
+                    loadPreviousSeason(CupSponsorPresentation())
                 }
         }
 
@@ -1965,6 +2774,1007 @@ class FirebaseRadiantRepository(
                 )
             }
 
+
+    fun loadMyCircleProfile(onResult: (CircleProfilePreview?, String?) -> Unit) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(null, "Your Circle profile is still getting ready.")
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(USERS).document(session.uid).get()
+            .addOnSuccessListener { userSnapshot ->
+                val user = profileToUser(userSnapshot)
+                db.collection(CIRCLE_PROFILES).document(session.uid).get()
+                    .addOnSuccessListener { profileSnapshot ->
+                        onResult(
+                            circleProfileFromDocument(
+                                document = profileSnapshot,
+                                uid = session.uid,
+                                fallbackName = user.displayName,
+                                fallbackAvatarId = user.avatarId,
+                            ),
+                            null,
+                        )
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(null, circleFriendlyFailure("load your social profile", error))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(null, circleFriendlyFailure("load your social profile", error))
+            }
+    }
+
+    fun saveCircleProfile(
+        profile: CircleProfilePreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Your Circle account is still getting ready."))
+            return
+        }
+
+        val clean = SharedSparkRules.sanitizeProfile(profile)
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(USERS).document(session.uid).get()
+            .addOnSuccessListener { userSnapshot ->
+                val user = profileToUser(userSnapshot)
+                val payload = mapOf(
+                    "ownerUid" to session.uid,
+                    "displayName" to PublicProfileRules.sanitizeDisplayName(user.displayName),
+                    "avatarId" to PublicProfileRules.normalizeAvatarId(user.avatarId),
+                    "motto" to clean.motto,
+                    "favoriteFood" to clean.favoriteFood,
+                    "music" to clean.music,
+                    "games" to clean.games,
+                    "hobbies" to clean.hobbies,
+                    "books" to clean.books,
+                    "pets" to clean.pets,
+                    "currentlyInto" to clean.currentlyInto,
+                    "weekendVibe" to clean.weekendVibe,
+                    "talkAbout" to clean.talkAbout,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+
+                db.collection(CIRCLE_PROFILES).document(session.uid)
+                    .set(payload, SetOptions.merge())
+                    .addOnSuccessListener {
+                        onResult(CircleActionResult(true, "Your Circle profile is updated."))
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(CircleActionResult(false, circleFriendlyFailure("save your social profile", error)))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("save your social profile", error)))
+            }
+    }
+
+    fun loadCircleMemberProfile(
+        member: CircleMemberPreview,
+        onResult: (CircleMemberProfilePreview?, String?) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(null, "Circle needs cloud sign-in.")
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(null, "Choose another member in your Circle.")
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        db.collection(CIRCLE_EDGES).document(edgeId).get()
+            .addOnSuccessListener { edgeSnapshot ->
+                if (!edgeSnapshot.exists() || edgeSnapshot.getString("status") != CIRCLE_STATUS_ACCEPTED) {
+                    onResult(null, "This profile is available after a Spark is accepted.")
+                    return@addOnSuccessListener
+                }
+
+                db.collection(CIRCLE_PROFILES).document(member.uid).get()
+                    .addOnSuccessListener { memberProfileSnapshot ->
+                        val memberProfile = circleProfileFromDocument(
+                            document = memberProfileSnapshot,
+                            uid = member.uid,
+                            fallbackName = member.displayName,
+                            fallbackAvatarId = member.avatarId,
+                        )
+                        db.collection(CIRCLE_PROFILES).document(session.uid).get()
+                            .addOnSuccessListener { myProfileSnapshot ->
+                                val myProfile = circleProfileFromDocument(
+                                    document = myProfileSnapshot,
+                                    uid = session.uid,
+                                    fallbackName = "",
+                                    fallbackAvatarId = "fox",
+                                )
+                                onResult(
+                                    CircleMemberProfilePreview(
+                                        member = member.copy(
+                                            displayName = memberProfile.displayName,
+                                            avatarId = memberProfile.avatarId,
+                                        ),
+                                        profile = memberProfile,
+                                        sharedSparks = SharedSparkRules.sharedSparks(myProfile, memberProfile, limit = 5),
+                                    ),
+                                    null,
+                                )
+                            }
+                            .addOnFailureListener {
+                                onResult(
+                                    CircleMemberProfilePreview(
+                                        member = member.copy(
+                                            displayName = memberProfile.displayName,
+                                            avatarId = memberProfile.avatarId,
+                                        ),
+                                        profile = memberProfile,
+                                    ),
+                                    null,
+                                )
+                            }
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(null, circleFriendlyFailure("open this Circle profile", error))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(null, circleFriendlyFailure("open this Circle profile", error))
+            }
+    }
+
+
+    fun loadCircleSocial(onResult: (CircleSocialSnapshot?, String?) -> Unit) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(null, "Circle needs cloud sign-in. Try again in a moment.")
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(CIRCLE_EDGES)
+            .whereArrayContains("memberUids", session.uid)
+            .limit(60)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val incoming = mutableListOf<CircleSparkPreview>()
+                val connections = mutableListOf<CircleSparkPreview>()
+                snapshot.documents.forEach { document ->
+                    val edge = circleEdgePreview(document, session.uid) ?: return@forEach
+                    when (edge.status) {
+                        CIRCLE_STATUS_PENDING -> if (edge.incoming) incoming += edge
+                        CIRCLE_STATUS_ACCEPTED -> connections += edge
+                    }
+                }
+
+                if (connections.isEmpty()) {
+                    onResult(
+                        CircleSocialSnapshot(
+                            incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                            connections = emptyList(),
+                        ),
+                        null,
+                    )
+                    return@addOnSuccessListener
+                }
+
+                db.collection(CIRCLE_CHATS)
+                    .whereArrayContains("memberUids", session.uid)
+                    .limit(60)
+                    .get()
+                    .addOnSuccessListener { chatSnapshot ->
+                        val chatByEdgeId = chatSnapshot.documents.associateBy { it.id }
+                        val enrichedConnections = connections.map { edge ->
+                            val chat = chatByEdgeId[edge.edgeId]
+                            if (chat == null) {
+                                edge
+                            } else {
+                                val lastMessageAt = chat.getTimestamp("lastMessageAt")?.toDate()?.time ?: 0L
+                                val lastMessageSenderUid = chat.getString("lastMessageSenderUid").orEmpty()
+                                val memberAUid = chat.getString("memberAUid").orEmpty()
+                                val myReadAt = if (session.uid == memberAUid) {
+                                    chat.getTimestamp("memberALastReadAt")?.toDate()?.time ?: 0L
+                                } else {
+                                    chat.getTimestamp("memberBLastReadAt")?.toDate()?.time ?: 0L
+                                }
+                                edge.copy(
+                                    lastMessagePreview = chat.getString("lastMessageText").orEmpty(),
+                                    lastMessageAtEpochMillis = lastMessageAt,
+                                    hasUnread = lastMessageSenderUid.isNotBlank() &&
+                                        lastMessageSenderUid != session.uid &&
+                                        lastMessageAt > myReadAt,
+                                )
+                            }
+                        }.sortedWith(
+                            compareByDescending<CircleSparkPreview> { it.lastMessageAtEpochMillis }
+                                .thenBy { it.member.displayName.lowercase(Locale.US) },
+                        )
+                        onResult(
+                            CircleSocialSnapshot(
+                                incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                                connections = enrichedConnections,
+                            ),
+                            null,
+                        )
+                    }
+                    .addOnFailureListener {
+                        onResult(
+                            CircleSocialSnapshot(
+                                incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                                connections = connections.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                            ),
+                            null,
+                        )
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(null, circleFriendlyFailure("refresh your Circle", error))
+            }
+    }
+
+    fun startCircleDiscovery(
+        location: ApproximateCircleLocation,
+        onResult: (CircleDiscoveryResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleDiscoveryResult(message = "Circle needs cloud sign-in. Try again in a moment."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val now = System.currentTimeMillis()
+        val presenceKeys = CircleDiscoveryRules.presenceKeys(location, now)
+        val userRef = db.collection(USERS).document(session.uid)
+
+        userRef.get()
+            .addOnSuccessListener { userSnapshot ->
+                if (!userSnapshot.exists()) {
+                    onResult(CircleDiscoveryResult(message = "Your Radiant Circle profile is still loading."))
+                    return@addOnSuccessListener
+                }
+
+                val user = profileToUser(userSnapshot)
+                val presenceRef = db.collection(CIRCLE_DISCOVERY).document(session.uid)
+                val presence = mapOf(
+                    "ownerUid" to session.uid,
+                    "displayName" to PublicProfileRules.sanitizeDisplayName(user.displayName),
+                    "avatarId" to PublicProfileRules.normalizeAvatarId(user.avatarId),
+                    "radianceStreak" to (userSnapshot.getLong("dailyRadianceCurrentStreak") ?: 0L).coerceAtLeast(0L),
+                    "level" to user.level.coerceAtLeast(1).toLong(),
+                    "localWindowKeys" to presenceKeys.localWindowKeys,
+                    "regionalWindowKeys" to presenceKeys.regionalWindowKeys,
+                    "broadWindowKeys" to presenceKeys.broadWindowKeys,
+                    "countryWindowKeys" to presenceKeys.countryWindowKeys,
+                    "globalWindowKeys" to presenceKeys.globalWindowKeys,
+                    "expiresAtEpochMillis" to (now + CircleDiscoveryRules.DISCOVERY_WINDOW_MILLIS),
+                    "expiresAt" to Timestamp(Date(now + CircleDiscoveryRules.DISCOVERY_WINDOW_MILLIS)),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+
+                presenceRef.set(presence)
+                    .addOnSuccessListener {
+                        db.collection(CIRCLE_EDGES)
+                            .whereArrayContains("memberUids", session.uid)
+                            .limit(80)
+                            .get()
+                            .addOnSuccessListener { edges ->
+                                val excludedUids = buildSet {
+                                    add(session.uid)
+                                    edges.documents.forEach { edge ->
+                                        (edge.get("memberUids") as? List<*>)
+                                            ?.filterIsInstance<String>()
+                                            ?.forEach(::add)
+                                    }
+                                }
+                                searchCircleTier(
+                                    db = db,
+                                    session = session,
+                                    location = location,
+                                    nowMillis = now,
+                                    excludedUids = excludedUids,
+                                    tierIndex = 0,
+                                    onResult = onResult,
+                                )
+                            }
+                            .addOnFailureListener {
+                                searchCircleTier(
+                                    db = db,
+                                    session = session,
+                                    location = location,
+                                    nowMillis = now,
+                                    excludedUids = setOf(session.uid),
+                                    tierIndex = 0,
+                                    onResult = onResult,
+                                )
+                            }
+                    }
+                    .addOnFailureListener { error ->
+                        onResult(CircleDiscoveryResult(message = circleFriendlyFailure("start discovery", error)))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleDiscoveryResult(message = circleFriendlyFailure("load your Circle profile", error)))
+            }
+    }
+
+    fun sendCircleSpark(
+        member: CircleMemberPreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Your Circle account is still getting ready."))
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(CircleActionResult(false, "Choose another Radiant Circle member."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val userRef = db.collection(USERS).document(session.uid)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val edgeRef = db.collection(CIRCLE_EDGES).document(edgeId)
+
+        userRef.get()
+            .addOnSuccessListener { userSnapshot ->
+                val user = profileToUser(userSnapshot)
+                val payload = mapOf(
+                    "memberUids" to listOf(session.uid, member.uid).sorted(),
+                    "initiatorUid" to session.uid,
+                    "recipientUid" to member.uid,
+                    "status" to CIRCLE_STATUS_PENDING,
+                    "initiatorDisplayName" to PublicProfileRules.sanitizeDisplayName(user.displayName),
+                    "initiatorAvatarId" to PublicProfileRules.normalizeAvatarId(user.avatarId),
+                    "recipientDisplayName" to PublicProfileRules.sanitizeDisplayName(member.displayName),
+                    "recipientAvatarId" to PublicProfileRules.normalizeAvatarId(member.avatarId),
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+
+                // Do not transaction-get a deterministic edge before creation. Security rules
+                // intentionally hide non-existent relationship documents, so that pre-read can
+                // fail with PERMISSION_DENIED. A direct create succeeds for a new Spark. If the
+                // relationship already exists the write is denied by the update rule, after which
+                // a member-authorized read tells us the existing status without weakening rules.
+                edgeRef.set(payload)
+                    .addOnSuccessListener {
+                        onResult(CircleActionResult(true, "Spark sent to ${member.displayName}."))
+                    }
+                    .addOnFailureListener { writeError ->
+                        edgeRef.get()
+                            .addOnSuccessListener { existing ->
+                                if (existing.exists()) {
+                                    val message = when (existing.getString("status")) {
+                                        CIRCLE_STATUS_ACCEPTED -> "${member.displayName} is already in your Circle."
+                                        CIRCLE_STATUS_IGNORED -> "That Spark was previously passed on."
+                                        else -> "A Spark is already waiting for ${member.displayName}."
+                                    }
+                                    onResult(CircleActionResult(true, message))
+                                } else {
+                                    onResult(CircleActionResult(false, circleFriendlyFailure("send this Spark", writeError)))
+                                }
+                            }
+                            .addOnFailureListener {
+                                onResult(CircleActionResult(false, circleFriendlyFailure("send this Spark", writeError)))
+                            }
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("load your Circle profile", error)))
+            }
+    }
+
+    fun respondToCircleSpark(
+        edgeId: String,
+        accept: Boolean,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeRef = db.collection(CIRCLE_EDGES).document(edgeId)
+        val nextStatus = if (accept) CIRCLE_STATUS_ACCEPTED else CIRCLE_STATUS_IGNORED
+        edgeRef.update(
+            mapOf(
+                "status" to nextStatus,
+                "updatedAt" to FieldValue.serverTimestamp(),
+            ),
+        )
+            .addOnSuccessListener {
+                onResult(
+                    CircleActionResult(
+                        true,
+                        if (accept) "Spark accepted. Your Circle just grew." else "Spark passed on.",
+                    ),
+                )
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("update this Spark", error)))
+            }
+    }
+
+    fun listenToCircleChat(
+        member: CircleMemberPreview,
+        onUpdate: (List<CircleChatMessagePreview>?, String?) -> Unit,
+    ): ListenerRegistration? {
+        val session = currentCircleSession()
+        if (session == null) {
+            onUpdate(null, "Circle needs cloud sign-in.")
+            return null
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onUpdate(null, "Choose another member in your Circle.")
+            return null
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        return db.collection(CIRCLE_CHATS)
+            .document(edgeId)
+            .collection(CIRCLE_CHAT_MESSAGES)
+            .orderBy("sentAt", Query.Direction.ASCENDING)
+            .limitToLast(CircleChatRules.MAX_MESSAGES_LOADED)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    onUpdate(null, circleFriendlyFailure("open this conversation", error))
+                    return@addSnapshotListener
+                }
+                val messages = snapshot?.documents.orEmpty().mapNotNull { document ->
+                    val senderUid = document.getString("senderUid").orEmpty()
+                    val body = document.getString("text").orEmpty()
+                    if (senderUid.isBlank() || body.isBlank()) return@mapNotNull null
+                    CircleChatMessagePreview(
+                        id = document.id,
+                        senderUid = senderUid,
+                        text = body,
+                        sentAtEpochMillis = document.getTimestamp("sentAt")?.toDate()?.time ?: 0L,
+                        isMine = senderUid == session.uid,
+                        hasPendingWrites = document.metadata.hasPendingWrites(),
+                    )
+                }
+                onUpdate(messages, null)
+            }
+    }
+
+    fun listenToCircleChatMeta(
+        member: CircleMemberPreview,
+        onUpdate: (CircleChatMetaPreview?, String?) -> Unit,
+    ): ListenerRegistration? {
+        val session = currentCircleSession()
+        if (session == null) {
+            onUpdate(null, "Circle needs cloud sign-in.")
+            return null
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onUpdate(null, "Choose another member in your Circle.")
+            return null
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val chatRef = db.collection(CIRCLE_CHATS).document(edgeId)
+        val peerPresenceRef = db.collection(CIRCLE_CHAT_PRESENCE)
+            .document(edgeId)
+            .collection(CIRCLE_CHAT_PRESENCE_MEMBERS)
+            .document(member.uid)
+
+        var latestPeerReadAt = 0L
+        var latestPeerTyping = false
+        val presenceHandler = Handler(Looper.getMainLooper())
+        lateinit var expireTypingRunnable: Runnable
+
+        fun publish() {
+            onUpdate(
+                CircleChatMetaPreview(
+                    peerLastReadAtEpochMillis = latestPeerReadAt,
+                    peerTyping = latestPeerTyping,
+                ),
+                null,
+            )
+        }
+
+        expireTypingRunnable = Runnable {
+            if (latestPeerTyping) {
+                latestPeerTyping = false
+                publish()
+            }
+        }
+
+        val chatRegistration = chatRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                onUpdate(null, circleFriendlyFailure("update this conversation", error))
+                return@addSnapshotListener
+            }
+            if (snapshot == null || !snapshot.exists()) {
+                latestPeerReadAt = 0L
+                publish()
+                return@addSnapshotListener
+            }
+            val memberAUid = snapshot.getString("memberAUid").orEmpty()
+            val peerReadField = if (member.uid == memberAUid) "memberALastReadAt" else "memberBLastReadAt"
+            latestPeerReadAt = snapshot.getTimestamp(peerReadField)?.toDate()?.time ?: 0L
+            publish()
+        }
+
+        val presenceRegistration = peerPresenceRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.w(TAG, "Circle chat typing listener failed: ${safeMessage(error)}")
+                latestPeerTyping = false
+                presenceHandler.removeCallbacks(expireTypingRunnable)
+                publish()
+                return@addSnapshotListener
+            }
+
+            latestPeerTyping = snapshot?.getBoolean("typing") == true
+            presenceHandler.removeCallbacks(expireTypingRunnable)
+            if (latestPeerTyping) {
+                // Do not compare a Firestore server timestamp with the phone wall clock.
+                // A few seconds of device clock skew can otherwise hide typing forever.
+                // Treat receipt of a fresh `typing = true` snapshot as authoritative and
+                // expire it locally unless the peer refreshes presence.
+                presenceHandler.postDelayed(
+                    expireTypingRunnable,
+                    CircleChatRules.TYPING_STALE_AFTER_MILLIS,
+                )
+            }
+            publish()
+        }
+
+        return object : ListenerRegistration {
+            override fun remove() {
+                presenceHandler.removeCallbacks(expireTypingRunnable)
+                chatRegistration.remove()
+                presenceRegistration.remove()
+            }
+        }
+    }
+
+    fun setCircleChatTyping(
+        member: CircleMemberPreview,
+        typing: Boolean,
+    ) {
+        val session = currentCircleSession() ?: return
+        if (member.uid.isBlank() || member.uid == session.uid) return
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        db.collection(CIRCLE_CHAT_PRESENCE)
+            .document(edgeId)
+            .collection(CIRCLE_CHAT_PRESENCE_MEMBERS)
+            .document(session.uid)
+            .set(
+                mapOf(
+                    "schemaVersion" to 1L,
+                    "edgeId" to edgeId,
+                    "ownerUid" to session.uid,
+                    "typing" to typing,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+            )
+            .addOnFailureListener { error ->
+                // Presence is progressive enhancement: never break chat because typing
+                // failed, but keep a useful log so permissions/rules issues are diagnosable.
+                Log.w(TAG, "Circle chat typing write failed: ${safeMessage(error)}")
+            }
+    }
+
+    fun sendCircleChatMessage(
+        member: CircleMemberPreview,
+        rawMessage: String,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(CircleActionResult(false, "Choose another member in your Circle."))
+            return
+        }
+
+        val clean = CircleChatRules.sanitizeMessage(rawMessage)
+        if (!CircleChatRules.isValidMessage(clean)) {
+            onResult(CircleActionResult(false, "Write a message between 1 and ${CircleChatRules.MAX_MESSAGE_LENGTH} characters."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val edgeRef = db.collection(CIRCLE_EDGES).document(edgeId)
+        val chatRef = db.collection(CIRCLE_CHATS).document(edgeId)
+        val messageRef = chatRef.collection(CIRCLE_CHAT_MESSAGES).document()
+        val memberUids = listOf(session.uid, member.uid).sorted()
+        val memberAUid = memberUids[0]
+        val memberBUid = memberUids[1]
+        val epoch = Timestamp(Date(0L))
+
+        db.runTransaction { transaction ->
+            val edge = transaction.get(edgeRef)
+            if (!edge.exists() || edge.getString("status") != CIRCLE_STATUS_ACCEPTED) {
+                throw IllegalStateException("Messaging is available only while this person is in Your Circle.")
+            }
+            val edgeMembers = (edge.get("memberUids") as? List<*>)
+                ?.mapNotNull { it as? String }
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
+            if (edgeMembers.size != 2 || session.uid !in edgeMembers || member.uid !in edgeMembers) {
+                throw IllegalStateException("This Circle connection needs to be refreshed before messaging.")
+            }
+
+            val chat = transaction.get(chatRef)
+            if (chat.exists()) {
+                val previousAt = chat.getTimestamp("lastMessageAt")?.toDate()?.time ?: 0L
+                if (!CircleChatRules.canSendAfter(previousAt, System.currentTimeMillis())) {
+                    throw IllegalStateException("Messages are sending quickly. Try again in a second.")
+                }
+                val updates = mutableMapOf<String, Any>(
+                    "lastMessageText" to clean,
+                    "lastMessageSenderUid" to session.uid,
+                    "lastMessageAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+                if (session.uid == memberAUid) {
+                    updates["memberALastReadAt"] = FieldValue.serverTimestamp()
+                } else {
+                    updates["memberBLastReadAt"] = FieldValue.serverTimestamp()
+                }
+                transaction.update(chatRef, updates)
+            } else {
+                transaction.set(
+                    chatRef,
+                    mapOf(
+                        "schemaVersion" to 1L,
+                        "edgeId" to edgeId,
+                        "memberUids" to edgeMembers,
+                        "memberAUid" to memberAUid,
+                        "memberBUid" to memberBUid,
+                        "lastMessageText" to clean,
+                        "lastMessageSenderUid" to session.uid,
+                        "lastMessageAt" to FieldValue.serverTimestamp(),
+                        "memberALastReadAt" to if (session.uid == memberAUid) FieldValue.serverTimestamp() else epoch,
+                        "memberBLastReadAt" to if (session.uid == memberBUid) FieldValue.serverTimestamp() else epoch,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                )
+            }
+
+            transaction.set(
+                messageRef,
+                mapOf(
+                    "schemaVersion" to 1L,
+                    "edgeId" to edgeId,
+                    "senderUid" to session.uid,
+                    "text" to clean,
+                    "sentAt" to FieldValue.serverTimestamp(),
+                ),
+            )
+            null
+        }
+            .addOnSuccessListener {
+                onResult(CircleActionResult(true, "Message sent."))
+            }
+            .addOnFailureListener { error ->
+                val friendly = if (error is IllegalStateException) {
+                    error.message ?: "That message couldn't be sent."
+                } else {
+                    circleFriendlyFailure("send that message", error)
+                }
+                onResult(CircleActionResult(false, friendly))
+            }
+    }
+
+    fun markCircleChatRead(
+        member: CircleMemberPreview,
+        onResult: ((CircleActionResult) -> Unit)? = null,
+    ) {
+        val session = currentCircleSession()
+        if (session == null || member.uid.isBlank() || member.uid == session.uid) {
+            onResult?.invoke(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val chatRef = db.collection(CIRCLE_CHATS).document(edgeId)
+        chatRef.get()
+            .addOnSuccessListener { snapshot ->
+                if (!snapshot.exists()) {
+                    onResult?.invoke(CircleActionResult(true, "Conversation ready."))
+                    return@addOnSuccessListener
+                }
+                val memberAUid = snapshot.getString("memberAUid").orEmpty()
+                val field = if (session.uid == memberAUid) "memberALastReadAt" else "memberBLastReadAt"
+                chatRef.update(
+                    mapOf(
+                        field to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                )
+                    .addOnSuccessListener {
+                        onResult?.invoke(CircleActionResult(true, "Conversation read."))
+                    }
+                    .addOnFailureListener { error ->
+                        onResult?.invoke(CircleActionResult(false, circleFriendlyFailure("mark this conversation read", error)))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult?.invoke(CircleActionResult(false, circleFriendlyFailure("open this conversation", error)))
+            }
+    }
+
+    fun removeCircleConnection(
+        member: CircleMemberPreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) = updateAcceptedCircleRelationship(
+        member = member,
+        nextStatus = CIRCLE_STATUS_REMOVED,
+        successMessage = "${member.displayName} was removed from Your Circle.",
+        onResult = onResult,
+    )
+
+    fun blockCircleMember(
+        member: CircleMemberPreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) = updateAcceptedCircleRelationship(
+        member = member,
+        nextStatus = CIRCLE_STATUS_BLOCKED,
+        successMessage = "${member.displayName} is blocked from this Circle connection.",
+        onResult = onResult,
+    )
+
+    fun reportCircleMember(
+        member: CircleMemberPreview,
+        reason: String,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(CircleActionResult(false, "Choose another member in your Circle."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        db.collection(CIRCLE_REPORTS).document().set(
+            mapOf(
+                "schemaVersion" to 1L,
+                "reporterUid" to session.uid,
+                "targetUid" to member.uid,
+                "edgeId" to edgeId,
+                "reason" to CircleChatRules.normalizeReportReason(reason),
+                "createdAt" to FieldValue.serverTimestamp(),
+            ),
+        )
+            .addOnSuccessListener {
+                onResult(CircleActionResult(true, "Report sent. Thank you for helping keep the Circle safe."))
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("send this report", error)))
+            }
+    }
+
+    private fun updateAcceptedCircleRelationship(
+        member: CircleMemberPreview,
+        nextStatus: String,
+        successMessage: String,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(CIRCLE_EDGES).document(edgeId)
+            .update(
+                mapOf(
+                    "status" to nextStatus,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+            )
+            .addOnSuccessListener { onResult(CircleActionResult(true, successMessage)) }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("update this Circle connection", error)))
+            }
+    }
+
+    private fun searchCircleTier(
+        db: FirebaseFirestore,
+        session: FirebaseSession,
+        location: ApproximateCircleLocation,
+        nowMillis: Long,
+        excludedUids: Set<String>,
+        tierIndex: Int,
+        onResult: (CircleDiscoveryResult) -> Unit,
+    ) {
+        val tiers = CircleDiscoveryRules.SearchTier.entries
+        if (tierIndex >= tiers.size) {
+            onResult(
+                CircleDiscoveryResult(
+                    message = "No new Spark is active right now. Try another shake soon.",
+                ),
+            )
+            return
+        }
+
+        val tier = tiers[tierIndex]
+        val queryKeys = CircleDiscoveryRules.queryKeys(tier, location, nowMillis)
+        db.collection(CIRCLE_DISCOVERY)
+            .whereArrayContainsAny(tier.fieldName, queryKeys)
+            .limit(40)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                val candidates = snapshot.documents
+                    .filter { document ->
+                        val uid = document.getString("ownerUid").orEmpty()
+                        uid.isNotBlank() &&
+                            uid !in excludedUids &&
+                            (document.getLong("expiresAtEpochMillis") ?: 0L) > System.currentTimeMillis()
+                    }
+
+                if (candidates.isEmpty()) {
+                    searchCircleTier(
+                        db = db,
+                        session = session,
+                        location = location,
+                        nowMillis = nowMillis,
+                        excludedUids = excludedUids,
+                        tierIndex = tierIndex + 1,
+                        onResult = onResult,
+                    )
+                    return@addOnSuccessListener
+                }
+
+                val document = candidates.shuffled().first()
+                val member = CircleMemberPreview(
+                    uid = document.getString("ownerUid").orEmpty(),
+                    displayName = PublicProfileRules.sanitizeDisplayName(
+                        document.getString("displayName") ?: "Radiant Rookie",
+                    ),
+                    avatarId = PublicProfileRules.normalizeAvatarId(document.getString("avatarId")),
+                    radianceStreak = (document.getLong("radianceStreak") ?: 0L).toInt().coerceAtLeast(0),
+                    level = (document.getLong("level") ?: 1L).toInt().coerceAtLeast(1),
+                    distanceLabel = tier.distanceLabel,
+                )
+                enrichDiscoveryWithSharedSparks(
+                    db = db,
+                    session = session,
+                    member = member,
+                    onResult = onResult,
+                )
+            }
+            .addOnFailureListener { error ->
+                Log.w(TAG, "Circle discovery ${tier.name} failed: ${safeMessage(error)}")
+                searchCircleTier(
+                    db = db,
+                    session = session,
+                    location = location,
+                    nowMillis = nowMillis,
+                    excludedUids = excludedUids,
+                    tierIndex = tierIndex + 1,
+                    onResult = onResult,
+                )
+            }
+    }
+
+
+    private fun enrichDiscoveryWithSharedSparks(
+        db: FirebaseFirestore,
+        session: FirebaseSession,
+        member: CircleMemberPreview,
+        onResult: (CircleDiscoveryResult) -> Unit,
+    ) {
+        db.collection(CIRCLE_PROFILES).document(member.uid).get()
+            .addOnSuccessListener { memberSnapshot ->
+                val memberProfile = circleProfileFromDocument(
+                    document = memberSnapshot,
+                    uid = member.uid,
+                    fallbackName = member.displayName,
+                    fallbackAvatarId = member.avatarId,
+                )
+                db.collection(CIRCLE_PROFILES).document(session.uid).get()
+                    .addOnSuccessListener { mySnapshot ->
+                        val mine = circleProfileFromDocument(
+                            document = mySnapshot,
+                            uid = session.uid,
+                            fallbackName = "",
+                            fallbackAvatarId = "fox",
+                        )
+                        onResult(
+                            CircleDiscoveryResult(
+                                member = member.copy(
+                                    displayName = memberProfile.displayName,
+                                    avatarId = memberProfile.avatarId,
+                                    sharedSparks = SharedSparkRules.sharedSparks(mine, memberProfile),
+                                ),
+                                message = "You found a new Spark.",
+                            ),
+                        )
+                    }
+                    .addOnFailureListener {
+                        onResult(CircleDiscoveryResult(member = member, message = "You found a new Spark."))
+                    }
+            }
+            .addOnFailureListener {
+                onResult(CircleDiscoveryResult(member = member, message = "You found a new Spark."))
+            }
+    }
+
+    private fun circleProfileFromDocument(
+        document: DocumentSnapshot,
+        uid: String,
+        fallbackName: String,
+        fallbackAvatarId: String,
+    ): CircleProfilePreview = SharedSparkRules.sanitizeProfile(
+        CircleProfilePreview(
+            uid = uid,
+            displayName = PublicProfileRules.sanitizeDisplayName(
+                document.getString("displayName") ?: fallbackName.ifBlank { "Radiant Rookie" },
+            ),
+            avatarId = PublicProfileRules.normalizeAvatarId(
+                document.getString("avatarId") ?: fallbackAvatarId,
+            ),
+            motto = document.getString("motto").orEmpty(),
+            favoriteFood = document.getString("favoriteFood").orEmpty(),
+            music = document.getString("music").orEmpty(),
+            games = document.getString("games").orEmpty(),
+            hobbies = document.getString("hobbies").orEmpty(),
+            books = document.getString("books").orEmpty(),
+            pets = document.getString("pets").orEmpty(),
+            currentlyInto = document.getString("currentlyInto").orEmpty(),
+            weekendVibe = document.getString("weekendVibe").orEmpty(),
+            talkAbout = document.getString("talkAbout").orEmpty(),
+        ),
+    )
+
+    private fun circleEdgePreview(
+        document: DocumentSnapshot,
+        currentUid: String,
+    ): CircleSparkPreview? {
+        val initiatorUid = document.getString("initiatorUid") ?: return null
+        val recipientUid = document.getString("recipientUid") ?: return null
+        val incoming = recipientUid == currentUid
+        val otherUid = if (initiatorUid == currentUid) recipientUid else initiatorUid
+        if (otherUid == currentUid) return null
+
+        val displayNameField = if (incoming) "initiatorDisplayName" else "recipientDisplayName"
+        val avatarField = if (incoming) "initiatorAvatarId" else "recipientAvatarId"
+        return CircleSparkPreview(
+            edgeId = document.id,
+            member = CircleMemberPreview(
+                uid = otherUid,
+                displayName = PublicProfileRules.sanitizeDisplayName(
+                    document.getString(displayNameField) ?: "Radiant Rookie",
+                ),
+                avatarId = PublicProfileRules.normalizeAvatarId(document.getString(avatarField)),
+            ),
+            incoming = incoming,
+            status = document.getString("status") ?: CIRCLE_STATUS_PENDING,
+        )
+    }
+
+    private fun currentCircleSession(): FirebaseSession? {
+        val app = ensureFirebaseApp() ?: return null
+        val uid = FirebaseAuth.getInstance(app).currentUser?.uid ?: return null
+        return FirebaseSession(app, uid)
+    }
+
     private fun currentFirebaseSession(onState: (RushUiState) -> Unit): FirebaseSession? {
         val app = ensureFirebaseApp()
         if (app == null) {
@@ -2009,6 +3819,45 @@ class FirebaseRadiantRepository(
             }
             id to count.coerceAtLeast(0)
         }.toMap()
+    }
+
+    private fun dailyRadianceState(
+        uid: String,
+        userSnapshot: DocumentSnapshot,
+        today: String,
+    ): DailyRadiancePreview {
+        val lastOpenedDay = userSnapshot.getString("dailyRadianceLastOpenedDate")
+        val revealedToday = lastOpenedDay == today
+        val savedMessage = if (revealedToday) {
+            DailyRadianceRules.contentById(userSnapshot.getString("dailyRadianceMessageId"))
+        } else {
+            null
+        }
+        val content = savedMessage ?: DailyRadianceRules.contentFor(
+            accountId = uid,
+            dayKey = today,
+        )
+        val savedStreak = (userSnapshot.getLong("dailyRadianceCurrentStreak") ?: 0L).toInt()
+        val visibleStreak = if (revealedToday) {
+            savedStreak.coerceAtLeast(1)
+        } else {
+            DailyRadianceRules.visibleStreak(
+                lastOpenedDay = lastOpenedDay,
+                todayKey = today,
+                savedStreak = savedStreak,
+            )
+        }
+
+        return DailyRadiancePreview(
+            dayKey = today,
+            messageId = content.id,
+            category = content.category,
+            message = content.message,
+            revealedToday = revealedToday,
+            currentStreak = visibleStreak,
+            longestStreak = (userSnapshot.getLong("dailyRadianceLongestStreak") ?: 0L).toInt(),
+            opening = false,
+        )
     }
 
     private fun profileToUser(snapshot: DocumentSnapshot): UserPreview {
@@ -2248,10 +4097,46 @@ class FirebaseRadiantRepository(
         lastMessage = message,
     )
 
+    private fun circleFriendlyFailure(action: String, error: Throwable): String = when (error) {
+        is FirebaseFirestoreException -> when (error.code) {
+            FirebaseFirestoreException.Code.UNAVAILABLE ->
+                "Circle is having trouble connecting. Check your connection and try again."
+            FirebaseFirestoreException.Code.PERMISSION_DENIED ->
+                "Circle couldn't $action right now. Refresh and try again."
+            else -> "Circle couldn't $action right now. Please try again."
+        }
+        else -> "Circle couldn't $action right now. Please try again."
+    }
+
     private fun safeMessage(error: Throwable): String = when (error) {
         is FirebaseFirestoreException -> "${error.code}: ${error.message ?: "Firestore error"}"
         else -> error.message ?: error::class.java.simpleName
     }
+
+    private data class CupSponsorPresentation(
+        val sponsorName: String? = null,
+        val prizeLabel: String? = null,
+        val sponsorStatus: String = "No sponsored prize this week",
+        val sponsorNote: String? = null,
+        val sponsorActive: Boolean = false,
+        val trustedConfig: Boolean = false,
+        val cupStatusCode: String = "UNCONFIGURED",
+        val cupStatusLabel: String = "No trusted Cup config",
+        val startsAtEpochMillis: Long? = null,
+        val endsAtEpochMillis: Long? = null,
+        val fundingStatus: String = Phase12WeeklyCupConfigRules.FUNDING_NOT_CONFIGURED,
+        val fundingLabel: String = "Funding wallet not configured",
+        val placementAllocationLabel: String? = null,
+        val trustedResultsRequired: Boolean = true,
+    )
+
+    private data class RadiantRunCommitOutcome(
+        val reward: RadiantGameRules.RunReward,
+        val mode: RunCompetitionMode,
+        val xpAward: GameplayXpAward,
+        val runRecord: RunScoreRecord,
+        val competitionWalletLockedOut: Boolean = false,
+    )
 
     private data class FirebaseSession(
         val app: FirebaseApp,
@@ -2261,6 +4146,7 @@ class FirebaseRadiantRepository(
     private class DuplicateQuestException : RuntimeException("Quest already completed today.")
 
     private companion object {
+        const val TAG = "FirebaseRadiantRepo"
         const val USERS = "users"
         const val COMPLETED_QUESTS = "completedQuests"
         const val LEADERBOARD = "leaderboard"
@@ -2269,7 +4155,25 @@ class FirebaseRadiantRepository(
         const val RUN_ALL_TIME = "runAllTime"
         const val RUN_WALLET_DAILY = "runWalletDaily"
         const val RUN_WALLETS = "wallets"
+        const val COMPETITION_RUN_SUBMISSIONS = "competitionRunSubmissions"
+        const val WEEKLY_CUP_COMPETITION_WALLET_LOCKS = "weeklyCupCompetitionWalletLocks"
+        const val WEEKLY_CUP_LOCK_ACCOUNTS = "accounts"
         const val WEEKLY_CUP_CONFIGS = "weeklyCupConfigs"
+        const val WEEKLY_CUP_RESULTS = "weeklyCupResults"
+        const val WEEKLY_CUP_WINNERS = "winners"
+        const val CIRCLE_DISCOVERY = "circleDiscovery"
+        const val CIRCLE_PROFILES = "circleProfiles"
+        const val CIRCLE_EDGES = "circleEdges"
+        const val CIRCLE_CHATS = "circleChats"
+        const val CIRCLE_CHAT_MESSAGES = "messages"
+        const val CIRCLE_REPORTS = "circleReports"
+        const val CIRCLE_CHAT_PRESENCE = "circleChatPresence"
+        const val CIRCLE_CHAT_PRESENCE_MEMBERS = "members"
+        const val CIRCLE_STATUS_PENDING = "PENDING"
+        const val CIRCLE_STATUS_ACCEPTED = "ACCEPTED"
+        const val CIRCLE_STATUS_IGNORED = "IGNORED"
+        const val CIRCLE_STATUS_REMOVED = "REMOVED"
+        const val CIRCLE_STATUS_BLOCKED = "BLOCKED"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100
         const val SKR_SCAN_XP = 50
