@@ -1,6 +1,8 @@
 package com.thinkblox.radiantrush.firebase
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.google.firebase.FirebaseApp
 import com.google.firebase.Timestamp
@@ -11,12 +13,15 @@ import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.thinkblox.radiantrush.data.AccountIdentityPreview
 import com.thinkblox.radiantrush.data.AccountLinkResult
 import com.thinkblox.radiantrush.data.ApproximateCircleLocation
 import com.thinkblox.radiantrush.data.CircleActionResult
+import com.thinkblox.radiantrush.data.CircleChatMessagePreview
+import com.thinkblox.radiantrush.data.CircleChatMetaPreview
 import com.thinkblox.radiantrush.data.CircleDiscoveryResult
 import com.thinkblox.radiantrush.data.CircleMemberPreview
 import com.thinkblox.radiantrush.data.CircleMemberProfilePreview
@@ -43,6 +48,7 @@ import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.data.UserPreview
 import com.thinkblox.radiantrush.logic.CircleDiscoveryRules
+import com.thinkblox.radiantrush.logic.CircleChatRules
 import com.thinkblox.radiantrush.logic.DailyRadianceRules
 import com.thinkblox.radiantrush.logic.LeaderboardCandidate
 import com.thinkblox.radiantrush.logic.LeaderboardRules
@@ -2943,13 +2949,66 @@ class FirebaseRadiantRepository(
                         CIRCLE_STATUS_ACCEPTED -> connections += edge
                     }
                 }
-                onResult(
-                    CircleSocialSnapshot(
-                        incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
-                        connections = connections.sortedBy { it.member.displayName.lowercase(Locale.US) },
-                    ),
-                    null,
-                )
+
+                if (connections.isEmpty()) {
+                    onResult(
+                        CircleSocialSnapshot(
+                            incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                            connections = emptyList(),
+                        ),
+                        null,
+                    )
+                    return@addOnSuccessListener
+                }
+
+                db.collection(CIRCLE_CHATS)
+                    .whereArrayContains("memberUids", session.uid)
+                    .limit(60)
+                    .get()
+                    .addOnSuccessListener { chatSnapshot ->
+                        val chatByEdgeId = chatSnapshot.documents.associateBy { it.id }
+                        val enrichedConnections = connections.map { edge ->
+                            val chat = chatByEdgeId[edge.edgeId]
+                            if (chat == null) {
+                                edge
+                            } else {
+                                val lastMessageAt = chat.getTimestamp("lastMessageAt")?.toDate()?.time ?: 0L
+                                val lastMessageSenderUid = chat.getString("lastMessageSenderUid").orEmpty()
+                                val memberAUid = chat.getString("memberAUid").orEmpty()
+                                val myReadAt = if (session.uid == memberAUid) {
+                                    chat.getTimestamp("memberALastReadAt")?.toDate()?.time ?: 0L
+                                } else {
+                                    chat.getTimestamp("memberBLastReadAt")?.toDate()?.time ?: 0L
+                                }
+                                edge.copy(
+                                    lastMessagePreview = chat.getString("lastMessageText").orEmpty(),
+                                    lastMessageAtEpochMillis = lastMessageAt,
+                                    hasUnread = lastMessageSenderUid.isNotBlank() &&
+                                        lastMessageSenderUid != session.uid &&
+                                        lastMessageAt > myReadAt,
+                                )
+                            }
+                        }.sortedWith(
+                            compareByDescending<CircleSparkPreview> { it.lastMessageAtEpochMillis }
+                                .thenBy { it.member.displayName.lowercase(Locale.US) },
+                        )
+                        onResult(
+                            CircleSocialSnapshot(
+                                incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                                connections = enrichedConnections,
+                            ),
+                            null,
+                        )
+                    }
+                    .addOnFailureListener {
+                        onResult(
+                            CircleSocialSnapshot(
+                                incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                                connections = connections.sortedBy { it.member.displayName.lowercase(Locale.US) },
+                            ),
+                            null,
+                        )
+                    }
             }
             .addOnFailureListener { error ->
                 onResult(null, circleFriendlyFailure("refresh your Circle", error))
@@ -3140,6 +3199,398 @@ class FirebaseRadiantRepository(
             }
             .addOnFailureListener { error ->
                 onResult(CircleActionResult(false, circleFriendlyFailure("update this Spark", error)))
+            }
+    }
+
+    fun listenToCircleChat(
+        member: CircleMemberPreview,
+        onUpdate: (List<CircleChatMessagePreview>?, String?) -> Unit,
+    ): ListenerRegistration? {
+        val session = currentCircleSession()
+        if (session == null) {
+            onUpdate(null, "Circle needs cloud sign-in.")
+            return null
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onUpdate(null, "Choose another member in your Circle.")
+            return null
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        return db.collection(CIRCLE_CHATS)
+            .document(edgeId)
+            .collection(CIRCLE_CHAT_MESSAGES)
+            .orderBy("sentAt", Query.Direction.ASCENDING)
+            .limitToLast(CircleChatRules.MAX_MESSAGES_LOADED)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    onUpdate(null, circleFriendlyFailure("open this conversation", error))
+                    return@addSnapshotListener
+                }
+                val messages = snapshot?.documents.orEmpty().mapNotNull { document ->
+                    val senderUid = document.getString("senderUid").orEmpty()
+                    val body = document.getString("text").orEmpty()
+                    if (senderUid.isBlank() || body.isBlank()) return@mapNotNull null
+                    CircleChatMessagePreview(
+                        id = document.id,
+                        senderUid = senderUid,
+                        text = body,
+                        sentAtEpochMillis = document.getTimestamp("sentAt")?.toDate()?.time ?: 0L,
+                        isMine = senderUid == session.uid,
+                        hasPendingWrites = document.metadata.hasPendingWrites(),
+                    )
+                }
+                onUpdate(messages, null)
+            }
+    }
+
+    fun listenToCircleChatMeta(
+        member: CircleMemberPreview,
+        onUpdate: (CircleChatMetaPreview?, String?) -> Unit,
+    ): ListenerRegistration? {
+        val session = currentCircleSession()
+        if (session == null) {
+            onUpdate(null, "Circle needs cloud sign-in.")
+            return null
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onUpdate(null, "Choose another member in your Circle.")
+            return null
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val chatRef = db.collection(CIRCLE_CHATS).document(edgeId)
+        val peerPresenceRef = db.collection(CIRCLE_CHAT_PRESENCE)
+            .document(edgeId)
+            .collection(CIRCLE_CHAT_PRESENCE_MEMBERS)
+            .document(member.uid)
+
+        var latestPeerReadAt = 0L
+        var latestPeerTyping = false
+        val presenceHandler = Handler(Looper.getMainLooper())
+        lateinit var expireTypingRunnable: Runnable
+
+        fun publish() {
+            onUpdate(
+                CircleChatMetaPreview(
+                    peerLastReadAtEpochMillis = latestPeerReadAt,
+                    peerTyping = latestPeerTyping,
+                ),
+                null,
+            )
+        }
+
+        expireTypingRunnable = Runnable {
+            if (latestPeerTyping) {
+                latestPeerTyping = false
+                publish()
+            }
+        }
+
+        val chatRegistration = chatRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                onUpdate(null, circleFriendlyFailure("update this conversation", error))
+                return@addSnapshotListener
+            }
+            if (snapshot == null || !snapshot.exists()) {
+                latestPeerReadAt = 0L
+                publish()
+                return@addSnapshotListener
+            }
+            val memberAUid = snapshot.getString("memberAUid").orEmpty()
+            val peerReadField = if (member.uid == memberAUid) "memberALastReadAt" else "memberBLastReadAt"
+            latestPeerReadAt = snapshot.getTimestamp(peerReadField)?.toDate()?.time ?: 0L
+            publish()
+        }
+
+        val presenceRegistration = peerPresenceRef.addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                Log.w(TAG, "Circle chat typing listener failed: ${safeMessage(error)}")
+                latestPeerTyping = false
+                presenceHandler.removeCallbacks(expireTypingRunnable)
+                publish()
+                return@addSnapshotListener
+            }
+
+            latestPeerTyping = snapshot?.getBoolean("typing") == true
+            presenceHandler.removeCallbacks(expireTypingRunnable)
+            if (latestPeerTyping) {
+                // Do not compare a Firestore server timestamp with the phone wall clock.
+                // A few seconds of device clock skew can otherwise hide typing forever.
+                // Treat receipt of a fresh `typing = true` snapshot as authoritative and
+                // expire it locally unless the peer refreshes presence.
+                presenceHandler.postDelayed(
+                    expireTypingRunnable,
+                    CircleChatRules.TYPING_STALE_AFTER_MILLIS,
+                )
+            }
+            publish()
+        }
+
+        return object : ListenerRegistration {
+            override fun remove() {
+                presenceHandler.removeCallbacks(expireTypingRunnable)
+                chatRegistration.remove()
+                presenceRegistration.remove()
+            }
+        }
+    }
+
+    fun setCircleChatTyping(
+        member: CircleMemberPreview,
+        typing: Boolean,
+    ) {
+        val session = currentCircleSession() ?: return
+        if (member.uid.isBlank() || member.uid == session.uid) return
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        db.collection(CIRCLE_CHAT_PRESENCE)
+            .document(edgeId)
+            .collection(CIRCLE_CHAT_PRESENCE_MEMBERS)
+            .document(session.uid)
+            .set(
+                mapOf(
+                    "schemaVersion" to 1L,
+                    "edgeId" to edgeId,
+                    "ownerUid" to session.uid,
+                    "typing" to typing,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+            )
+            .addOnFailureListener { error ->
+                // Presence is progressive enhancement: never break chat because typing
+                // failed, but keep a useful log so permissions/rules issues are diagnosable.
+                Log.w(TAG, "Circle chat typing write failed: ${safeMessage(error)}")
+            }
+    }
+
+    fun sendCircleChatMessage(
+        member: CircleMemberPreview,
+        rawMessage: String,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(CircleActionResult(false, "Choose another member in your Circle."))
+            return
+        }
+
+        val clean = CircleChatRules.sanitizeMessage(rawMessage)
+        if (!CircleChatRules.isValidMessage(clean)) {
+            onResult(CircleActionResult(false, "Write a message between 1 and ${CircleChatRules.MAX_MESSAGE_LENGTH} characters."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val edgeRef = db.collection(CIRCLE_EDGES).document(edgeId)
+        val chatRef = db.collection(CIRCLE_CHATS).document(edgeId)
+        val messageRef = chatRef.collection(CIRCLE_CHAT_MESSAGES).document()
+        val memberUids = listOf(session.uid, member.uid).sorted()
+        val memberAUid = memberUids[0]
+        val memberBUid = memberUids[1]
+        val epoch = Timestamp(Date(0L))
+
+        db.runTransaction { transaction ->
+            val edge = transaction.get(edgeRef)
+            if (!edge.exists() || edge.getString("status") != CIRCLE_STATUS_ACCEPTED) {
+                throw IllegalStateException("Messaging is available only while this person is in Your Circle.")
+            }
+            val edgeMembers = (edge.get("memberUids") as? List<*>)
+                ?.mapNotNull { it as? String }
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
+            if (edgeMembers.size != 2 || session.uid !in edgeMembers || member.uid !in edgeMembers) {
+                throw IllegalStateException("This Circle connection needs to be refreshed before messaging.")
+            }
+
+            val chat = transaction.get(chatRef)
+            if (chat.exists()) {
+                val previousAt = chat.getTimestamp("lastMessageAt")?.toDate()?.time ?: 0L
+                if (!CircleChatRules.canSendAfter(previousAt, System.currentTimeMillis())) {
+                    throw IllegalStateException("Messages are sending quickly. Try again in a second.")
+                }
+                val updates = mutableMapOf<String, Any>(
+                    "lastMessageText" to clean,
+                    "lastMessageSenderUid" to session.uid,
+                    "lastMessageAt" to FieldValue.serverTimestamp(),
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                )
+                if (session.uid == memberAUid) {
+                    updates["memberALastReadAt"] = FieldValue.serverTimestamp()
+                } else {
+                    updates["memberBLastReadAt"] = FieldValue.serverTimestamp()
+                }
+                transaction.update(chatRef, updates)
+            } else {
+                transaction.set(
+                    chatRef,
+                    mapOf(
+                        "schemaVersion" to 1L,
+                        "edgeId" to edgeId,
+                        "memberUids" to edgeMembers,
+                        "memberAUid" to memberAUid,
+                        "memberBUid" to memberBUid,
+                        "lastMessageText" to clean,
+                        "lastMessageSenderUid" to session.uid,
+                        "lastMessageAt" to FieldValue.serverTimestamp(),
+                        "memberALastReadAt" to if (session.uid == memberAUid) FieldValue.serverTimestamp() else epoch,
+                        "memberBLastReadAt" to if (session.uid == memberBUid) FieldValue.serverTimestamp() else epoch,
+                        "createdAt" to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                )
+            }
+
+            transaction.set(
+                messageRef,
+                mapOf(
+                    "schemaVersion" to 1L,
+                    "edgeId" to edgeId,
+                    "senderUid" to session.uid,
+                    "text" to clean,
+                    "sentAt" to FieldValue.serverTimestamp(),
+                ),
+            )
+            null
+        }
+            .addOnSuccessListener {
+                onResult(CircleActionResult(true, "Message sent."))
+            }
+            .addOnFailureListener { error ->
+                val friendly = if (error is IllegalStateException) {
+                    error.message ?: "That message couldn't be sent."
+                } else {
+                    circleFriendlyFailure("send that message", error)
+                }
+                onResult(CircleActionResult(false, friendly))
+            }
+    }
+
+    fun markCircleChatRead(
+        member: CircleMemberPreview,
+        onResult: ((CircleActionResult) -> Unit)? = null,
+    ) {
+        val session = currentCircleSession()
+        if (session == null || member.uid.isBlank() || member.uid == session.uid) {
+            onResult?.invoke(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val chatRef = db.collection(CIRCLE_CHATS).document(edgeId)
+        chatRef.get()
+            .addOnSuccessListener { snapshot ->
+                if (!snapshot.exists()) {
+                    onResult?.invoke(CircleActionResult(true, "Conversation ready."))
+                    return@addOnSuccessListener
+                }
+                val memberAUid = snapshot.getString("memberAUid").orEmpty()
+                val field = if (session.uid == memberAUid) "memberALastReadAt" else "memberBLastReadAt"
+                chatRef.update(
+                    mapOf(
+                        field to FieldValue.serverTimestamp(),
+                        "updatedAt" to FieldValue.serverTimestamp(),
+                    ),
+                )
+                    .addOnSuccessListener {
+                        onResult?.invoke(CircleActionResult(true, "Conversation read."))
+                    }
+                    .addOnFailureListener { error ->
+                        onResult?.invoke(CircleActionResult(false, circleFriendlyFailure("mark this conversation read", error)))
+                    }
+            }
+            .addOnFailureListener { error ->
+                onResult?.invoke(CircleActionResult(false, circleFriendlyFailure("open this conversation", error)))
+            }
+    }
+
+    fun removeCircleConnection(
+        member: CircleMemberPreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) = updateAcceptedCircleRelationship(
+        member = member,
+        nextStatus = CIRCLE_STATUS_REMOVED,
+        successMessage = "${member.displayName} was removed from Your Circle.",
+        onResult = onResult,
+    )
+
+    fun blockCircleMember(
+        member: CircleMemberPreview,
+        onResult: (CircleActionResult) -> Unit,
+    ) = updateAcceptedCircleRelationship(
+        member = member,
+        nextStatus = CIRCLE_STATUS_BLOCKED,
+        successMessage = "${member.displayName} is blocked from this Circle connection.",
+        onResult = onResult,
+    )
+
+    fun reportCircleMember(
+        member: CircleMemberPreview,
+        reason: String,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+        if (member.uid.isBlank() || member.uid == session.uid) {
+            onResult(CircleActionResult(false, "Choose another member in your Circle."))
+            return
+        }
+
+        val db = FirebaseFirestore.getInstance(session.app)
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        db.collection(CIRCLE_REPORTS).document().set(
+            mapOf(
+                "schemaVersion" to 1L,
+                "reporterUid" to session.uid,
+                "targetUid" to member.uid,
+                "edgeId" to edgeId,
+                "reason" to CircleChatRules.normalizeReportReason(reason),
+                "createdAt" to FieldValue.serverTimestamp(),
+            ),
+        )
+            .addOnSuccessListener {
+                onResult(CircleActionResult(true, "Report sent. Thank you for helping keep the Circle safe."))
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("send this report", error)))
+            }
+    }
+
+    private fun updateAcceptedCircleRelationship(
+        member: CircleMemberPreview,
+        nextStatus: String,
+        successMessage: String,
+        onResult: (CircleActionResult) -> Unit,
+    ) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Circle needs cloud sign-in."))
+            return
+        }
+        val edgeId = CircleDiscoveryRules.pairId(session.uid, member.uid)
+        val db = FirebaseFirestore.getInstance(session.app)
+        db.collection(CIRCLE_EDGES).document(edgeId)
+            .update(
+                mapOf(
+                    "status" to nextStatus,
+                    "updatedAt" to FieldValue.serverTimestamp(),
+                ),
+            )
+            .addOnSuccessListener { onResult(CircleActionResult(true, successMessage)) }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("update this Circle connection", error)))
             }
     }
 
@@ -3713,9 +4164,16 @@ class FirebaseRadiantRepository(
         const val CIRCLE_DISCOVERY = "circleDiscovery"
         const val CIRCLE_PROFILES = "circleProfiles"
         const val CIRCLE_EDGES = "circleEdges"
+        const val CIRCLE_CHATS = "circleChats"
+        const val CIRCLE_CHAT_MESSAGES = "messages"
+        const val CIRCLE_REPORTS = "circleReports"
+        const val CIRCLE_CHAT_PRESENCE = "circleChatPresence"
+        const val CIRCLE_CHAT_PRESENCE_MEMBERS = "members"
         const val CIRCLE_STATUS_PENDING = "PENDING"
         const val CIRCLE_STATUS_ACCEPTED = "ACCEPTED"
         const val CIRCLE_STATUS_IGNORED = "IGNORED"
+        const val CIRCLE_STATUS_REMOVED = "REMOVED"
+        const val CIRCLE_STATUS_BLOCKED = "BLOCKED"
         const val SIGNED_PROOF_XP = 75
         const val ON_CHAIN_PROOF_XP = 100
         const val SKR_SCAN_XP = 50

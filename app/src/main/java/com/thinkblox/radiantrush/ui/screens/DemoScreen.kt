@@ -54,42 +54,63 @@ fun DemoScreen(
         item {
             SectionTitle(
                 title = "Welcome to Radiant Circle",
-                body = "Your Solana Mobile identity, daily activity, progress, and games live together here. Radiant Rush is one part of the Circle — not the whole app.",
+                body = "Start with your daily ritual, discover people through shared interests, chat with accepted Circle members, play Radiant Rush, and connect Solana when you want on-chain features.",
             )
         }
         item {
             GuideStep(
                 Icons.Filled.AccountCircle,
-                "1. Make it yours",
-                "Set your public name and icon in Me. This identity represents you around Radiant Circle.",
-            )
-        }
-        item {
-            GuideStep(
-                Icons.Filled.AccountBalanceWallet,
-                "2. Connect when useful",
-                "A wallet is optional for browsing and Daily Check-In. Connect it for wallet quests, SKR Passport, and Ranked Cup runs.",
+                "1. Protect your Circle identity",
+                "Set your public name and avatar in You. Continue with Google to make your Radiant Circle account easier to restore after reinstalling. Your social identity stays separate from whichever wallet you connect.",
             )
         }
         item {
             GuideStep(
                 Icons.Filled.CheckCircle,
-                "3. Pick your Daily Plan",
-                "Today keeps your quests, streak progress, Daily Radiant Chest, and quick actions in one place.",
+                "2. Begin with Daily Radiance",
+                "Open your Daily Radiance from Home and build its own streak. Today also keeps your Daily Plan, Daily Radiant Chest, quests, and quick actions together.",
             )
         }
         item {
             GuideStep(
                 Icons.Filled.Bolt,
-                "4. Play inside the Circle",
-                "Radiant Rush is a quick skill game inside Radiant Circle. Play Casual for fun, or connect a wallet for Ranked Cup entry.",
+                "3. Shake to discover",
+                "Open Circle and physically shake your phone. Discovery uses approximate location only, stays active for about two minutes, and quietly widens the search when nobody is nearby.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.AccountCircle,
+                "4. Connect through Shared Sparks",
+                "See optional public interests you already share, then Send Spark. When the other person accepts, they join Your Circle and you can view each other's public social profile.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.CheckCircle,
+                "5. Chat with accepted Circle members",
+                "Private 1-to-1 chat unlocks only after a mutual Circle connection. Chat includes unread and read state, typing presence, profile identity, and safety actions for report, block, or remove.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.Bolt,
+                "6. Play Radiant Rush and fill your Vault",
+                "Radiant Rush is the quick skill game inside Radiant Circle. Runs open score-based capsules that reveal collectibles for your 12-item Radiant Vault. Duplicate collectibles become Radiant Shards.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.AccountBalanceWallet,
+                "7. Connect Solana when useful",
+                "A wallet is optional for the social experience. Connect with Mobile Wallet Adapter for wallet proofs, SKR Passport, on-chain activity, and Ranked Weekly Cup entry. The first wallet used for Ranked is kept as that Cup's competition wallet.",
             )
         }
         item {
             GuideStep(
                 Icons.Filled.EmojiEvents,
-                "5. Build your presence",
-                "Badges, Ranks, your public profile, and SKR Passport cosmetics show the progress tied to your Circle identity.",
+                "8. Build your presence",
+                "Badges, Ranks, Radiance streaks, your public profile, Vault collection, and SKR Passport show the progress tied to your Radiant Circle identity.",
             )
         }
         item {
@@ -102,7 +123,7 @@ fun DemoScreen(
                     modifier = Modifier.padding(responsive.cardPadding),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Text("Your Circle today", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text("Your Circle right now", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
                         modifier = Modifier.fillMaxWidth(),
                         text = "${uiState.user.displayName} • Lv. ${uiState.user.level} • ${uiState.user.xp} XP",
@@ -110,7 +131,13 @@ fun DemoScreen(
                     )
                     Text(
                         modifier = Modifier.fillMaxWidth(),
-                        text = "${uiState.user.currentStreak}-day streak • ${uiState.completedQuestCount}/${uiState.quests.size} Daily Plan complete",
+                        text = "Radiance ${uiState.dailyRadiance.currentStreak}d • ${uiState.completedQuestCount}/${uiState.quests.size} Daily Plan complete",
+                        softWrap = true,
+                    )
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = "Radiant Vault: ${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal} • ${uiState.radiantRun.radiantShards} shards",
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                         softWrap = true,
                     )
                     Text(

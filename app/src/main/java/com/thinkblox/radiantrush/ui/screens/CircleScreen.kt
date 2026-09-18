@@ -11,25 +11,44 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +56,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,10 +71,16 @@ import com.thinkblox.radiantrush.data.CircleMemberProfilePreview
 import com.thinkblox.radiantrush.data.CircleSparkPreview
 import com.thinkblox.radiantrush.data.CircleUiState
 import com.thinkblox.radiantrush.location.ApproximateLocationProvider
+import com.thinkblox.radiantrush.logic.CircleChatRules
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.ShakeToDiscoverEffect
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
+import com.thinkblox.radiantrush.ui.audio.ChatSoundPlayer
+import com.thinkblox.radiantrush.ui.audio.CircleInteractionSoundPlayer
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
+import java.text.DateFormat
+import java.util.Date
+import kotlinx.coroutines.delay
 
 private fun playerFacingCircleMessage(raw: String): String {
     val text = raw.trim()
@@ -77,6 +105,13 @@ fun CircleScreen(
     onRefresh: () -> Unit,
     onOpenProfile: (CircleMemberPreview) -> Unit,
     onCloseProfile: () -> Unit,
+    onOpenChat: (CircleMemberPreview) -> Unit,
+    onCloseChat: () -> Unit,
+    onSendMessage: (String) -> Unit,
+    onTypingChanged: (Boolean) -> Unit,
+    onRemoveConnection: (CircleMemberPreview) -> Unit,
+    onBlockMember: (CircleMemberPreview) -> Unit,
+    onReportMember: (CircleMemberPreview, String) -> Unit,
 ) {
     val context = LocalContext.current
     val responsive = rememberResponsiveUiSpec()
@@ -86,12 +121,38 @@ fun CircleScreen(
     var locating by remember { mutableStateOf(false) }
     var localMessage by remember { mutableStateOf<String?>(null) }
 
+    val activeChatMember = state.chatMember
+    if (activeChatMember != null) {
+        CircleChatView(
+            contentPadding = contentPadding,
+            member = activeChatMember,
+            messages = state.chatMessages,
+            loading = state.chatLoading,
+            sending = state.chatSending,
+            statusMessage = state.chatStatusMessage,
+            sentSequence = state.chatSentSequence,
+            peerLastReadAtEpochMillis = state.chatPeerLastReadAtEpochMillis,
+            peerTyping = state.chatPeerTyping,
+            onBack = onCloseChat,
+            onSendMessage = onSendMessage,
+            onTypingChanged = onTypingChanged,
+            onBlock = { onBlockMember(activeChatMember) },
+            onReport = { reason -> onReportMember(activeChatMember, reason) },
+        )
+        return
+    }
+
     if (state.profileLoading || state.selectedMemberProfile != null) {
         CircleMemberProfileView(
             contentPadding = contentPadding,
             profile = state.selectedMemberProfile,
             loading = state.profileLoading,
             onBack = onCloseProfile,
+            onMessage = { member -> onOpenChat(member) },
+            onRemove = onRemoveConnection,
+            onBlock = onBlockMember,
+            onReport = onReportMember,
+            actionInProgress = state.actionInProgress,
         )
         return
     }
@@ -132,9 +193,19 @@ fun CircleScreen(
         }
     }
 
+    val interactionSoundPlayer = remember(context) {
+        CircleInteractionSoundPlayer(context.applicationContext)
+    }
+    DisposableEffect(interactionSoundPlayer) {
+        onDispose { interactionSoundPlayer.release() }
+    }
+
     ShakeToDiscoverEffect(
         enabled = !locating && !state.actionInProgress && state.discoveryStatus != CircleDiscoveryStatus.Searching,
-        onShake = ::beginDiscovery,
+        onShake = {
+            interactionSoundPlayer.playShake()
+            beginDiscovery()
+        },
     )
 
     LazyColumn(
@@ -339,9 +410,10 @@ fun CircleScreen(
                 count = state.connections.size,
                 key = { index -> state.connections[index].edgeId },
             ) { index ->
-                val member = state.connections[index].member
+                val connection = state.connections[index]
+                val member = connection.member
                 CircleConnectionCard(
-                    member = member,
+                    connection = connection,
                     onClick = { onOpenProfile(member) },
                 )
             }
@@ -485,9 +557,10 @@ private fun SparkRequestCard(
 
 @Composable
 private fun CircleConnectionCard(
-    member: CircleMemberPreview,
+    connection: CircleSparkPreview,
     onClick: () -> Unit,
 ) {
+    val member = connection.member
     val avatar = PublicProfileRules.avatarFor(member.avatarId)
     Card(
         modifier = Modifier
@@ -520,12 +593,26 @@ private fun CircleConnectionCard(
                     overflow = TextOverflow.Clip,
                 )
                 Text(
-                    text = "Tap to view profile",
+                    text = when {
+                        connection.hasUnread -> "New message"
+                        connection.lastMessagePreview.isNotBlank() -> connection.lastMessagePreview
+                        else -> "Tap to view profile"
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = if (connection.hasUnread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
-            Text(text = "✨", style = MaterialTheme.typography.titleLarge)
+            if (connection.hasUnread) {
+                Surface(
+                    modifier = Modifier.size(12.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                ) {}
+            } else {
+                Text(text = "✨", style = MaterialTheme.typography.titleLarge)
+            }
         }
     }
 }
@@ -536,33 +623,34 @@ private fun CircleMemberProfileView(
     profile: CircleMemberProfilePreview?,
     loading: Boolean,
     onBack: () -> Unit,
+    onMessage: (CircleMemberPreview) -> Unit,
+    onRemove: (CircleMemberPreview) -> Unit,
+    onBlock: (CircleMemberPreview) -> Unit,
+    onReport: (CircleMemberPreview, String) -> Unit,
+    actionInProgress: Boolean,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    var showRemoveConfirm by remember { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showAllAbout by remember(profile?.member?.uid) { mutableStateOf(false) }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = responsive.screenPadding,
-            top = contentPadding.calculateTopPadding() + 12.dp,
+            top = contentPadding.calculateTopPadding() + 8.dp,
             end = responsive.screenPadding,
-            bottom = contentPadding.calculateBottomPadding() + 28.dp,
+            bottom = contentPadding.calculateBottomPadding() + 24.dp,
         ),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        item {
-            OutlinedButton(
-                onClick = onBack,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = null, modifier = Modifier.size(18.dp))
-                Text(modifier = Modifier.padding(start = 8.dp), text = "Back to Your Circle")
-            }
-        }
-
         if (loading || profile == null) {
             item {
-                Card(
+                Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Text(
                         modifier = Modifier.padding(20.dp),
@@ -576,20 +664,20 @@ private fun CircleMemberProfileView(
 
         item {
             val avatar = PublicProfileRules.avatarFor(profile.profile.avatarId)
-            Card(
+            Surface(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(28.dp),
-                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.primaryContainer),
+                shape = RoundedCornerShape(26.dp),
+                color = MaterialTheme.colorScheme.primaryContainer,
             ) {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(if (responsive.isTiny) 18.dp else 22.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = 18.dp, vertical = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Surface(
-                        modifier = Modifier.size(if (responsive.isTiny) 78.dp else 92.dp),
+                        modifier = Modifier.size(if (responsive.isTiny) 68.dp else 76.dp),
                         shape = CircleShape,
                         color = MaterialTheme.colorScheme.secondaryContainer,
                     ) {
@@ -597,45 +685,117 @@ private fun CircleMemberProfileView(
                             Text(text = avatar.symbol, style = MaterialTheme.typography.headlineLarge)
                         }
                     }
-                    Text(
-                        text = profile.profile.displayName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center,
-                        softWrap = true,
-                    )
-                    if (profile.profile.motto.isNotBlank()) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
                         Text(
-                            text = "“${profile.profile.motto}”",
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                            softWrap = true,
+                            text = profile.profile.displayName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 2,
+                            overflow = TextOverflow.Clip,
                         )
+                        Text(
+                            text = "✨ In Your Circle",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (profile.profile.motto.isNotBlank()) {
+                            Text(
+                                text = "“${profile.profile.motto}”",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                                maxLines = 3,
+                                overflow = TextOverflow.Clip,
+                            )
+                        }
                     }
-                    Text(
-                        text = "✨ In Your Circle",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
                 }
+            }
+        }
+
+        item {
+            Button(
+                onClick = { onMessage(profile.member) },
+                enabled = !actionInProgress,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 52.dp),
+                shape = RoundedCornerShape(18.dp),
+            ) {
+                Icon(Icons.Filled.Chat, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text(modifier = Modifier.padding(start = 8.dp), text = "Message")
+            }
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.Top,
+            ) {
+                CompactProfileAction(
+                    icon = Icons.Filled.PersonRemove,
+                    label = "Remove",
+                    contentDescription = "Remove from Circle",
+                    enabled = !actionInProgress,
+                    onClick = { showRemoveConfirm = true },
+                )
+                CompactProfileAction(
+                    icon = Icons.Filled.Block,
+                    label = "Block",
+                    contentDescription = "Block member",
+                    enabled = !actionInProgress,
+                    onClick = { showBlockConfirm = true },
+                )
+                CompactProfileAction(
+                    icon = Icons.Filled.Flag,
+                    label = "Report",
+                    contentDescription = "Report safety issue",
+                    enabled = !actionInProgress,
+                    onClick = { showReportDialog = true },
+                )
             }
         }
 
         if (profile.sharedSparks.isNotEmpty()) {
             item {
-                SharedSparksSection(
-                    title = "Shared Sparks",
-                    sparks = profile.sharedSparks,
-                )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.62f),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = "Shared Sparks",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Black,
+                        )
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(count = profile.sharedSparks.size) { index ->
+                                val spark = profile.sharedSparks[index]
+                                Surface(
+                                    shape = RoundedCornerShape(50),
+                                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+                                ) {
+                                    Text(
+                                        text = "${spark.symbol} ${spark.value}",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
-        }
-
-        item {
-            SectionHeader(
-                title = "About ${profile.profile.displayName}",
-                subtitle = "Only the details they chose to share are shown here.",
-            )
         }
 
         val details = listOf(
@@ -647,51 +807,68 @@ private fun CircleMemberProfileView(
             Triple("🐾", "Pets", profile.profile.pets),
             Triple("✨", "Currently into", profile.profile.currentlyInto),
             Triple("🌤", "Weekend vibe", profile.profile.weekendVibe),
-            Triple("💬", "Can talk for hours about", profile.profile.talkAbout),
+            Triple("💬", "Talks for hours about", profile.profile.talkAbout),
         ).filter { it.third.isNotBlank() }
 
-        if (details.isEmpty()) {
-            item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                ) {
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(22.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.72f),
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
                     Text(
-                        modifier = Modifier.padding(18.dp),
-                        text = "They haven't shared interests yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        text = "About",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
                     )
-                }
-            }
-        } else {
-            items(count = details.size) { index ->
-                val detail = details[index]
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(15.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        Text(text = detail.first, style = MaterialTheme.typography.titleLarge)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = detail.second,
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text = detail.third,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                softWrap = true,
-                            )
+                    Text(
+                        text = "Only what ${profile.profile.displayName} chose to share.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                    )
+
+                    if (details.isEmpty()) {
+                        Text(
+                            text = "No public interests yet.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        )
+                    } else {
+                        val visibleDetails = if (showAllAbout) details else details.take(4)
+                        visibleDetails.forEachIndexed { index, detail ->
+                            if (index > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 7.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(text = detail.first, style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    text = detail.second,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.widthIn(min = 92.dp, max = 132.dp),
+                                )
+                                Text(
+                                    text = detail.third,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        if (details.size > 4) {
+                            TextButton(
+                                onClick = { showAllAbout = !showAllAbout },
+                                modifier = Modifier.align(Alignment.End),
+                            ) {
+                                Text(if (showAllAbout) "Show less" else "Show ${details.size - 4} more")
+                            }
                         }
                     }
                 }
@@ -700,15 +877,582 @@ private fun CircleMemberProfileView(
 
         item {
             Text(
-                text = "Private account details, wallet addresses, and exact location are never shown on Circle profiles.",
+                text = "Private account details, wallet addresses, and exact location are never shown here.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
-                softWrap = true,
             )
         }
     }
+
+    if (showRemoveConfirm && profile != null) {
+        AlertDialog(
+            onDismissRequest = { showRemoveConfirm = false },
+            title = { Text("Remove from Your Circle?") },
+            text = { Text("Messaging stops immediately and this connection leaves Your Circle.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRemoveConfirm = false
+                    onRemove(profile.member)
+                }) { Text("Remove") }
+            },
+            dismissButton = { TextButton(onClick = { showRemoveConfirm = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showBlockConfirm && profile != null) {
+        AlertDialog(
+            onDismissRequest = { showBlockConfirm = false },
+            title = { Text("Block this person?") },
+            text = { Text("Blocking ends this Circle connection and prevents further private chat.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBlockConfirm = false
+                    onBlock(profile.member)
+                }) { Text("Block") }
+            },
+            dismissButton = { TextButton(onClick = { showBlockConfirm = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showReportDialog && profile != null) {
+        ReportReasonDialog(
+            displayName = profile.profile.displayName,
+            onDismiss = { showReportDialog = false },
+            onReasonSelected = { reason ->
+                showReportDialog = false
+                onReport(profile.member, reason)
+            },
+        )
+    }
+}
+
+@Composable
+private fun CompactProfileAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    contentDescription: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        FilledTonalIconButton(
+            onClick = onClick,
+            enabled = enabled,
+            modifier = Modifier.size(46.dp),
+        ) {
+            Icon(icon, contentDescription = contentDescription, modifier = Modifier.size(20.dp))
+        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun IncomingTypingIndicator(
+    avatarSymbol: String,
+) {
+    var dotPhase by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            dotPhase = (dotPhase + 1) % 3
+            delay(280L)
+        }
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Start,
+        verticalAlignment = Alignment.Bottom,
+    ) {
+        Surface(
+            modifier = Modifier
+                .padding(end = 7.dp, bottom = 1.dp)
+                .size(30.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(text = avatarSymbol, style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        Surface(
+            modifier = Modifier.widthIn(max = 92.dp),
+            shape = RoundedCornerShape(
+                topStart = 20.dp,
+                topEnd = 20.dp,
+                bottomStart = 6.dp,
+                bottomEnd = 20.dp,
+            ),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                repeat(3) { index ->
+                    val active = index == dotPhase
+                    Surface(
+                        modifier = Modifier.size(if (active) 8.dp else 6.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (active) 0.9f else 0.35f),
+                    ) {}
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CircleChatView(
+
+    contentPadding: PaddingValues,
+    member: CircleMemberPreview,
+    messages: List<com.thinkblox.radiantrush.data.CircleChatMessagePreview>,
+    loading: Boolean,
+    sending: Boolean,
+    statusMessage: String?,
+    sentSequence: Int,
+    peerLastReadAtEpochMillis: Long,
+    peerTyping: Boolean,
+    onBack: () -> Unit,
+    onSendMessage: (String) -> Unit,
+    onTypingChanged: (Boolean) -> Unit,
+    onBlock: () -> Unit,
+    onReport: (String) -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    val context = LocalContext.current
+    val soundPlayer = remember(member.uid) { ChatSoundPlayer(context) }
+    val listState = rememberLazyListState()
+    var draft by remember(member.uid) { mutableStateOf("") }
+    var pendingText by remember(member.uid) { mutableStateOf<String?>(null) }
+    var pendingStartedAt by remember(member.uid) { mutableStateOf(0L) }
+    var lastSeenSentSequence by remember(member.uid) { mutableStateOf(sentSequence) }
+    var lastObservedMessageId by remember(member.uid) { mutableStateOf<String?>(null) }
+    var messageBaselineReady by remember(member.uid) { mutableStateOf(false) }
+    var showBlockConfirm by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+
+    val serverEchoExists = pendingText?.let { pending ->
+        messages.any { message ->
+            message.isMine &&
+                message.text == pending &&
+                (message.sentAtEpochMillis == 0L || message.sentAtEpochMillis >= pendingStartedAt - 5_000L)
+        }
+    } ?: false
+
+    val displayedMessages = if (!pendingText.isNullOrBlank() && !serverEchoExists) {
+        messages + com.thinkblox.radiantrush.data.CircleChatMessagePreview(
+            id = "local-pending-$pendingStartedAt",
+            senderUid = "",
+            text = pendingText.orEmpty(),
+            sentAtEpochMillis = pendingStartedAt,
+            isMine = true,
+            hasPendingWrites = true,
+        )
+    } else {
+        messages
+    }
+
+    fun sendDraft() {
+        val clean = CircleChatRules.sanitizeMessage(draft)
+        if (!sending && CircleChatRules.isValidMessage(clean)) {
+            pendingText = clean
+            pendingStartedAt = System.currentTimeMillis()
+            draft = ""
+            onTypingChanged(false)
+            soundPlayer.playSend()
+            onSendMessage(clean)
+        }
+    }
+
+    DisposableEffect(member.uid) {
+        onDispose {
+            onTypingChanged(false)
+            soundPlayer.release()
+        }
+    }
+
+    LaunchedEffect(member.uid, draft.isNotBlank()) {
+        if (draft.isBlank()) {
+            onTypingChanged(false)
+        } else {
+            while (true) {
+                onTypingChanged(true)
+                delay(CircleChatRules.TYPING_REFRESH_INTERVAL_MILLIS)
+            }
+        }
+    }
+
+    LaunchedEffect(loading, messages.lastOrNull()?.id) {
+        if (!loading) {
+            val latest = messages.lastOrNull()
+            if (!messageBaselineReady) {
+                messageBaselineReady = true
+                lastObservedMessageId = latest?.id
+            } else if (latest != null && latest.id != lastObservedMessageId) {
+                if (!latest.isMine) soundPlayer.playReceive()
+                lastObservedMessageId = latest.id
+            }
+        }
+    }
+
+    val chatListExtraItems = if (!loading && peerTyping) 1 else 0
+
+    LaunchedEffect(displayedMessages.size, peerTyping, loading) {
+        val targetIndex = displayedMessages.lastIndex + chatListExtraItems
+        if (targetIndex >= 0) {
+            listState.animateScrollToItem(targetIndex)
+        }
+    }
+
+    LaunchedEffect(sentSequence) {
+        if (sentSequence > lastSeenSentSequence) {
+            pendingText = null
+            pendingStartedAt = 0L
+            lastSeenSentSequence = sentSequence
+        }
+    }
+
+    LaunchedEffect(sending, statusMessage) {
+        if (!sending && pendingText != null && !statusMessage.isNullOrBlank() && !serverEchoExists) {
+            if (draft.isBlank()) draft = pendingText.orEmpty()
+            pendingText = null
+            pendingStartedAt = 0L
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .testTag(UiTestTags.CIRCLE_CHAT_SCREEN)
+            .padding(
+                start = responsive.screenPadding,
+                top = contentPadding.calculateTopPadding(),
+                end = responsive.screenPadding,
+            ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Private Circle chat",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            FilledTonalIconButton(
+                onClick = { showReportDialog = true },
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(Icons.Filled.Flag, contentDescription = "Report safety issue", modifier = Modifier.size(18.dp))
+            }
+            FilledTonalIconButton(
+                onClick = { showBlockConfirm = true },
+                modifier = Modifier
+                    .padding(start = 6.dp)
+                    .size(40.dp),
+            ) {
+                Icon(Icons.Filled.Block, contentDescription = "Block member", modifier = Modifier.size(18.dp))
+            }
+        }
+
+        if (!statusMessage.isNullOrBlank()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+            ) {
+                Text(
+                    text = playerFacingCircleMessage(statusMessage),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+            state = listState,
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+            contentPadding = PaddingValues(top = 10.dp, bottom = 8.dp),
+        ) {
+            if (loading) {
+                item {
+                    Text(
+                        "Opening conversation…",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 28.dp),
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            } else if (displayedMessages.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 44.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(52.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Chat, contentDescription = null, modifier = Modifier.size(24.dp))
+                            }
+                        }
+                        Text(
+                            text = "Say hello to ${member.displayName}",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = "Only accepted Circle members can message each other.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            } else {
+                items(count = displayedMessages.size, key = { index -> displayedMessages[index].id }) { index ->
+                    val message = displayedMessages[index]
+                    val avatar = PublicProfileRules.avatarFor(member.avatarId)
+                    val nextMessage = displayedMessages.getOrNull(index + 1)
+                    val showIncomingAvatar = !message.isMine && (nextMessage == null || nextMessage.isMine)
+                    val isLatestMine = message.isMine && displayedMessages.drop(index + 1).none { it.isMine }
+                    val deliveryLabel = when {
+                        !isLatestMine -> null
+                        message.hasPendingWrites || message.id.startsWith("local-pending-") -> "Sending…"
+                        message.sentAtEpochMillis > 0L && peerLastReadAtEpochMillis >= message.sentAtEpochMillis -> "Read"
+                        else -> "Sent"
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = if (message.isMine) Arrangement.End else Arrangement.Start,
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        if (!message.isMine) {
+                            if (showIncomingAvatar) {
+                                Surface(
+                                    modifier = Modifier
+                                        .padding(end = 7.dp, bottom = 1.dp)
+                                        .size(30.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(text = avatar.symbol, style = MaterialTheme.typography.bodyMedium)
+                                    }
+                                }
+                            } else {
+                                Box(modifier = Modifier.padding(end = 7.dp).size(30.dp))
+                            }
+                        }
+                        Column(horizontalAlignment = if (message.isMine) Alignment.End else Alignment.Start) {
+                            Surface(
+                                modifier = Modifier.widthIn(max = 296.dp),
+                                shape = RoundedCornerShape(
+                                    topStart = 20.dp,
+                                    topEnd = 20.dp,
+                                    bottomStart = if (message.isMine) 20.dp else 6.dp,
+                                    bottomEnd = if (message.isMine) 6.dp else 20.dp,
+                                ),
+                                color = if (message.isMine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+                            ) {
+                                Column(modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp)) {
+                                    Text(message.text, style = MaterialTheme.typography.bodyMedium, softWrap = true)
+                                    if (message.sentAtEpochMillis > 0L && !message.hasPendingWrites) {
+                                        Text(
+                                            text = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(message.sentAtEpochMillis)),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.align(Alignment.End),
+                                        )
+                                    }
+                                }
+                            }
+                            if (deliveryLabel != null) {
+                                Text(
+                                    text = deliveryLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(top = 2.dp, end = 4.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+                if (peerTyping) {
+                    item(key = "peer-typing-indicator") {
+                        IncomingTypingIndicator(
+                            avatarSymbol = PublicProfileRules.avatarFor(member.avatarId).symbol,
+                        )
+                    }
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(top = 2.dp, bottom = 2.dp),
+            shape = RoundedCornerShape(26.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+        ) {
+            Row(
+                modifier = Modifier.padding(start = 6.dp, top = 3.dp, end = 5.dp, bottom = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                TextField(
+                    value = draft,
+                    onValueChange = { value ->
+                        val nextDraft = value.take(CircleChatRules.MAX_MESSAGE_LENGTH)
+                        val wasTyping = draft.isNotBlank()
+                        val isTyping = nextDraft.isNotBlank()
+                        draft = nextDraft
+                        if (wasTyping != isTyping) {
+                            onTypingChanged(isTyping)
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 46.dp, max = 92.dp),
+                    enabled = true,
+                    placeholder = { Text("Message…") },
+                    maxLines = 4,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { sendDraft() }),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedIndicatorColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedIndicatorColor = MaterialTheme.colorScheme.surfaceVariant,
+                        disabledIndicatorColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+                )
+                FilledIconButton(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .align(Alignment.CenterVertically)
+                        .testTag(UiTestTags.CIRCLE_CHAT_SEND),
+                    onClick = ::sendDraft,
+                    enabled = !sending && CircleChatRules.isValidMessage(draft),
+                ) {
+                    Icon(Icons.Filled.Send, contentDescription = "Send message", modifier = Modifier.size(20.dp))
+                }
+            }
+        }
+    }
+
+    if (showBlockConfirm) {
+        AlertDialog(
+            onDismissRequest = { showBlockConfirm = false },
+            title = { Text("Block ${member.displayName}?") },
+            text = { Text("This ends the Circle connection and stops private chat immediately.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBlockConfirm = false
+                    onBlock()
+                }) { Text("Block") }
+            },
+            dismissButton = { TextButton(onClick = { showBlockConfirm = false }) { Text("Cancel") } },
+        )
+    }
+
+    if (showReportDialog) {
+        ReportReasonDialog(
+            displayName = member.displayName,
+            onDismiss = { showReportDialog = false },
+            onReasonSelected = { reason ->
+                showReportDialog = false
+                onReport(reason)
+            },
+        )
+    }
+}
+
+@Composable
+private fun ReportReasonDialog(
+    displayName: String,
+    onDismiss: () -> Unit,
+    onReasonSelected: (String) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Report $displayName") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Choose the reason that best matches the safety issue.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                )
+                CircleChatRules.REPORT_REASONS.forEach { reason ->
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onReasonSelected(reason) },
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                Icons.Filled.Flag,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = reason,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .padding(start = 12.dp)
+                                    .weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable

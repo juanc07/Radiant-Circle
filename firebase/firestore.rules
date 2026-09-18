@@ -9,6 +9,71 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+
+    function isCircleEdgeMember(edgeId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/circleEdges/$(edgeId))
+        && request.auth.uid in get(/databases/$(database)/documents/circleEdges/$(edgeId)).data.memberUids;
+    }
+
+    function isAcceptedCircleEdge(edgeId) {
+      return isCircleEdgeMember(edgeId)
+        && get(/databases/$(database)/documents/circleEdges/$(edgeId)).data.status == "ACCEPTED";
+    }
+
+    function validCircleChatSendUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "lastMessageText",
+          "lastMessageSenderUid",
+          "lastMessageAt",
+          "updatedAt",
+          "memberALastReadAt",
+          "memberBLastReadAt"
+        ])
+        && request.resource.data.lastMessageText is string
+        && request.resource.data.lastMessageText.size() >= 1
+        && request.resource.data.lastMessageText.size() <= 500
+        && request.resource.data.lastMessageSenderUid == request.auth.uid
+        && request.resource.data.lastMessageAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.time >= resource.data.lastMessageAt + duration.value(1, 's')
+        && (
+          (
+            request.auth.uid == resource.data.memberAUid
+            && request.resource.data.memberALastReadAt == request.time
+            && request.resource.data.memberBLastReadAt == resource.data.memberBLastReadAt
+          )
+          ||
+          (
+            request.auth.uid == resource.data.memberBUid
+            && request.resource.data.memberBLastReadAt == request.time
+            && request.resource.data.memberALastReadAt == resource.data.memberALastReadAt
+          )
+        );
+    }
+
+    function validCircleChatReadUpdate() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          "memberALastReadAt",
+          "memberBLastReadAt",
+          "updatedAt"
+        ])
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.auth.uid == resource.data.memberAUid
+            && request.resource.data.memberALastReadAt == request.time
+            && request.resource.data.memberBLastReadAt == resource.data.memberBLastReadAt
+          )
+          ||
+          (
+            request.auth.uid == resource.data.memberBUid
+            && request.resource.data.memberBLastReadAt == request.time
+            && request.resource.data.memberALastReadAt == resource.data.memberALastReadAt
+          )
+        );
+    }
+
     // Phase 12G: one Radiant Circle account may use only one competition wallet
     // per Weekly Cup. The first Ranked receipt creates this immutable lock in the
     // same atomic Firestore transaction. Modified clients cannot switch it later.
@@ -276,13 +341,171 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
 
       allow update: if signedIn()
-        && resource.data.recipientUid == request.auth.uid
-        && resource.data.status == "PENDING"
-        && request.resource.data.status in ["ACCEPTED", "IGNORED"]
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+        && (
+          (
+            resource.data.recipientUid == request.auth.uid
+            && resource.data.status == "PENDING"
+            && request.resource.data.status in ["ACCEPTED", "IGNORED"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+            && request.resource.data.updatedAt == request.time
+          )
+          ||
+          (
+            request.auth.uid in resource.data.memberUids
+            && resource.data.status == "ACCEPTED"
+            && request.resource.data.status in ["REMOVED", "BLOCKED"]
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
+            && request.resource.data.updatedAt == request.time
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // Phase 13D private mutual-friend chat. A thread is keyed by the deterministic
+    // Circle edge id. Only ACCEPTED Circle members may create/update a thread or
+    // read/write messages. Message writes must atomically advance the thread's
+    // last-message fields, and the server clock enforces a one-second send floor.
+    match /circleChats/{edgeId} {
+      // Read authorization comes from the accepted Circle edge rather than the
+      // chat document itself. This is important for the very first message:
+      // the client transaction must be allowed to read a non-existent chat doc
+      // before atomically creating the thread + first message.
+      allow read: if isAcceptedCircleEdge(edgeId);
+
+      allow create: if isAcceptedCircleEdge(edgeId)
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "edgeId",
+          "memberUids",
+          "memberAUid",
+          "memberBUid",
+          "lastMessageText",
+          "lastMessageSenderUid",
+          "lastMessageAt",
+          "memberALastReadAt",
+          "memberBLastReadAt",
+          "createdAt",
+          "updatedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.edgeId == edgeId
+        && request.resource.data.memberUids == get(/databases/$(database)/documents/circleEdges/$(edgeId)).data.memberUids
+        && request.resource.data.memberUids.size() == 2
+        && request.resource.data.memberAUid is string
+        && request.resource.data.memberBUid is string
+        && request.resource.data.memberAUid != request.resource.data.memberBUid
+        && request.resource.data.memberAUid in request.resource.data.memberUids
+        && request.resource.data.memberBUid in request.resource.data.memberUids
+        && request.resource.data.lastMessageText is string
+        && request.resource.data.lastMessageText.size() >= 1
+        && request.resource.data.lastMessageText.size() <= 500
+        && request.resource.data.lastMessageSenderUid == request.auth.uid
+        && request.resource.data.lastMessageAt == request.time
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.auth.uid == request.resource.data.memberAUid
+            && request.resource.data.memberALastReadAt == request.time
+            && request.resource.data.memberBLastReadAt is timestamp
+            && request.resource.data.memberBLastReadAt <= request.time
+          )
+          ||
+          (
+            request.auth.uid == request.resource.data.memberBUid
+            && request.resource.data.memberBLastReadAt == request.time
+            && request.resource.data.memberALastReadAt is timestamp
+            && request.resource.data.memberALastReadAt <= request.time
+          )
+        );
+
+      allow update: if isAcceptedCircleEdge(edgeId)
+        && request.auth.uid in resource.data.memberUids
+        && request.resource.data.schemaVersion == resource.data.schemaVersion
+        && request.resource.data.edgeId == resource.data.edgeId
+        && request.resource.data.memberUids == resource.data.memberUids
+        && request.resource.data.memberAUid == resource.data.memberAUid
+        && request.resource.data.memberBUid == resource.data.memberBUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (validCircleChatSendUpdate() || validCircleChatReadUpdate());
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isAcceptedCircleEdge(edgeId);
+
+        allow create: if isAcceptedCircleEdge(edgeId)
+          && request.resource.data.keys().hasOnly([
+            "schemaVersion",
+            "edgeId",
+            "senderUid",
+            "text",
+            "sentAt"
+          ])
+          && request.resource.data.schemaVersion == 1
+          && request.resource.data.edgeId == edgeId
+          && request.resource.data.senderUid == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() >= 1
+          && request.resource.data.text.size() <= 500
+          && request.resource.data.sentAt == request.time
+          && existsAfter(/databases/$(database)/documents/circleChats/$(edgeId))
+          && getAfter(/databases/$(database)/documents/circleChats/$(edgeId)).data.lastMessageText == request.resource.data.text
+          && getAfter(/databases/$(database)/documents/circleChats/$(edgeId)).data.lastMessageSenderUid == request.auth.uid
+          && getAfter(/databases/$(database)/documents/circleChats/$(edgeId)).data.lastMessageAt == request.time;
+
+        allow update, delete: if false;
+      }
+    }
+
+    // Phase 13D.4 lightweight typing presence. Presence is ephemeral UI state,
+    // scoped to an ACCEPTED Circle edge. Each member may write only their own
+    // presence row; the server timestamp prevents clients from forging freshness.
+    match /circleChatPresence/{edgeId}/members/{userId} {
+      allow read: if isAcceptedCircleEdge(edgeId);
+
+      allow create, update: if owns(userId)
+        && isAcceptedCircleEdge(edgeId)
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "edgeId",
+          "ownerUid",
+          "typing",
+          "updatedAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.edgeId == edgeId
+        && request.resource.data.ownerUid == userId
+        && request.resource.data.typing is bool
         && request.resource.data.updatedAt == request.time;
 
       allow delete: if false;
+    }
+
+    // Safety reports are write-only from the app. They intentionally contain no
+    // message body, wallet address, exact location, or private account fields.
+    match /circleReports/{reportId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          "schemaVersion",
+          "reporterUid",
+          "targetUid",
+          "edgeId",
+          "reason",
+          "createdAt"
+        ])
+        && request.resource.data.schemaVersion == 1
+        && request.resource.data.reporterUid == request.auth.uid
+        && request.resource.data.targetUid is string
+        && request.resource.data.targetUid != request.auth.uid
+        && request.resource.data.edgeId is string
+        && isCircleEdgeMember(request.resource.data.edgeId)
+        && request.resource.data.targetUid in get(/databases/$(database)/documents/circleEdges/$(request.resource.data.edgeId)).data.memberUids
+        && request.resource.data.reason in ["Spam", "Harassment", "Unsafe behavior", "Other"]
+        && request.resource.data.createdAt == request.time;
+
+      allow read, update, delete: if false;
     }
 
 

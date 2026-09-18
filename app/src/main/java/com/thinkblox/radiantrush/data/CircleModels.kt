@@ -52,6 +52,9 @@ data class CircleSparkPreview(
     val member: CircleMemberPreview,
     val incoming: Boolean,
     val status: String,
+    val lastMessagePreview: String = "",
+    val lastMessageAtEpochMillis: Long = 0L,
+    val hasUnread: Boolean = false,
 )
 
 data class CircleSocialSnapshot(
@@ -78,6 +81,14 @@ data class CircleUiState(
     val myProfileLoading: Boolean = false,
     val selectedMemberProfile: CircleMemberProfilePreview? = null,
     val profileLoading: Boolean = false,
+    val chatMember: CircleMemberPreview? = null,
+    val chatMessages: List<CircleChatMessagePreview> = emptyList(),
+    val chatLoading: Boolean = false,
+    val chatSending: Boolean = false,
+    val chatStatusMessage: String? = null,
+    val chatSentSequence: Int = 0,
+    val chatPeerLastReadAtEpochMillis: Long = 0L,
+    val chatPeerTyping: Boolean = false,
     val message: String = "Shake your phone to discover someone in the Circle.",
     val actionInProgress: Boolean = false,
 )
