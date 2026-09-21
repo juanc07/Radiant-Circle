@@ -1,0 +1,14 @@
+{
+  "project": "radiant-rush-10a9c",
+  "week": "2026-W39",
+  "status": "ANNOUNCED",
+  "sponsor": "ThinkBloxPH",
+  "note": "Closed Radiant Cup beta. Trusted results and verified SKR funding are required before payout.",
+  "prizeSkr": 300,
+  "fundingWallet": "",
+  "placements": {
+    "1": 50,
+    "2": 30,
+    "3": 20
+  }
+}
