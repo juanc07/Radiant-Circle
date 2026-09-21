@@ -853,6 +853,16 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun disableCircleDiscovery() {
+        repository.clearCircleDiscoveryPresence { result ->
+            circleState = circleState.copy(
+                discoveredMember = null,
+                discoveryStatus = CircleDiscoveryStatus.Idle,
+                message = result.message,
+            )
+        }
+    }
+
     fun sendCircleSpark(member: CircleMemberPreview) {
         circleState = circleState.copy(actionInProgress = true, message = "Sending Spark…")
         repository.sendCircleSpark(member) { result ->
@@ -924,6 +934,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onDisconnectWallet = ::disconnectWallet,
         onOpenDailyRadiance = ::openDailyRadiance,
         onStartCircleDiscovery = ::startCircleDiscovery,
+        onDisableCircleDiscovery = ::disableCircleDiscovery,
         onSendCircleSpark = ::sendCircleSpark,
         onRespondToCircleSpark = ::respondToCircleSpark,
         onRefreshCircle = ::refreshCircle,
@@ -967,6 +978,7 @@ private fun RadiantRushShell(
     onDisconnectWallet: () -> Unit,
     onOpenDailyRadiance: () -> Unit,
     onStartCircleDiscovery: (ApproximateCircleLocation) -> Unit,
+    onDisableCircleDiscovery: () -> Unit,
     onSendCircleSpark: (CircleMemberPreview) -> Unit,
     onRespondToCircleSpark: (CircleSparkPreview, Boolean) -> Unit,
     onRefreshCircle: () -> Unit,
@@ -1157,6 +1169,7 @@ private fun RadiantRushShell(
                 onDisconnectWallet = onDisconnectWallet,
                 onOpenDailyRadiance = onOpenDailyRadiance,
                 onStartCircleDiscovery = onStartCircleDiscovery,
+                onDisableCircleDiscovery = onDisableCircleDiscovery,
                 onSendCircleSpark = onSendCircleSpark,
                 onRespondToCircleSpark = onRespondToCircleSpark,
                 onRefreshCircle = onRefreshCircle,
@@ -1196,6 +1209,7 @@ private fun ScreenContent(
     onDisconnectWallet: () -> Unit,
     onOpenDailyRadiance: () -> Unit,
     onStartCircleDiscovery: (ApproximateCircleLocation) -> Unit,
+    onDisableCircleDiscovery: () -> Unit,
     onSendCircleSpark: (CircleMemberPreview) -> Unit,
     onRespondToCircleSpark: (CircleSparkPreview, Boolean) -> Unit,
     onRefreshCircle: () -> Unit,
@@ -1246,6 +1260,7 @@ private fun ScreenContent(
             contentPadding = contentPadding,
             state = circleState,
             onStartDiscovery = onStartCircleDiscovery,
+            onDisableDiscovery = onDisableCircleDiscovery,
             onSendSpark = onSendCircleSpark,
             onRespondToSpark = onRespondToCircleSpark,
             onRefresh = onRefreshCircle,

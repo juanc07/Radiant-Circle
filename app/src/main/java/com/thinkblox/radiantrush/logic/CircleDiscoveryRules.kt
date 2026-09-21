@@ -6,17 +6,15 @@ import java.util.Locale
 import kotlin.math.floor
 
 /**
- * Privacy-preserving discovery helpers for Phase 13B.
+ * Privacy-preserving discovery helpers.
  *
  * Exact phone coordinates remain local. Firestore receives only opaque hashes of
- * coarse geographic cells plus a short time bucket. The hashes are sufficient for
- * matching clients that compute the same nearby cells, but the discovery documents
- * never contain raw latitude/longitude, a geohash, city, province, or country code.
+ * coarse geographic cells. Phase 14B.2 removes the short-lived time bucket so a
+ * user who explicitly enables discovery stays discoverable until they turn it off.
+ * No background location tracking is introduced; the stored area is refreshed when
+ * the user actively uses discovery.
  */
 object CircleDiscoveryRules {
-    const val DISCOVERY_WINDOW_MILLIS = 2 * 60 * 1000L
-    private const val WINDOW_BUCKET_MILLIS = 5 * 60 * 1000L
-
     enum class SearchTier(
         val fieldName: String,
         val cellDegrees: Double?,
@@ -37,58 +35,58 @@ object CircleDiscoveryRules {
         val globalWindowKeys: List<String>,
     )
 
+    @Suppress("UNUSED_PARAMETER")
     fun presenceKeys(
         location: ApproximateCircleLocation,
         nowMillis: Long,
     ): PresenceKeys {
-        val currentBucket = nowMillis / WINDOW_BUCKET_MILLIS
-        val nextBucket = currentBucket + 1L
         val country = normalizedCountry(location.countryCode)
         val localCell = cellKey(location.latitude, location.longitude, 0.10)
         val regionalCell = cellKey(location.latitude, location.longitude, 0.50)
         val broadCell = cellKey(location.latitude, location.longitude, 2.50)
 
-        fun twoWindows(prefix: String): List<String> = listOf(
-            opaqueWindowKey(prefix, currentBucket),
-            opaqueWindowKey(prefix, nextBucket),
+        // Keep two opaque values per field for backward-compatible Firestore shape.
+        // Querying uses the primary key; the secondary key gives us a reserved
+        // version slot without exposing a raw geographic identifier.
+        fun persistentKeys(prefix: String): List<String> = listOf(
+            opaquePresenceKey(prefix, "primary"),
+            opaquePresenceKey(prefix, "secondary"),
         )
 
         return PresenceKeys(
-            localWindowKeys = twoWindows("local:$localCell"),
-            regionalWindowKeys = twoWindows("regional:$regionalCell"),
-            broadWindowKeys = twoWindows("broad:$broadCell"),
-            countryWindowKeys = twoWindows("country:$country"),
-            globalWindowKeys = twoWindows("global"),
+            localWindowKeys = persistentKeys("local:$localCell"),
+            regionalWindowKeys = persistentKeys("regional:$regionalCell"),
+            broadWindowKeys = persistentKeys("broad:$broadCell"),
+            countryWindowKeys = persistentKeys("country:$country"),
+            globalWindowKeys = persistentKeys("global"),
         )
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun queryKeys(
         tier: SearchTier,
         location: ApproximateCircleLocation,
         nowMillis: Long,
-    ): List<String> {
-        val currentBucket = nowMillis / WINDOW_BUCKET_MILLIS
-        return when (tier) {
-            SearchTier.Local,
-            SearchTier.Regional,
-            SearchTier.Broad,
-            -> {
-                val degrees = requireNotNull(tier.cellDegrees)
-                val prefix = when (tier) {
-                    SearchTier.Local -> "local"
-                    SearchTier.Regional -> "regional"
-                    SearchTier.Broad -> "broad"
-                    else -> error("Unexpected tier")
-                }
-                neighborCellKeys(location.latitude, location.longitude, degrees)
-                    .map { cell -> opaqueWindowKey("$prefix:$cell", currentBucket) }
+    ): List<String> = when (tier) {
+        SearchTier.Local,
+        SearchTier.Regional,
+        SearchTier.Broad,
+        -> {
+            val degrees = requireNotNull(tier.cellDegrees)
+            val prefix = when (tier) {
+                SearchTier.Local -> "local"
+                SearchTier.Regional -> "regional"
+                SearchTier.Broad -> "broad"
+                else -> error("Unexpected tier")
             }
-
-            SearchTier.Country -> listOf(
-                opaqueWindowKey("country:${normalizedCountry(location.countryCode)}", currentBucket),
-            )
-            SearchTier.Global -> listOf(opaqueWindowKey("global", currentBucket))
+            neighborCellKeys(location.latitude, location.longitude, degrees)
+                .map { cell -> opaquePresenceKey("$prefix:$cell", "primary") }
         }
+
+        SearchTier.Country -> listOf(
+            opaquePresenceKey("country:${normalizedCountry(location.countryCode)}", "primary"),
+        )
+        SearchTier.Global -> listOf(opaquePresenceKey("global", "primary"))
     }
 
     fun pairId(uidA: String, uidB: String): String =
@@ -96,9 +94,9 @@ object CircleDiscoveryRules {
             .sorted()
             .joinToString("__")
 
-    private fun opaqueWindowKey(prefix: String, bucket: Long): String {
+    private fun opaquePresenceKey(prefix: String, slot: String): String {
         val digest = MessageDigest.getInstance("SHA-256")
-            .digest("radiant-circle-v1|$prefix|$bucket".toByteArray(Charsets.UTF_8))
+            .digest("radiant-circle-v2|$prefix|$slot".toByteArray(Charsets.UTF_8))
         return digest.take(16).joinToString("") { byte -> "%02x".format(byte) }
     }
 

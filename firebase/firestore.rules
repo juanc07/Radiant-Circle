@@ -246,10 +246,10 @@ service cloud.firestore {
       allow delete: if owns(userId);
     }
 
-    // Phase 13B social discovery. Presence is opt-in, short-lived and contains
-    // coarse area/time buckets only — never raw latitude/longitude or wallet data.
-    // Any signed-in Radiant Circle member may read active candidates; only the
-    // owner can publish or replace their own temporary discovery presence.
+    // Phase 13B/14B social discovery. Presence is explicit opt-in and contains
+    // opaque coarse-area keys only — never raw latitude/longitude or wallet data.
+    // Phase 14B.2 supports persistent discovery until the owner deletes the doc.
+    // Legacy short-lived documents remain accepted during the tester-app transition.
     match /circleDiscovery/{userId} {
       allow read: if signedIn();
 
@@ -265,6 +265,8 @@ service cloud.firestore {
           "broadWindowKeys",
           "countryWindowKeys",
           "globalWindowKeys",
+          "schemaVersion",
+          "discoveryEnabled",
           "expiresAtEpochMillis",
           "expiresAt",
           "updatedAt"
@@ -290,11 +292,26 @@ service cloud.firestore {
         && request.resource.data.countryWindowKeys.size() == 2
         && request.resource.data.globalWindowKeys is list
         && request.resource.data.globalWindowKeys.size() == 2
-        && request.resource.data.expiresAtEpochMillis is int
-        && request.resource.data.expiresAt is timestamp
-        && request.resource.data.expiresAt >= request.time - duration.value(15, 'm')
-        && request.resource.data.expiresAt <= request.time + duration.value(15, 'm')
-        && request.resource.data.updatedAt == request.time;
+        && request.resource.data.updatedAt == request.time
+        && (
+          (
+            request.resource.data.keys().hasAll(["schemaVersion", "discoveryEnabled"])
+            && request.resource.data.schemaVersion is int
+            && request.resource.data.schemaVersion == 2
+            && request.resource.data.discoveryEnabled is bool
+            && request.resource.data.discoveryEnabled == true
+            && !request.resource.data.keys().hasAny(["expiresAtEpochMillis", "expiresAt"])
+          )
+          ||
+          (
+            !request.resource.data.keys().hasAny(["schemaVersion", "discoveryEnabled"])
+            && request.resource.data.keys().hasAll(["expiresAtEpochMillis", "expiresAt"])
+            && request.resource.data.expiresAtEpochMillis is int
+            && request.resource.data.expiresAt is timestamp
+            && request.resource.data.expiresAt >= request.time - duration.value(15, 'm')
+            && request.resource.data.expiresAt <= request.time + duration.value(15, 'm')
+          )
+        );
 
       allow delete: if owns(userId);
     }

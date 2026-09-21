@@ -75,7 +75,7 @@ fun DemoScreen(
             GuideStep(
                 Icons.Filled.Bolt,
                 "3. Shake to discover",
-                "Open Circle and physically shake your phone. Discovery uses approximate location only, stays active for about two minutes, and quietly widens the search when nobody is nearby.",
+                "Open Circle, confirm you are 18+, and opt in to Appear in Shake Discovery. A physical shake uses approximate foreground location only, keeps presence active for about two minutes, and quietly widens the search when nobody is nearby.",
             )
         }
         item {
