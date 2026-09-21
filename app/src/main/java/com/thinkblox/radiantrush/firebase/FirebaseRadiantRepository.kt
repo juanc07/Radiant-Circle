@@ -3050,8 +3050,8 @@ class FirebaseRadiantRepository(
                     "broadWindowKeys" to presenceKeys.broadWindowKeys,
                     "countryWindowKeys" to presenceKeys.countryWindowKeys,
                     "globalWindowKeys" to presenceKeys.globalWindowKeys,
-                    "expiresAtEpochMillis" to (now + CircleDiscoveryRules.DISCOVERY_WINDOW_MILLIS),
-                    "expiresAt" to Timestamp(Date(now + CircleDiscoveryRules.DISCOVERY_WINDOW_MILLIS)),
+                    "schemaVersion" to 2L,
+                    "discoveryEnabled" to true,
                     "updatedAt" to FieldValue.serverTimestamp(),
                 )
 
@@ -3098,6 +3098,25 @@ class FirebaseRadiantRepository(
             }
             .addOnFailureListener { error ->
                 onResult(CircleDiscoveryResult(message = circleFriendlyFailure("load your Circle profile", error)))
+            }
+    }
+
+    fun clearCircleDiscoveryPresence(onResult: (CircleActionResult) -> Unit) {
+        val session = currentCircleSession()
+        if (session == null) {
+            onResult(CircleActionResult(false, "Your Circle account is still getting ready."))
+            return
+        }
+
+        FirebaseFirestore.getInstance(session.app)
+            .collection(CIRCLE_DISCOVERY)
+            .document(session.uid)
+            .delete()
+            .addOnSuccessListener {
+                onResult(CircleActionResult(true, "You are hidden from Shake to Discover."))
+            }
+            .addOnFailureListener { error ->
+                onResult(CircleActionResult(false, circleFriendlyFailure("hide you from discovery", error)))
             }
     }
 
@@ -3623,9 +3642,12 @@ class FirebaseRadiantRepository(
                 val candidates = snapshot.documents
                     .filter { document ->
                         val uid = document.getString("ownerUid").orEmpty()
+                        val persistentEnabled = document.getBoolean("discoveryEnabled") == true
+                        val legacyStillActive =
+                            (document.getLong("expiresAtEpochMillis") ?: 0L) > System.currentTimeMillis()
                         uid.isNotBlank() &&
                             uid !in excludedUids &&
-                            (document.getLong("expiresAtEpochMillis") ?: 0L) > System.currentTimeMillis()
+                            (persistentEnabled || legacyStillActive)
                     }
 
                 if (candidates.isEmpty()) {

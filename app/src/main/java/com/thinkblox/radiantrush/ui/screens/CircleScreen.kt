@@ -44,6 +44,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,6 +66,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.ApproximateCircleLocation
+import com.thinkblox.radiantrush.data.CircleDiscoverySafetyPreferences
 import com.thinkblox.radiantrush.data.CircleDiscoveryStatus
 import com.thinkblox.radiantrush.data.CircleMemberPreview
 import com.thinkblox.radiantrush.data.CircleMemberProfilePreview
@@ -72,6 +74,7 @@ import com.thinkblox.radiantrush.data.CircleSparkPreview
 import com.thinkblox.radiantrush.data.CircleUiState
 import com.thinkblox.radiantrush.location.ApproximateLocationProvider
 import com.thinkblox.radiantrush.logic.CircleChatRules
+import com.thinkblox.radiantrush.logic.CircleDiscoverySafetyRules
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.ShakeToDiscoverEffect
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
@@ -100,6 +103,7 @@ fun CircleScreen(
     contentPadding: PaddingValues,
     state: CircleUiState,
     onStartDiscovery: (ApproximateCircleLocation) -> Unit,
+    onDisableDiscovery: () -> Unit,
     onSendSpark: (CircleMemberPreview) -> Unit,
     onRespondToSpark: (CircleSparkPreview, Boolean) -> Unit,
     onRefresh: () -> Unit,
@@ -120,6 +124,13 @@ fun CircleScreen(
     }
     var locating by remember { mutableStateOf(false) }
     var localMessage by remember { mutableStateOf<String?>(null) }
+    val discoverySafetyPreferences = remember(context) {
+        CircleDiscoverySafetyPreferences(context.applicationContext)
+    }
+    var discoverySafety by remember { mutableStateOf(discoverySafetyPreferences.snapshot()) }
+    var showDiscoveryEligibilityDialog by remember { mutableStateOf(false) }
+    var showDiscoveryPrivacyDialog by remember { mutableStateOf(false) }
+    var enablingDiscoveryAwaitingPermission by remember { mutableStateOf(false) }
 
     val activeChatMember = state.chatMember
     if (activeChatMember != null) {
@@ -179,17 +190,55 @@ fun CircleScreen(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
         if (granted) {
+            enablingDiscoveryAwaitingPermission = false
             locateAndDiscover()
         } else {
-            localMessage = "Approximate location stays optional. Allow it when you want to discover people around your area."
+            if (enablingDiscoveryAwaitingPermission) {
+                discoverySafety = discoverySafetyPreferences.setDiscoveryEnabled(false)
+                enablingDiscoveryAwaitingPermission = false
+                onDisableDiscovery()
+            }
+            localMessage = "Discovery stayed off because approximate location wasn't allowed."
         }
     }
 
     fun beginDiscovery() {
+        if (!CircleDiscoverySafetyRules.canDiscover(
+                adultConfirmed = discoverySafety.adultConfirmed,
+                discoveryEnabled = discoverySafety.discoveryEnabled,
+            )
+        ) {
+            showDiscoveryEligibilityDialog = true
+            return
+        }
         if (locationProvider.hasPermission()) {
             locateAndDiscover()
         } else {
             permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
+    fun activateDiscovery() {
+        if (locationProvider.hasPermission()) {
+            locateAndDiscover()
+        } else {
+            enablingDiscoveryAwaitingPermission = true
+            permissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+
+    fun setDiscoveryVisibility(enabled: Boolean) {
+        if (enabled && !discoverySafety.adultConfirmed) {
+            showDiscoveryEligibilityDialog = true
+            return
+        }
+        discoverySafety = discoverySafetyPreferences.setDiscoveryEnabled(enabled)
+        if (enabled) {
+            localMessage = "Discovery is on. You stay discoverable until you turn it off."
+            activateDiscovery()
+        } else {
+            localMessage = "You are hidden from Shake to Discover."
+            onDisableDiscovery()
         }
     }
 
@@ -207,6 +256,141 @@ fun CircleScreen(
             beginDiscovery()
         },
     )
+
+    if (showDiscoveryEligibilityDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscoveryEligibilityDialog = false },
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Ready to discover?",
+                        fontWeight = FontWeight.Black,
+                    )
+                    Text(
+                        text = "A safer way to meet through Shared Sparks.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DiscoverySafetyPoint(
+                        symbol = "◎",
+                        title = "Approximate only",
+                        detail = "Location is used only when you choose to discover.",
+                    )
+                    DiscoverySafetyPoint(
+                        symbol = "◉",
+                        title = "You control visibility",
+                        detail = "Stay discoverable until you switch discovery off.",
+                    )
+                    DiscoverySafetyPoint(
+                        symbol = "✓",
+                        title = "Mutual chat",
+                        detail = "Messaging unlocks only after both people connect.",
+                    )
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            Text(
+                                text = "18+ only",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                text = "By enabling discovery, you confirm that you're 18 or older.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        discoverySafety = discoverySafetyPreferences.confirmAdultAndEnable()
+                        localMessage = "Discovery is on. You stay discoverable until you turn it off."
+                        showDiscoveryEligibilityDialog = false
+                        activateDiscovery()
+                    },
+                ) {
+                    Text("Enable discovery")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDiscoveryEligibilityDialog = false }) {
+                    Text("Not now")
+                }
+            },
+        )
+    }
+
+    if (showDiscoveryPrivacyDialog) {
+        AlertDialog(
+            onDismissRequest = { showDiscoveryPrivacyDialog = false },
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Privacy & safety",
+                        fontWeight = FontWeight.Black,
+                    )
+                    Text(
+                        text = "You stay in control of discovery.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    DiscoverySafetyPoint(
+                        symbol = "◎",
+                        title = "Location",
+                        detail = "Approximate and foreground-only. Exact coordinates aren't shown or stored in discovery.",
+                    )
+                    DiscoverySafetyPoint(
+                        symbol = "◉",
+                        title = "Visibility",
+                        detail = "When enabled, you stay discoverable until you turn it off. Your last approximate area is refreshed when you actively use discovery; there is no background location tracking.",
+                    )
+                    DiscoverySafetyPoint(
+                        symbol = "♡",
+                        title = "Connections",
+                        detail = "Shared Sparks first. Private chat requires mutual acceptance.",
+                    )
+                    HorizontalDivider()
+                    Text(
+                        text = "Safety tools",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = "Block • Report • Remove connection",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "No harassment, exploitation, threats, impersonation, or spam.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showDiscoveryPrivacyDialog = false }) {
+                    Text("Got it")
+                }
+            },
+        )
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -252,7 +436,7 @@ fun CircleScreen(
                         textAlign = TextAlign.Center,
                     )
                     Text(
-                        text = "Find another active Radiant Circle member around your area. If no one is nearby, the Circle quietly widens the search.",
+                        text = "Shake to meet someone nearby through Shared Sparks.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
                         textAlign = TextAlign.Center,
@@ -278,6 +462,8 @@ fun CircleScreen(
                                 text = when {
                                     locating -> "Finding your approximate area…"
                                     state.discoveryStatus == CircleDiscoveryStatus.Searching -> "Searching the Circle…"
+                                    !discoverySafety.adultConfirmed -> "Review safety before discovering"
+                                    !discoverySafety.discoveryEnabled -> "Turn on discovery to use Shake"
                                     else -> "Shake your phone to discover"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
@@ -287,7 +473,11 @@ fun CircleScreen(
                             )
                             if (!locating && state.discoveryStatus != CircleDiscoveryStatus.Searching) {
                                 Text(
-                                    text = "A firm, natural shake is enough.",
+                                    text = if (discoverySafety.discoveryEnabled) {
+                                        "A firm, natural shake is enough."
+                                    } else {
+                                        "Discovery stays off until you explicitly enable it."
+                                    },
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     textAlign = TextAlign.Center,
@@ -296,13 +486,23 @@ fun CircleScreen(
                         }
                     }
                     Text(
-                        text = "Approximate location only • active for about 2 minutes • exact coordinates are not shared",
+                        text = "18+ • Approximate only • Visible until off • Mutual chat",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.68f),
                         textAlign = TextAlign.Center,
                     )
                 }
             }
+        }
+
+        item {
+            DiscoverySafetyCard(
+                adultConfirmed = discoverySafety.adultConfirmed,
+                discoveryEnabled = discoverySafety.discoveryEnabled,
+                onDiscoveryEnabledChange = ::setDiscoveryVisibility,
+                onReviewEligibility = { showDiscoveryEligibilityDialog = true },
+                onOpenPrivacy = { showDiscoveryPrivacyDialog = true },
+            )
         }
 
         val message = playerFacingCircleMessage(localMessage ?: state.message)
@@ -416,6 +616,117 @@ fun CircleScreen(
                     connection = connection,
                     onClick = { onOpenProfile(member) },
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoverySafetyPoint(
+    symbol: String,
+    title: String,
+    detail: String,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            modifier = Modifier.size(36.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = symbol,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiscoverySafetyCard(
+    adultConfirmed: Boolean,
+    discoveryEnabled: Boolean,
+    onDiscoveryEnabledChange: (Boolean) -> Unit,
+    onReviewEligibility: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Appear in Shake Discovery",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = when {
+                            !adultConfirmed -> "18+ • Off until you choose to enable"
+                            discoveryEnabled -> "On • Visible until you turn this off"
+                            else -> "Off • You're hidden from discovery"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(
+                    checked = CircleDiscoverySafetyRules.canDiscover(
+                        adultConfirmed = adultConfirmed,
+                        discoveryEnabled = discoveryEnabled,
+                    ),
+                    onCheckedChange = { enabled ->
+                        if (enabled && !adultConfirmed) onReviewEligibility()
+                        else onDiscoveryEnabledChange(enabled)
+                    },
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "Approximate only • Mutual chat",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                TextButton(onClick = onOpenPrivacy) {
+                    Text("Privacy & safety")
+                }
             }
         }
     }

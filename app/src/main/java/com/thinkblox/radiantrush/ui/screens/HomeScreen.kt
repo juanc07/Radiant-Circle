@@ -221,7 +221,7 @@ fun HomeScreen(
                             fontWeight = FontWeight.Black,
                         )
                         Text(
-                            text = "Shake to discover an active Radiant Circle member around your area.",
+                            text = "Shake to discover an adult Circle member through Shared Sparks. Approximate location only; mutual connection before chat.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 3,

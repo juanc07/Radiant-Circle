@@ -30,6 +30,16 @@ class CircleDiscoveryRulesTest {
     }
 
     @Test
+    fun persistentPresenceKeysDoNotRotateWithTime() {
+        val first = CircleDiscoveryRules.presenceKeys(location, nowMillis = 1_000_000L)
+        val muchLater = CircleDiscoveryRules.presenceKeys(
+            location,
+            nowMillis = 1_000_000L + (30L * 24 * 60 * 60 * 1000),
+        )
+        assertEquals(first, muchLater)
+    }
+
+    @Test
     fun localQueryUsesNineOpaqueNeighborCells() {
         val keys = CircleDiscoveryRules.queryKeys(
             CircleDiscoveryRules.SearchTier.Local,
@@ -38,6 +48,21 @@ class CircleDiscoveryRulesTest {
         )
         assertEquals(9, keys.size)
         assertTrue(keys.all { it.matches(Regex("[0-9a-f]{32}")) })
+    }
+
+    @Test
+    fun queryKeysDoNotRotateWithTime() {
+        val first = CircleDiscoveryRules.queryKeys(
+            CircleDiscoveryRules.SearchTier.Local,
+            location,
+            nowMillis = 1_000_000L,
+        )
+        val muchLater = CircleDiscoveryRules.queryKeys(
+            CircleDiscoveryRules.SearchTier.Local,
+            location,
+            nowMillis = 1_000_000L + (30L * 24 * 60 * 60 * 1000),
+        )
+        assertEquals(first, muchLater)
     }
 
     @Test
