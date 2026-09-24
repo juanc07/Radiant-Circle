@@ -374,6 +374,41 @@ service cloud.firestore {
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status", "updatedAt"])
             && request.resource.data.updatedAt == request.time
           )
+          ||
+          (
+            // REMOVED is intentionally reconnectable. Either former member can
+            // start a new Spark without deleting the deterministic relationship
+            // document. BLOCKED and IGNORED remain non-reconnectable here.
+            request.auth.uid in resource.data.memberUids
+            && resource.data.status == "REMOVED"
+            && request.resource.data.status == "PENDING"
+            && request.resource.data.memberUids == resource.data.memberUids
+            && request.resource.data.initiatorUid == request.auth.uid
+            && request.resource.data.recipientUid is string
+            && request.resource.data.recipientUid != request.auth.uid
+            && request.resource.data.recipientUid in resource.data.memberUids
+            && request.resource.data.initiatorDisplayName is string
+            && request.resource.data.initiatorDisplayName.size() >= 1
+            && request.resource.data.initiatorDisplayName.size() <= 20
+            && request.resource.data.recipientDisplayName is string
+            && request.resource.data.recipientDisplayName.size() >= 1
+            && request.resource.data.recipientDisplayName.size() <= 20
+            && request.resource.data.initiatorAvatarId is string
+            && request.resource.data.initiatorAvatarId.size() <= 32
+            && request.resource.data.recipientAvatarId is string
+            && request.resource.data.recipientAvatarId.size() <= 32
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              "initiatorUid",
+              "recipientUid",
+              "status",
+              "initiatorDisplayName",
+              "initiatorAvatarId",
+              "recipientDisplayName",
+              "recipientAvatarId",
+              "updatedAt"
+            ])
+            && request.resource.data.updatedAt == request.time
+          )
         );
 
       allow delete: if false;

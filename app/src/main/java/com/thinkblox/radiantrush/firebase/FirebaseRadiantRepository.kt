@@ -80,6 +80,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Firebase Auth + Firestore repository for Radiant Circle.
@@ -2940,24 +2942,48 @@ class FirebaseRadiantRepository(
             .limit(60)
             .get()
             .addOnSuccessListener { snapshot ->
-                val incoming = mutableListOf<CircleSparkPreview>()
-                val connections = mutableListOf<CircleSparkPreview>()
-                snapshot.documents.forEach { document ->
-                    val edge = circleEdgePreview(document, session.uid) ?: return@forEach
-                    when (edge.status) {
-                        CIRCLE_STATUS_PENDING -> if (edge.incoming) incoming += edge
-                        CIRCLE_STATUS_ACCEPTED -> connections += edge
-                    }
+                val edgeSnapshots = snapshot.documents.mapNotNull { document ->
+                    circleEdgePreview(document, session.uid)
                 }
 
-                if (connections.isEmpty()) {
+                fun publish(edges: List<CircleSparkPreview>) {
+                    val incoming = edges
+                        .filter { it.status == CIRCLE_STATUS_PENDING && it.incoming }
+                        .sortedBy { it.member.displayName.lowercase(Locale.US) }
+                    val connections = edges
+                        .filter { it.status == CIRCLE_STATUS_ACCEPTED }
+                        .sortedWith(
+                            compareByDescending<CircleSparkPreview> { it.lastMessageAtEpochMillis }
+                                .thenBy { it.member.displayName.lowercase(Locale.US) },
+                        )
                     onResult(
                         CircleSocialSnapshot(
-                            incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
-                            connections = emptyList(),
+                            incomingRequests = incoming,
+                            connections = connections,
                         ),
                         null,
                     )
+                }
+
+                fun hydrateWithoutBlockingUi(edges: List<CircleSparkPreview>) {
+                    if (edges.isEmpty()) return
+                    // Current profile identity is an enhancement to an already usable Circle
+                    // relationship snapshot. Never keep the whole Circle UI in actionInProgress
+                    // while waiting for N profile reads: Shake to Discover must stay responsive.
+                    hydrateCircleEdgeIdentities(db, edges) { hydratedEdges ->
+                        if (hydratedEdges != edges) {
+                            publish(hydratedEdges)
+                        }
+                    }
+                }
+
+                val connections = edgeSnapshots.filter { it.status == CIRCLE_STATUS_ACCEPTED }
+                if (connections.isEmpty()) {
+                    // Publish relationship state immediately, then refresh names/avatars in the
+                    // background. This preserves discovery responsiveness even if profile reads are
+                    // slow, offline, or one member profile is temporarily unavailable.
+                    publish(edgeSnapshots)
+                    hydrateWithoutBlockingUi(edgeSnapshots)
                     return@addOnSuccessListener
                 }
 
@@ -2967,47 +2993,43 @@ class FirebaseRadiantRepository(
                     .get()
                     .addOnSuccessListener { chatSnapshot ->
                         val chatByEdgeId = chatSnapshot.documents.associateBy { it.id }
-                        val enrichedConnections = connections.map { edge ->
-                            val chat = chatByEdgeId[edge.edgeId]
-                            if (chat == null) {
+                        val enrichedEdges = edgeSnapshots.map { edge ->
+                            if (edge.status != CIRCLE_STATUS_ACCEPTED) {
                                 edge
                             } else {
-                                val lastMessageAt = chat.getTimestamp("lastMessageAt")?.toDate()?.time ?: 0L
-                                val lastMessageSenderUid = chat.getString("lastMessageSenderUid").orEmpty()
-                                val memberAUid = chat.getString("memberAUid").orEmpty()
-                                val myReadAt = if (session.uid == memberAUid) {
-                                    chat.getTimestamp("memberALastReadAt")?.toDate()?.time ?: 0L
+                                val chat = chatByEdgeId[edge.edgeId]
+                                if (chat == null) {
+                                    edge
                                 } else {
-                                    chat.getTimestamp("memberBLastReadAt")?.toDate()?.time ?: 0L
+                                    val lastMessageAt = chat.getTimestamp("lastMessageAt")?.toDate()?.time ?: 0L
+                                    val lastMessageSenderUid = chat.getString("lastMessageSenderUid").orEmpty()
+                                    val memberAUid = chat.getString("memberAUid").orEmpty()
+                                    val myReadAt = if (session.uid == memberAUid) {
+                                        chat.getTimestamp("memberALastReadAt")?.toDate()?.time ?: 0L
+                                    } else {
+                                        chat.getTimestamp("memberBLastReadAt")?.toDate()?.time ?: 0L
+                                    }
+                                    edge.copy(
+                                        lastMessagePreview = chat.getString("lastMessageText").orEmpty(),
+                                        lastMessageAtEpochMillis = lastMessageAt,
+                                        hasUnread = lastMessageSenderUid.isNotBlank() &&
+                                            lastMessageSenderUid != session.uid &&
+                                            lastMessageAt > myReadAt,
+                                    )
                                 }
-                                edge.copy(
-                                    lastMessagePreview = chat.getString("lastMessageText").orEmpty(),
-                                    lastMessageAtEpochMillis = lastMessageAt,
-                                    hasUnread = lastMessageSenderUid.isNotBlank() &&
-                                        lastMessageSenderUid != session.uid &&
-                                        lastMessageAt > myReadAt,
-                                )
                             }
-                        }.sortedWith(
-                            compareByDescending<CircleSparkPreview> { it.lastMessageAtEpochMillis }
-                                .thenBy { it.member.displayName.lowercase(Locale.US) },
-                        )
-                        onResult(
-                            CircleSocialSnapshot(
-                                incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
-                                connections = enrichedConnections,
-                            ),
-                            null,
-                        )
+                        }
+
+                        // Preserve the pre-14D.1S refresh timing: relationship/chat data returns
+                        // first and clears actionInProgress. Canonical name/avatar hydration follows
+                        // asynchronously and can publish a second lightweight UI update.
+                        publish(enrichedEdges)
+                        hydrateWithoutBlockingUi(enrichedEdges)
                     }
-                    .addOnFailureListener {
-                        onResult(
-                            CircleSocialSnapshot(
-                                incomingRequests = incoming.sortedBy { it.member.displayName.lowercase(Locale.US) },
-                                connections = connections.sortedBy { it.member.displayName.lowercase(Locale.US) },
-                            ),
-                            null,
-                        )
+                    .addOnFailureListener { error ->
+                        Log.w(TAG, "Circle chat summary refresh failed: ${safeMessage(error)}")
+                        publish(edgeSnapshots)
+                        hydrateWithoutBlockingUi(edgeSnapshots)
                     }
             }
             .addOnFailureListener { error ->
@@ -3065,9 +3087,14 @@ class FirebaseRadiantRepository(
                                 val excludedUids = buildSet {
                                     add(session.uid)
                                     edges.documents.forEach { edge ->
-                                        (edge.get("memberUids") as? List<*>)
-                                            ?.filterIsInstance<String>()
-                                            ?.forEach(::add)
+                                        // REMOVED means the relationship ended without a block. Allow those
+                                        // two people to discover one another again and create a fresh Spark.
+                                        // PENDING / ACCEPTED / IGNORED / BLOCKED relationships remain hidden.
+                                        if (edge.getString("status") != CIRCLE_STATUS_REMOVED) {
+                                            (edge.get("memberUids") as? List<*>)
+                                                ?.filterIsInstance<String>()
+                                                ?.forEach(::add)
+                                        }
                                     }
                                 }
                                 searchCircleTier(
@@ -3168,12 +3195,48 @@ class FirebaseRadiantRepository(
                         edgeRef.get()
                             .addOnSuccessListener { existing ->
                                 if (existing.exists()) {
-                                    val message = when (existing.getString("status")) {
-                                        CIRCLE_STATUS_ACCEPTED -> "${member.displayName} is already in your Circle."
-                                        CIRCLE_STATUS_IGNORED -> "That Spark was previously passed on."
-                                        else -> "A Spark is already waiting for ${member.displayName}."
+                                    when (existing.getString("status")) {
+                                        CIRCLE_STATUS_REMOVED -> {
+                                            // A removed friendship is reconnectable. Keep the deterministic
+                                            // edge/document history, but turn it back into a new PENDING Spark
+                                            // with the current sender/recipient identity snapshot.
+                                            edgeRef.update(
+                                                mapOf(
+                                                    "initiatorUid" to session.uid,
+                                                    "recipientUid" to member.uid,
+                                                    "status" to CIRCLE_STATUS_PENDING,
+                                                    "initiatorDisplayName" to PublicProfileRules.sanitizeDisplayName(user.displayName),
+                                                    "initiatorAvatarId" to PublicProfileRules.normalizeAvatarId(user.avatarId),
+                                                    "recipientDisplayName" to PublicProfileRules.sanitizeDisplayName(member.displayName),
+                                                    "recipientAvatarId" to PublicProfileRules.normalizeAvatarId(member.avatarId),
+                                                    "updatedAt" to FieldValue.serverTimestamp(),
+                                                ),
+                                            )
+                                                .addOnSuccessListener {
+                                                    onResult(CircleActionResult(true, "Spark sent to ${member.displayName}."))
+                                                }
+                                                .addOnFailureListener { reconnectError ->
+                                                    onResult(
+                                                        CircleActionResult(
+                                                            false,
+                                                            circleFriendlyFailure("reconnect with this Spark", reconnectError),
+                                                        ),
+                                                    )
+                                                }
+                                        }
+                                        CIRCLE_STATUS_ACCEPTED -> {
+                                            onResult(CircleActionResult(true, "${member.displayName} is already in your Circle."))
+                                        }
+                                        CIRCLE_STATUS_IGNORED -> {
+                                            onResult(CircleActionResult(true, "That Spark was previously passed on."))
+                                        }
+                                        CIRCLE_STATUS_BLOCKED -> {
+                                            onResult(CircleActionResult(false, "This Circle connection is blocked."))
+                                        }
+                                        else -> {
+                                            onResult(CircleActionResult(true, "A Spark is already waiting for ${member.displayName}."))
+                                        }
                                     }
-                                    onResult(CircleActionResult(true, message))
                                 } else {
                                     onResult(CircleActionResult(false, circleFriendlyFailure("send this Spark", writeError)))
                                 }
@@ -3432,10 +3495,9 @@ class FirebaseRadiantRepository(
 
             val chat = transaction.get(chatRef)
             if (chat.exists()) {
-                val previousAt = chat.getTimestamp("lastMessageAt")?.toDate()?.time ?: 0L
-                if (!CircleChatRules.canSendAfter(previousAt, System.currentTimeMillis())) {
-                    throw IllegalStateException("Messages are sending quickly. Try again in a second.")
-                }
+                // Do not compare a server timestamp to the phone wall clock here. Device clock skew
+                // can incorrectly block all sends. Firestore rules enforce the one-second send floor
+                // with request.time, which is the authoritative server clock.
                 val updates = mutableMapOf<String, Any>(
                     "lastMessageText" to clean,
                     "lastMessageSenderUid" to session.uid,
@@ -3484,6 +3546,9 @@ class FirebaseRadiantRepository(
                 onResult(CircleActionResult(true, "Message sent."))
             }
             .addOnFailureListener { error ->
+                // Never log the message body. The Firestore error itself is enough to diagnose
+                // rules/auth/network failures during device QA.
+                Log.w(TAG, "Circle chat send failed: ${safeMessage(error)}")
                 val friendly = if (error is IllegalStateException) {
                     error.message ?: "That message couldn't be sent."
                 } else {
@@ -3764,6 +3829,64 @@ class FirebaseRadiantRepository(
             talkAbout = document.getString("talkAbout").orEmpty(),
         ),
     )
+
+    private fun hydrateCircleEdgeIdentities(
+        db: FirebaseFirestore,
+        edges: List<CircleSparkPreview>,
+        onComplete: (List<CircleSparkPreview>) -> Unit,
+    ) {
+        if (edges.isEmpty()) {
+            onComplete(emptyList())
+            return
+        }
+
+        val fallbackByUid = edges
+            .map { it.member }
+            .associateBy { it.uid }
+        val uids = fallbackByUid.keys.filter { it.isNotBlank() }
+        if (uids.isEmpty()) {
+            onComplete(edges)
+            return
+        }
+
+        val currentMembers = ConcurrentHashMap<String, CircleMemberPreview>()
+        val remaining = AtomicInteger(uids.size)
+
+        uids.forEach { uid ->
+            db.collection(CIRCLE_PROFILES)
+                .document(uid)
+                .get()
+                .addOnCompleteListener { task ->
+                    val fallback = fallbackByUid[uid]
+                    if (task.isSuccessful && fallback != null) {
+                        val document = task.result
+                        if (document.exists()) {
+                            currentMembers[uid] = fallback.copy(
+                                displayName = PublicProfileRules.sanitizeDisplayName(
+                                    document.getString("displayName") ?: fallback.displayName,
+                                ),
+                                avatarId = PublicProfileRules.normalizeAvatarId(
+                                    document.getString("avatarId") ?: fallback.avatarId,
+                                ),
+                            )
+                        }
+                    } else if (!task.isSuccessful) {
+                        val detail = task.exception?.let(::safeMessage) ?: "Unknown profile read failure"
+                        Log.w(TAG, "Circle identity refresh failed: $detail")
+                    }
+
+                    if (remaining.decrementAndGet() == 0) {
+                        onComplete(
+                            edges.map { edge ->
+                                currentMembers[edge.member.uid]?.let { currentMember ->
+                                    edge.copy(member = currentMember)
+                                } ?: edge
+                            },
+                        )
+                    }
+                }
+        }
+    }
 
     private fun circleEdgePreview(
         document: DocumentSnapshot,

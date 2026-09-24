@@ -619,9 +619,13 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         circleState = circleState.copy(actionInProgress = true, myProfileLoading = true)
         repository.loadCircleSocial { snapshot, error ->
             circleState = if (snapshot != null) {
+                val refreshedChatMember = circleState.chatMember?.let { activeMember ->
+                    snapshot.connections.firstOrNull { it.member.uid == activeMember.uid }?.member ?: activeMember
+                }
                 circleState.copy(
                     incomingRequests = snapshot.incomingRequests,
                     connections = snapshot.connections,
+                    chatMember = refreshedChatMember,
                     actionInProgress = false,
                     message = circleState.message,
                 )
