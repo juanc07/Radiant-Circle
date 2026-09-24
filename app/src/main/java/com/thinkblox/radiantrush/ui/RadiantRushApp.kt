@@ -48,6 +48,8 @@ import com.thinkblox.radiantrush.data.CircleSparkPreview
 import com.thinkblox.radiantrush.data.CircleUiState
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.PreviewContent
+import com.thinkblox.radiantrush.data.OreDailyAccrualSnapshotStore
+import com.thinkblox.radiantrush.data.OrePortfolioUiState
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.QuestPreview
@@ -56,6 +58,8 @@ import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.firebase.FirebaseRadiantRepository
 import com.google.firebase.firestore.ListenerRegistration
 import com.thinkblox.radiantrush.solana.MobileWalletRepository
+import com.thinkblox.radiantrush.solana.OrePortfolioRepository
+import com.thinkblox.radiantrush.solana.OrePortfolioResult
 import com.thinkblox.radiantrush.solana.SkrBalanceRepository
 import com.thinkblox.radiantrush.solana.SkrBalanceResult
 import com.thinkblox.radiantrush.solana.WalletConnectResult
@@ -73,6 +77,7 @@ import com.thinkblox.radiantrush.ui.screens.CircleScreen
 import com.thinkblox.radiantrush.ui.screens.HomeScreen
 import com.thinkblox.radiantrush.ui.screens.LeaderboardScreen
 import com.thinkblox.radiantrush.ui.screens.ProfileScreen
+import com.thinkblox.radiantrush.ui.screens.OrePortfolioScreen
 import com.thinkblox.radiantrush.ui.screens.DemoScreen
 import com.thinkblox.radiantrush.ui.screens.QuestsScreen
 import com.thinkblox.radiantrush.ui.screens.RadiantRunScreen
@@ -91,6 +96,12 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     val skrRepository = remember {
         SkrBalanceRepository()
     }
+    val oreRepository = remember {
+        OrePortfolioRepository()
+    }
+    val oreAccrualStore = remember(context) {
+        OreDailyAccrualSnapshotStore(context.applicationContext)
+    }
     val googleAccountCredentialProvider = remember(context) {
         GoogleAccountCredentialProvider(context)
     }
@@ -105,6 +116,8 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     // across Activity recreation/process restoration; restoring only the route can reopen a
     // half-reset run and also makes device tests depend on whatever screen was previously open.
     var showRadiantRun by remember { mutableStateOf(false) }
+    var showOrePortfolio by remember { mutableStateOf(false) }
+    var orePortfolioState by remember { mutableStateOf<OrePortfolioUiState>(OrePortfolioUiState.NoWallet) }
     // Keep shell navigation outside RadiantRushShell so entering the full-screen game
     // does not dispose and recreate the selected tab as Home on return.
     var shellDestination by rememberSaveable { mutableStateOf(AppDestination.Home) }
@@ -887,6 +900,32 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun refreshOrePortfolio() {
+        if (!appState.isWalletConnected) {
+            orePortfolioState = OrePortfolioUiState.NoWallet
+            return
+        }
+        val walletAddress = appState.user.walletAddress
+        orePortfolioState = OrePortfolioUiState.Loading(walletAddress)
+        scope.launch {
+            when (val result = oreRepository.fetchPortfolio(walletAddress)) {
+                is OrePortfolioResult.Success -> {
+                    val lifetimeRaw = result.snapshot.lifetimeRewardsRaw.toBigIntegerOrNull()
+                    if (lifetimeRaw == null) {
+                        orePortfolioState = OrePortfolioUiState.Error(walletAddress, "ORE lifetime rewards could not be decoded.")
+                    } else {
+                        // The baseline follows the actual ORE stake authority, not the social/MWA wallet.
+                        val accrued = oreAccrualStore.observe(result.snapshot.stakingAuthorityAddress, lifetimeRaw)
+                        orePortfolioState = OrePortfolioUiState.Ready(result.snapshot, accrued)
+                    }
+                }
+                is OrePortfolioResult.Failure -> {
+                    orePortfolioState = OrePortfolioUiState.Error(walletAddress, result.message)
+                }
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         refreshFirebase()
     }
@@ -900,6 +939,15 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     if (!enteredShell) {
         WelcomeScreen(
             onEnterDemoShell = { enteredShell = true },
+        )
+        return
+    }
+
+    if (showOrePortfolio) {
+        OrePortfolioScreen(
+            state = orePortfolioState,
+            onBack = { showOrePortfolio = false },
+            onRefresh = ::refreshOrePortfolio,
         )
         return
     }
@@ -953,6 +1001,10 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         accountActionMessage = accountActionMessage,
         onProtectAccount = ::protectCircleAccount,
         onClaimRadiantChest = ::claimDailyRadiantChest,
+        onOpenOrePortfolio = {
+            showOrePortfolio = true
+            refreshOrePortfolio()
+        },
         onPlayRadiantRun = {
             if (appState.isFirebaseReady && appState.radiantRun.canPlay && !appState.walletActionInProgress) {
                 showRadiantRun = true
@@ -997,6 +1049,7 @@ private fun RadiantRushShell(
     accountActionMessage: String?,
     onProtectAccount: () -> Unit,
     onClaimRadiantChest: () -> Unit,
+    onOpenOrePortfolio: () -> Unit,
     onPlayRadiantRun: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
@@ -1188,6 +1241,7 @@ private fun RadiantRushShell(
                 accountActionMessage = accountActionMessage,
                 onProtectAccount = onProtectAccount,
                 onClaimRadiantChest = onClaimRadiantChest,
+                onOpenOrePortfolio = onOpenOrePortfolio,
                 onPlayRadiantRun = onPlayRadiantRun,
                 returnToRushRequest = todayReturnToRushRequest,
                 onReturnToRushHandled = onTodayReturnToRushHandled,
@@ -1228,6 +1282,7 @@ private fun ScreenContent(
     accountActionMessage: String?,
     onProtectAccount: () -> Unit,
     onClaimRadiantChest: () -> Unit,
+    onOpenOrePortfolio: () -> Unit,
     onPlayRadiantRun: () -> Unit,
     returnToRushRequest: Int,
     onReturnToRushHandled: () -> Unit,
@@ -1290,6 +1345,7 @@ private fun ScreenContent(
             accountActionInProgress = accountActionInProgress,
             accountActionMessage = accountActionMessage,
             onProtectAccount = onProtectAccount,
+            onOpenOrePortfolio = onOpenOrePortfolio,
         )
         AppDestination.Demo -> DemoScreen(contentPadding, uiState)
     }

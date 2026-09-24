@@ -22,4 +22,8 @@ object UiTestTags {
     const val DAILY_RADIANCE_REVEAL = "daily_radiance_reveal"
     const val DEMO_SCREEN = "screen_demo"
     const val RADIANT_RUN_PLAY = "radiant_run_play"
+    const val ORE_PORTFOLIO_OPEN = "ore_portfolio_open"
+    const val ORE_PORTFOLIO_SCREEN = "ore_portfolio_screen"
+    const val ORE_PORTFOLIO_REFRESH = "ore_portfolio_refresh"
+    const val ORE_POSITION_MATCH = "ore_position_match"
 }

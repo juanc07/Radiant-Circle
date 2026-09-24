@@ -56,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -72,6 +73,7 @@ import com.thinkblox.radiantrush.ui.components.GradientHeroCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
+import com.thinkblox.radiantrush.ui.testing.UiTestTags
 
 @Composable
 fun ProfileScreen(
@@ -88,6 +90,7 @@ fun ProfileScreen(
     accountActionInProgress: Boolean,
     accountActionMessage: String?,
     onProtectAccount: () -> Unit,
+    onOpenOrePortfolio: () -> Unit,
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
@@ -293,6 +296,26 @@ fun ProfileScreen(
                 }
             }
         }
+        item {
+            SectionTitle(
+                title = "ORE",
+                body = "Read your liquid ORE, official stake position, and live protocol rewards directly from Solana.",
+            )
+        }
+        item {
+            Button(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = responsive.buttonHeight)
+                    .testTag(UiTestTags.ORE_PORTFOLIO_OPEN),
+                enabled = uiState.isWalletConnected && !uiState.walletActionInProgress,
+                shape = RoundedCornerShape(16.dp),
+                onClick = onOpenOrePortfolio,
+            ) {
+                AdaptiveButtonText(if (uiState.isWalletConnected) "Open ORE Portfolio" else "Connect Wallet for ORE")
+            }
+        }
+
         item {
             SectionTitle(
                 title = "SKR Passport",
