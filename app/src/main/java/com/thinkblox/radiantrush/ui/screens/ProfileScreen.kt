@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -51,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -74,6 +76,7 @@ import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
+import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
@@ -91,13 +94,22 @@ fun ProfileScreen(
     accountActionMessage: String?,
     onProtectAccount: () -> Unit,
     onOpenOrePortfolio: () -> Unit,
+    onOpenBadges: () -> Unit,
+    onOpenGuide: () -> Unit,
 ) {
     val user = uiState.user
     val responsive = rememberResponsiveUiSpec()
     val profileAvatar = PublicProfileRules.avatarFor(user.avatarId)
     var showDisconnectConfirmation by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val openIdentityEditor: () -> Unit = {
+        scope.launch { listState.animateScrollToItem(4) }
+        Unit
+    }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
             start = responsive.screenPadding,
@@ -129,13 +141,19 @@ fun ProfileScreen(
                 ) {
                     GradientHeroCard(
                         title = "✦ ${profileAvatar.symbol} ${user.displayName} ✦",
-                        subtitle = heroSubtitle,
+                        subtitle = "$heroSubtitle • Tap to edit profile",
+                        modifier = Modifier
+                            .clickable(onClick = openIdentityEditor)
+                            .testTag(UiTestTags.PROFILE_HERO),
                     )
                 }
             } else {
                 GradientHeroCard(
                     title = "${profileAvatar.symbol} ${user.displayName}",
-                    subtitle = heroSubtitle,
+                    subtitle = "$heroSubtitle • Tap to edit profile",
+                    modifier = Modifier
+                        .clickable(onClick = openIdentityEditor)
+                        .testTag(UiTestTags.PROFILE_HERO),
                 )
             }
         }
@@ -146,6 +164,34 @@ fun ProfileScreen(
                 message = uiState.lastMessage,
                 onRetry = onRetryFirebase,
             )
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                OutlinedButton(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = responsive.compactButtonHeight)
+                        .testTag(UiTestTags.PROFILE_OPEN_BADGES),
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = onOpenBadges,
+                ) {
+                    AdaptiveButtonText("Badges", tinyText = "Badges")
+                }
+                OutlinedButton(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = responsive.compactButtonHeight)
+                        .testTag(UiTestTags.PROFILE_OPEN_GUIDE),
+                    shape = RoundedCornerShape(16.dp),
+                    onClick = onOpenGuide,
+                ) {
+                    AdaptiveButtonText("Guide", tinyText = "Guide")
+                }
+            }
         }
 
         item {
@@ -537,12 +583,11 @@ private fun AccountProtectionCard(
                 Button(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = onProtectAccount,
-                    enabled = !actionInProgress && !walletActionInProgress,
+                    enabled = !actionInProgress,
                 ) {
                     AdaptiveButtonText(
                         text = when {
                             actionInProgress -> "Opening Google…"
-                            walletActionInProgress -> "Finish Wallet Action…"
                             else -> "Continue with Google"
                         },
                     )

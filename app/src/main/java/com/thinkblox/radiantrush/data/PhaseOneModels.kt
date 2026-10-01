@@ -367,11 +367,11 @@ enum class AppDestination(
     val label: String,
     val icon: ImageVector,
 ) {
-    Home("Home", Icons.Filled.Home),
-    Quests("Today", Icons.Filled.Route),
+    Home("Today", Icons.Filled.Home),
+    Quests("Daily Plan", Icons.Filled.Route),
     Circle("Circle", Icons.Filled.Groups),
     Badges("Badges", Icons.Filled.MilitaryTech),
-    Leaderboard("Ranks", Icons.Filled.EmojiEvents),
+    Leaderboard("Compete", Icons.Filled.EmojiEvents),
     Profile("You", Icons.Filled.AccountCircle),
     Demo("Guide", Icons.Filled.CheckCircle),
 }

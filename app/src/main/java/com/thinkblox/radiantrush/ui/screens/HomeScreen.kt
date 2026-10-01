@@ -3,6 +3,7 @@ package com.thinkblox.radiantrush.ui.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Route
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -28,6 +30,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,6 +50,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.thinkblox.radiantrush.data.CircleUiState
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.logic.PublicProfileRules
@@ -66,16 +70,22 @@ import com.thinkblox.radiantrush.ui.testing.UiTestTags
 fun HomeScreen(
     contentPadding: PaddingValues,
     uiState: RushUiState,
+    circleState: CircleUiState,
     onRetryFirebase: () -> Unit,
-    onConnectWallet: () -> Unit,
-    onDisconnectWallet: () -> Unit,
     onOpenDailyRadiance: () -> Unit,
     onOpenToday: () -> Unit,
     onOpenCircle: () -> Unit,
+    onOpenCompete: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onPlayRadiantRun: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
     val user = uiState.user
     val avatar = PublicProfileRules.avatarFor(user.avatarId)
+    val completed = uiState.completedQuestCount
+    val total = uiState.quests.size.coerceAtLeast(1)
+    val progress = (completed.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+    val cup = uiState.runCompetition.weeklyCup
 
     LazyColumn(
         modifier = Modifier
@@ -91,13 +101,11 @@ fun HomeScreen(
     ) {
         item {
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(
-                    topStart = 30.dp,
-                    topEnd = 10.dp,
-                    bottomEnd = 30.dp,
-                    bottomStart = 10.dp,
-                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onOpenProfile)
+                    .testTag(UiTestTags.HOME_PROFILE_ENTRY),
+                shape = RoundedCornerShape(28.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Transparent),
             ) {
                 Box(
@@ -120,24 +128,20 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(
-                            modifier = Modifier.size(if (responsive.isTiny) 58.dp else 68.dp),
+                            modifier = Modifier.size(if (responsive.isTiny) 56.dp else 64.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.80f),
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.84f),
                         ) {
                             Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = avatar.symbol,
-                                    style = MaterialTheme.typography.headlineMedium,
-                                )
+                                Text(text = avatar.symbol, style = MaterialTheme.typography.headlineMedium)
                             }
                         }
-
                         Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(3.dp),
                         ) {
                             Text(
-                                text = "RADIANT CIRCLE // YOUR SIGNAL",
+                                text = "TODAY // RADIANT CIRCLE",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
                                 fontWeight = FontWeight.Black,
@@ -150,16 +154,16 @@ fun HomeScreen(
                                 overflow = TextOverflow.Clip,
                             )
                             Text(
-                                text = "${user.skrTier} • Lv. ${user.level}",
+                                text = "${user.currentStreak}-day streak • Lv. ${user.level}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 1,
                             )
                             Text(
-                                text = if (uiState.isWalletConnected) "Wallet signal linked" else "Your Circle is ready",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.tertiary,
-                                maxLines = 1,
+                                text = "Tap to open your profile",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold,
                             )
                         }
                     }
@@ -185,87 +189,9 @@ fun HomeScreen(
         }
 
         item {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(if (responsive.isTiny) 16.dp else 18.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Surface(
-                        modifier = Modifier.size(44.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.tertiaryContainer,
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.Groups,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                                modifier = Modifier.size(22.dp),
-                            )
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Text(
-                            text = "Find your Circle",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Black,
-                        )
-                        Text(
-                            text = "Shake to discover an adult Circle member through Shared Sparks. Approximate location only; mutual connection before chat.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 3,
-                            overflow = TextOverflow.Clip,
-                        )
-                    }
-                    FilledTonalButton(
-                        modifier = Modifier.testTag(UiTestTags.HOME_OPEN_CIRCLE),
-                        onClick = onOpenCircle,
-                    ) {
-                        Text("Open")
-                    }
-                }
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                HomeStat(
-                    modifier = Modifier.weight(1f),
-                    value = "${user.currentStreak}d",
-                    label = "Streak",
-                )
-                HomeStat(
-                    modifier = Modifier.weight(1f),
-                    value = "Lv. ${user.level}",
-                    label = "Level",
-                )
-                HomeStat(
-                    modifier = Modifier.weight(1f),
-                    value = "${uiState.radiantRun.collectionOwned}/${uiState.radiantRun.collectionTotal}",
-                    label = "Collection",
-                )
-            }
-        }
-
-        item {
-            WalletHomeCard(
-                uiState = uiState,
-                onConnectWallet = onConnectWallet,
-                onDisconnectWallet = onDisconnectWallet,
+            CirclePulseCard(
+                circleState = circleState,
+                onOpenCircle = onOpenCircle,
             )
         }
 
@@ -279,7 +205,7 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(if (responsive.isTiny) 16.dp else 18.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -287,7 +213,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Surface(
-                            modifier = Modifier.size(38.dp),
+                            modifier = Modifier.size(40.dp),
                             shape = CircleShape,
                             color = MaterialTheme.colorScheme.secondaryContainer,
                         ) {
@@ -296,35 +222,37 @@ fun HomeScreen(
                                     imageVector = Icons.Filled.Route,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                                    modifier = Modifier.size(20.dp),
                                 )
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Next up",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                                fontWeight = FontWeight.Bold,
-                            )
-                            Text(
-                                text = uiState.retention.nextActionTitle,
+                                text = "Today's progress",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Black,
-                                maxLines = 2,
-                                overflow = TextOverflow.Clip,
+                            )
+                            Text(
+                                text = "$completed of $total complete",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
-
+                    LinearProgressIndicator(
+                        progress = { progress },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     Text(
-                        text = uiState.retention.nextActionDetail,
+                        text = if (completed >= total) {
+                            "Daily plan complete. Your next activity can be social or competitive."
+                        } else {
+                            uiState.retention.nextActionTitle
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
                         overflow = TextOverflow.Clip,
                     )
-
                     FilledTonalButton(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -333,12 +261,205 @@ fun HomeScreen(
                         onClick = onOpenToday,
                     ) {
                         AdaptiveButtonText(
-                            text = "View Today",
-                            compactText = "Today",
-                            tinyText = "Today",
+                            text = if (completed >= total) "Review Daily Plan" else "Continue Daily Plan",
+                            compactText = if (completed >= total) "Review Plan" else "Continue",
+                            tinyText = "Plan",
                         )
                     }
                 }
+            }
+        }
+
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(if (responsive.isTiny) 16.dp else 18.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Filled.EmojiEvents,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                )
+                            }
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Weekly Radiant Cup",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Black,
+                            )
+                            Text(
+                                text = cup.sponsoredPrizeLabel
+                                    ?.takeIf { cup.sponsoredPrizeActive }
+                                    ?: cup.cupStatusLabel,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Clip,
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = cup.personalRank?.let { "Your rank #$it" } ?: "Play Ranked to join",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        if (cup.participantCount > 0) {
+                            Text(
+                                text = "${cup.participantCount} players",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight),
+                        enabled = uiState.isFirebaseReady && uiState.radiantRun.canPlay && !uiState.walletActionInProgress,
+                        shape = RoundedCornerShape(16.dp),
+                        onClick = onPlayRadiantRun,
+                    ) {
+                        AdaptiveButtonText("Play Radiant Rush", compactText = "Play Rush", tinyText = "Play")
+                    }
+                    FilledTonalButton(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight),
+                        shape = RoundedCornerShape(16.dp),
+                        onClick = onOpenCompete,
+                    ) {
+                        AdaptiveButtonText("Weekly Cup Details", compactText = "Cup Details", tinyText = "Cup")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CirclePulseCard(
+    circleState: CircleUiState,
+    onOpenCircle: () -> Unit,
+) {
+    val responsive = rememberResponsiveUiSpec()
+    val connections = circleState.connections
+    val pending = circleState.incomingRequests.size
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surface),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(if (responsive.isTiny) 16.dp else 18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.tertiaryContainer,
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Groups,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Your Circle",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                    )
+                    Text(
+                        text = when {
+                            pending > 0 -> "$pending new Spark${if (pending == 1) "" else "s"} waiting"
+                            connections.isNotEmpty() -> "${connections.size} connection${if (connections.size == 1) "" else "s"} in your Circle"
+                            else -> "Discover someone through Shared Sparks"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            if (connections.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    connections.take(4).forEach { spark ->
+                        val friendAvatar = PublicProfileRules.avatarFor(spark.member.avatarId)
+                        Surface(
+                            modifier = Modifier.size(42.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(text = friendAvatar.symbol, style = MaterialTheme.typography.titleMedium)
+                            }
+                        }
+                    }
+                    if (connections.size > 4) {
+                        Surface(
+                            modifier = Modifier.size(42.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "+${connections.size - 4}",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            FilledTonalButton(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = responsive.buttonHeight)
+                    .testTag(UiTestTags.HOME_OPEN_CIRCLE),
+                shape = RoundedCornerShape(16.dp),
+                onClick = onOpenCircle,
+            ) {
+                AdaptiveButtonText(
+                    text = if (connections.isEmpty()) "Discover Your Circle" else "Open Circle",
+                    compactText = if (connections.isEmpty()) "Discover" else "Open Circle",
+                    tinyText = "Circle",
+                )
             }
         }
     }

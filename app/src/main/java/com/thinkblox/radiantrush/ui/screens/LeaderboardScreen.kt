@@ -38,6 +38,8 @@ import com.thinkblox.radiantrush.data.WeeklyCupPreview
 import com.thinkblox.radiantrush.data.WeeklyCupWinnerPreview
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.logic.PublicProfileRules
+import com.thinkblox.radiantrush.logic.WalletFeatureAccessRules
+import com.thinkblox.radiantrush.ui.components.RadiantRunLauncherCard
 import com.thinkblox.radiantrush.ui.components.SectionTitle
 import com.thinkblox.radiantrush.ui.components.StatusPill
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
@@ -47,8 +49,16 @@ import kotlinx.coroutines.delay
 fun LeaderboardScreen(
     contentPadding: PaddingValues,
     uiState: RushUiState,
+    onConnectWallet: () -> Unit,
+    onPlayRadiantRun: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val radiantRushWalletAccess = WalletFeatureAccessRules.radiantRushAccess(
+        walletConnected = uiState.isWalletConnected,
+        cupStatusCode = uiState.runCompetition.weeklyCup.cupStatusCode,
+        startsAtEpochMillis = uiState.runCompetition.weeklyCup.seasonStartsAtEpochMillis,
+        endsAtEpochMillis = uiState.runCompetition.weeklyCup.seasonEndsAtEpochMillis,
+    )
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Weekly Cup", "Run All-Time", "My Stats", "XP")
 
@@ -83,6 +93,16 @@ fun LeaderboardScreen(
         ) {
             when (selectedTab) {
                 0 -> {
+                    item {
+                        RadiantRunLauncherCard(
+                            run = uiState.radiantRun,
+                            enabled = uiState.isFirebaseReady && !uiState.walletActionInProgress,
+                            walletConnected = uiState.isWalletConnected,
+                            cupRunning = radiantRushWalletAccess.cupRunning,
+                            onConnectWallet = onConnectWallet,
+                            onPlay = onPlayRadiantRun,
+                        )
+                    }
                     item {
                         WeeklyCupHeaderCard(
                             cup = uiState.runCompetition.weeklyCup,

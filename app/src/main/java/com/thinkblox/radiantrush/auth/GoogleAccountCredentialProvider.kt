@@ -1,6 +1,7 @@
 package com.thinkblox.radiantrush.auth
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -64,11 +65,13 @@ class GoogleAccountCredentialProvider(
             }
         } catch (_: GetCredentialCancellationException) {
             GoogleAccountCredentialResult.Cancelled
-        } catch (_: GetCredentialException) {
+        } catch (error: GetCredentialException) {
+            Log.w(TAG, "Credential Manager could not open Google sign-in", error)
             GoogleAccountCredentialResult.Failure(
                 "Google sign-in could not open. Please try again.",
             )
-        } catch (_: Exception) {
+        } catch (error: Exception) {
+            Log.w(TAG, "Google sign-in failed", error)
             GoogleAccountCredentialResult.Failure(
                 "Google sign-in is unavailable right now. Please try again.",
             )
@@ -83,5 +86,9 @@ class GoogleAccountCredentialProvider(
         )
         if (id == 0) return null
         return context.getString(id).trim().takeIf { it.isNotBlank() }
+    }
+
+    private companion object {
+        const val TAG = "RadiantGoogleAuth"
     }
 }

@@ -6,7 +6,6 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import org.junit.Rule
@@ -66,32 +65,52 @@ class RadiantRushSmokeTest {
     }
 
     @Test
-    fun circleDiscoveryRouteIsReachableFromHome() {
+    fun circleIsReachableAsPrimaryDestination() {
         enterShell()
 
-        composeRule
-            .onNodeWithTag(UiTestTags.HOME_OPEN_CIRCLE)
-            .performScrollTo()
-            .performClick()
-
+        composeRule.onNodeWithTag(UiTestTags.NAV_CIRCLE).performClick()
         composeRule.onNodeWithTag(UiTestTags.CIRCLE_SCREEN).assertIsDisplayed()
         composeRule.onNodeWithTag(UiTestTags.CIRCLE_SHAKE_PROMPT).assertIsDisplayed()
 
-        // Circle is a nested social destination, so it must always have an obvious
-        // escape back to the main Radiant Circle shell.
-        composeRule.onNodeWithTag(UiTestTags.CIRCLE_TOP_BACK).performClick()
-        composeRule.waitUntil(timeoutMillis = 10_000L) {
-            hasTag(UiTestTags.HOME_SCREEN)
-        }
+        composeRule.onNodeWithTag(UiTestTags.NAV_HOME).performClick()
         composeRule.onNodeWithTag(UiTestTags.HOME_SCREEN).assertIsDisplayed()
     }
 
     @Test
-    fun demoTabIsReachableForJudgeWalkthrough() {
+    fun guideRemainsReachableFromYou() {
         enterShell()
 
-        composeRule.onNodeWithTag(UiTestTags.NAV_DEMO).performClick()
+        composeRule.onNodeWithTag(UiTestTags.NAV_PROFILE).performClick()
+        composeRule.onNodeWithTag(UiTestTags.PROFILE_OPEN_GUIDE).performClick()
         composeRule.onNodeWithTag(UiTestTags.DEMO_SCREEN).assertIsDisplayed()
         composeRule.onNodeWithText("Welcome to Radiant Circle", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithTag(UiTestTags.NESTED_TOP_BACK).performClick()
+        composeRule.onNodeWithTag(UiTestTags.PROFILE_OPEN_GUIDE).assertIsDisplayed()
+    }
+
+    @Test
+    fun homeIdentityOpensYou() {
+        enterShell()
+
+        composeRule.onNodeWithTag(UiTestTags.HOME_PROFILE_ENTRY).performClick()
+        composeRule.onNodeWithTag(UiTestTags.PROFILE_HERO).assertIsDisplayed()
+    }
+
+    @Test
+    fun competeKeepsRadiantRushDiscoverable() {
+        enterShell()
+
+        composeRule.onNodeWithTag(UiTestTags.NAV_LEADERBOARD).performClick()
+        composeRule.onNodeWithTag(UiTestTags.RADIANT_RUN_PLAY).assertIsDisplayed()
+    }
+
+    @Test
+    fun badgesReturnToYouInsteadOfClosingApp() {
+        enterShell()
+
+        composeRule.onNodeWithTag(UiTestTags.NAV_PROFILE).performClick()
+        composeRule.onNodeWithTag(UiTestTags.PROFILE_OPEN_BADGES).performClick()
+        composeRule.onNodeWithTag(UiTestTags.NESTED_TOP_BACK).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(UiTestTags.PROFILE_HERO).assertIsDisplayed()
     }
 }

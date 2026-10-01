@@ -71,7 +71,6 @@ import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveNavLabel
-import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.screens.BadgesScreen
 import com.thinkblox.radiantrush.ui.screens.CircleScreen
 import com.thinkblox.radiantrush.ui.screens.HomeScreen
@@ -107,6 +106,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
     var accountActionInProgress by remember { mutableStateOf(false) }
     var accountActionMessage by remember { mutableStateOf<String?>(null) }
+    var circleProfileSaving by remember { mutableStateOf(false) }
     var appState by remember { mutableStateOf(PreviewContent.defaultState()) }
     var circleState by remember { mutableStateOf(CircleUiState()) }
     var circleChatListener by remember { mutableStateOf<ListenerRegistration?>(null) }
@@ -649,13 +649,12 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     }
 
     fun saveCircleProfile(profile: CircleProfilePreview) {
-        if (circleState.actionInProgress) return
-        circleState = circleState.copy(actionInProgress = true, message = "Saving your Circle profile…")
+        if (circleProfileSaving) return
+        circleProfileSaving = true
+        circleState = circleState.copy(message = "Saving your Circle profile…")
         repository.saveCircleProfile(profile) { result ->
-            circleState = circleState.copy(
-                actionInProgress = false,
-                message = result.message,
-            )
+            circleProfileSaving = false
+            circleState = circleState.copy(message = result.message)
             if (result.success) {
                 repository.loadMyCircleProfile { refreshed, _ ->
                     if (refreshed != null) circleState = circleState.copy(myProfile = refreshed)
@@ -991,6 +990,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onRespondToCircleSpark = ::respondToCircleSpark,
         onRefreshCircle = ::refreshCircle,
         onSaveCircleProfile = ::saveCircleProfile,
+        circleProfileSaving = circleProfileSaving,
         onOpenCircleProfile = ::openCircleProfile,
         onCloseCircleProfile = ::closeCircleProfile,
         onOpenCircleChat = ::openCircleChat,
@@ -1039,6 +1039,7 @@ private fun RadiantRushShell(
     onRespondToCircleSpark: (CircleSparkPreview, Boolean) -> Unit,
     onRefreshCircle: () -> Unit,
     onSaveCircleProfile: (CircleProfilePreview) -> Unit,
+    circleProfileSaving: Boolean,
     onOpenCircleProfile: (CircleMemberPreview) -> Unit,
     onCloseCircleProfile: () -> Unit,
     onOpenCircleChat: (CircleMemberPreview) -> Unit,
@@ -1056,17 +1057,23 @@ private fun RadiantRushShell(
     onOpenOrePortfolio: () -> Unit,
     onPlayRadiantRun: () -> Unit,
 ) {
-    val responsive = rememberResponsiveUiSpec()
     val viewingCircleChat = destination == AppDestination.Circle && circleState.chatMember != null
     val viewingCircleMemberProfile = destination == AppDestination.Circle &&
         (circleState.profileLoading || circleState.selectedMemberProfile != null)
+    val nestedParent = when (destination) {
+        AppDestination.Quests -> AppDestination.Home
+        AppDestination.Badges, AppDestination.Demo -> AppDestination.Profile
+        else -> null
+    }
+    val viewingNestedDestination = nestedParent != null || viewingCircleChat || viewingCircleMemberProfile
 
-    if (destination == AppDestination.Circle) {
+    if (viewingNestedDestination) {
         BackHandler {
             when {
                 viewingCircleChat -> onCloseCircleChat()
                 viewingCircleMemberProfile -> onCloseCircleProfile()
-                else -> onDestinationChange(AppDestination.Home)
+                nestedParent != null -> onDestinationChange(nestedParent)
+                else -> Unit
             }
         }
     }
@@ -1099,11 +1106,11 @@ private fun RadiantRushShell(
                     } else {
                         Text(
                             text = when (destination) {
-                                AppDestination.Home -> "Radiant Circle"
-                                AppDestination.Quests -> "Today"
+                                AppDestination.Home -> "Today"
+                                AppDestination.Quests -> "Daily Plan"
                                 AppDestination.Circle -> "Circle"
                                 AppDestination.Badges -> "Badges"
-                                AppDestination.Leaderboard -> "Ranks"
+                                AppDestination.Leaderboard -> "Compete"
                                 AppDestination.Profile -> "You"
                                 AppDestination.Demo -> "Guide"
                             },
@@ -1112,14 +1119,18 @@ private fun RadiantRushShell(
                     }
                 },
                 navigationIcon = {
-                    if (destination == AppDestination.Circle) {
+                    if (viewingNestedDestination) {
                         IconButton(
-                            modifier = Modifier.testTag(UiTestTags.CIRCLE_TOP_BACK),
+                            modifier = Modifier.testTag(
+                                if (destination == AppDestination.Circle) UiTestTags.CIRCLE_TOP_BACK
+                                else UiTestTags.NESTED_TOP_BACK,
+                            ),
                             onClick = {
                                 when {
                                     viewingCircleChat -> onCloseCircleChat()
                                     viewingCircleMemberProfile -> onCloseCircleProfile()
-                                    else -> onDestinationChange(AppDestination.Home)
+                                    nestedParent != null -> onDestinationChange(nestedParent)
+                                    else -> Unit
                                 }
                             },
                         ) {
@@ -1128,7 +1139,8 @@ private fun RadiantRushShell(
                                 contentDescription = when {
                                     viewingCircleChat -> "Back to profile"
                                     viewingCircleMemberProfile -> "Back to Circle"
-                                    else -> "Back to Home"
+                                    destination == AppDestination.Quests -> "Back to Today"
+                                    else -> "Back to You"
                                 },
                             )
                         }
@@ -1141,17 +1153,15 @@ private fun RadiantRushShell(
             )
         },
         bottomBar = {
-            if (!viewingCircleChat) {
+            if (!viewingNestedDestination) {
                 NavigationBar(
                     containerColor = MaterialTheme.colorScheme.surface,
                 ) {
                 val bottomDestinations = listOf(
                     AppDestination.Home,
-                    AppDestination.Quests,
-                    AppDestination.Badges,
+                    AppDestination.Circle,
                     AppDestination.Leaderboard,
                     AppDestination.Profile,
-                    AppDestination.Demo,
                 )
                 bottomDestinations.forEach { item ->
                     NavigationBarItem(
@@ -1166,9 +1176,9 @@ private fun RadiantRushShell(
                                 AppDestination.Demo -> UiTestTags.NAV_DEMO
                             },
                         ),
-                        selected = destination == item || (destination == AppDestination.Circle && item == AppDestination.Home),
+                        selected = destination == item,
                         onClick = { onDestinationChange(item) },
-                        alwaysShowLabel = !responsive.isCompact && !responsive.hasLargeText,
+                        alwaysShowLabel = true,
                         icon = {
                             Icon(
                                 imageVector = item.icon,
@@ -1179,21 +1189,21 @@ private fun RadiantRushShell(
                             AdaptiveNavLabel(
                                 text = item.label,
                                 compactText = when (item) {
-                                    AppDestination.Home -> "Home"
-                                    AppDestination.Quests -> "Today"
+                                    AppDestination.Home -> "Today"
+                                    AppDestination.Quests -> "Plan"
                                     AppDestination.Circle -> "Circle"
                                     AppDestination.Badges -> "Badge"
-                                    AppDestination.Leaderboard -> "Ranks"
-                                    AppDestination.Profile -> "Me"
+                                    AppDestination.Leaderboard -> "Compete"
+                                    AppDestination.Profile -> "You"
                                     AppDestination.Demo -> "Guide"
                                 },
                                 tinyText = when (item) {
-                                    AppDestination.Home -> "Home"
-                                    AppDestination.Quests -> "Today"
+                                    AppDestination.Home -> "Today"
+                                    AppDestination.Quests -> "Plan"
                                     AppDestination.Circle -> "Circle"
                                     AppDestination.Badges -> "Badge"
-                                    AppDestination.Leaderboard -> "Rank"
-                                    AppDestination.Profile -> "Me"
+                                    AppDestination.Leaderboard -> "Compete"
+                                    AppDestination.Profile -> "You"
                                     AppDestination.Demo -> "Guide"
                                 },
                             )
@@ -1231,6 +1241,7 @@ private fun RadiantRushShell(
                 onRespondToCircleSpark = onRespondToCircleSpark,
                 onRefreshCircle = onRefreshCircle,
                 onSaveCircleProfile = onSaveCircleProfile,
+                circleProfileSaving = circleProfileSaving,
                 onOpenCircleProfile = onOpenCircleProfile,
                 onCloseCircleProfile = onCloseCircleProfile,
                 onOpenCircleChat = onOpenCircleChat,
@@ -1272,6 +1283,7 @@ private fun ScreenContent(
     onRespondToCircleSpark: (CircleSparkPreview, Boolean) -> Unit,
     onRefreshCircle: () -> Unit,
     onSaveCircleProfile: (CircleProfilePreview) -> Unit,
+    circleProfileSaving: Boolean,
     onOpenCircleProfile: (CircleMemberPreview) -> Unit,
     onCloseCircleProfile: () -> Unit,
     onOpenCircleChat: (CircleMemberPreview) -> Unit,
@@ -1296,12 +1308,14 @@ private fun ScreenContent(
         AppDestination.Home -> HomeScreen(
             contentPadding = contentPadding,
             uiState = uiState,
+            circleState = circleState,
             onRetryFirebase = onRetryFirebase,
-            onConnectWallet = onConnectWallet,
-            onDisconnectWallet = onDisconnectWallet,
             onOpenDailyRadiance = onOpenDailyRadiance,
             onOpenToday = { onNavigate(AppDestination.Quests) },
             onOpenCircle = { onNavigate(AppDestination.Circle) },
+            onOpenCompete = { onNavigate(AppDestination.Leaderboard) },
+            onOpenProfile = { onNavigate(AppDestination.Profile) },
+            onPlayRadiantRun = onPlayRadiantRun,
         )
         AppDestination.Quests -> QuestsScreen(
             contentPadding = contentPadding,
@@ -1334,7 +1348,12 @@ private fun ScreenContent(
             onReportMember = onReportCircleMember,
         )
         AppDestination.Badges -> BadgesScreen(contentPadding, uiState.badges)
-        AppDestination.Leaderboard -> LeaderboardScreen(contentPadding, uiState)
+        AppDestination.Leaderboard -> LeaderboardScreen(
+            contentPadding = contentPadding,
+            uiState = uiState,
+            onConnectWallet = onConnectWallet,
+            onPlayRadiantRun = onPlayRadiantRun,
+        )
         AppDestination.Profile -> ProfileScreen(
             contentPadding = contentPadding,
             uiState = uiState,
@@ -1344,12 +1363,14 @@ private fun ScreenContent(
             onSavePublicProfile = onSavePublicProfile,
             circleProfile = circleState.myProfile,
             circleProfileLoading = circleState.myProfileLoading,
-            circleActionInProgress = circleState.actionInProgress,
+            circleActionInProgress = circleProfileSaving,
             onSaveCircleProfile = onSaveCircleProfile,
             accountActionInProgress = accountActionInProgress,
             accountActionMessage = accountActionMessage,
             onProtectAccount = onProtectAccount,
             onOpenOrePortfolio = onOpenOrePortfolio,
+            onOpenBadges = { onNavigate(AppDestination.Badges) },
+            onOpenGuide = { onNavigate(AppDestination.Demo) },
         )
         AppDestination.Demo -> DemoScreen(contentPadding, uiState)
     }
