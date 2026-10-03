@@ -121,6 +121,11 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     // Keep shell navigation outside RadiantRushShell so entering the full-screen game
     // does not dispose and recreate the selected tab as Home on return.
     var shellDestination by rememberSaveable { mutableStateOf(AppDestination.Home) }
+    // Persist a lightweight primary-tab history so both the in-app Back arrow and
+    // Android Back behave like navigation instead of unexpectedly closing the app.
+    // Child destinations (Daily Plan, Badges, Guide) keep their explicit parent
+    // behavior and do not create extra primary-history entries.
+    var shellHistory by rememberSaveable { mutableStateOf(AppDestination.Home.name) }
     var todayReturnToRushRequest by rememberSaveable { mutableStateOf(0) }
     var firebaseRefreshGeneration by remember { mutableStateOf(0) }
 
@@ -929,11 +934,61 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun primaryDestinationFor(destination: AppDestination): AppDestination = when (destination) {
+        AppDestination.Quests -> AppDestination.Home
+        AppDestination.Badges, AppDestination.Demo -> AppDestination.Profile
+        else -> destination
+    }
+
+    fun decodeShellHistory(): List<AppDestination> = shellHistory
+        .split('|')
+        .mapNotNull { name -> AppDestination.entries.firstOrNull { it.name == name } }
+        .ifEmpty { listOf(AppDestination.Home) }
+
+    fun navigateShell(destination: AppDestination) {
+        val currentPrimary = primaryDestinationFor(shellDestination)
+        val targetPrimary = primaryDestinationFor(destination)
+
+        if (targetPrimary != currentPrimary && destination == targetPrimary) {
+            val nextHistory = (decodeShellHistory() + targetPrimary).takeLast(20)
+            shellHistory = nextHistory.joinToString("|") { it.name }
+        }
+
+        shellDestination = destination
+    }
+
+    fun canNavigateBackInShell(): Boolean {
+        val history = decodeShellHistory()
+        return history.size > 1 || primaryDestinationFor(shellDestination) != AppDestination.Home
+    }
+
+    fun navigateBackInShell() {
+        val history = decodeShellHistory()
+        if (history.size > 1) {
+            val reduced = history.dropLast(1)
+            shellHistory = reduced.joinToString("|") { it.name }
+            shellDestination = reduced.last()
+        } else if (primaryDestinationFor(shellDestination) != AppDestination.Home) {
+            shellHistory = AppDestination.Home.name
+            shellDestination = AppDestination.Home
+        }
+    }
+
     LaunchedEffect(Unit) {
         refreshFirebase()
     }
 
     LaunchedEffect(shellDestination) {
+        // Some full-screen flows can restore a shell destination directly. Keep the
+        // primary history synchronized so Back still has a safe in-app destination.
+        val currentPrimary = primaryDestinationFor(shellDestination)
+        val history = decodeShellHistory()
+        if (history.lastOrNull() != currentPrimary) {
+            shellHistory = (history + currentPrimary)
+                .takeLast(20)
+                .joinToString("|") { it.name }
+        }
+
         if (shellDestination == AppDestination.Circle || shellDestination == AppDestination.Profile) {
             refreshCircle()
         }
@@ -976,7 +1031,9 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         uiState = appState,
         circleState = circleState,
         destination = shellDestination,
-        onDestinationChange = { shellDestination = it },
+        onDestinationChange = ::navigateShell,
+        canNavigateBack = canNavigateBackInShell(),
+        onNavigateBack = ::navigateBackInShell,
         todayReturnToRushRequest = todayReturnToRushRequest,
         onTodayReturnToRushHandled = { todayReturnToRushRequest = 0 },
         onRetryFirebase = ::refreshFirebase,
@@ -1026,6 +1083,8 @@ private fun RadiantRushShell(
     circleState: CircleUiState,
     destination: AppDestination,
     onDestinationChange: (AppDestination) -> Unit,
+    canNavigateBack: Boolean,
+    onNavigateBack: () -> Unit,
     todayReturnToRushRequest: Int,
     onTodayReturnToRushHandled: () -> Unit,
     onRetryFirebase: () -> Unit,
@@ -1066,13 +1125,15 @@ private fun RadiantRushShell(
         else -> null
     }
     val viewingNestedDestination = nestedParent != null || viewingCircleChat || viewingCircleMemberProfile
+    val showPrimaryBack = !viewingNestedDestination && canNavigateBack
 
-    if (viewingNestedDestination) {
+    if (viewingNestedDestination || showPrimaryBack) {
         BackHandler {
             when {
                 viewingCircleChat -> onCloseCircleChat()
                 viewingCircleMemberProfile -> onCloseCircleProfile()
                 nestedParent != null -> onDestinationChange(nestedParent)
+                showPrimaryBack -> onNavigateBack()
                 else -> Unit
             }
         }
@@ -1119,17 +1180,21 @@ private fun RadiantRushShell(
                     }
                 },
                 navigationIcon = {
-                    if (viewingNestedDestination) {
+                    if (viewingNestedDestination || showPrimaryBack) {
                         IconButton(
                             modifier = Modifier.testTag(
-                                if (destination == AppDestination.Circle) UiTestTags.CIRCLE_TOP_BACK
-                                else UiTestTags.NESTED_TOP_BACK,
+                                when {
+                                    viewingNestedDestination && destination == AppDestination.Circle -> UiTestTags.CIRCLE_TOP_BACK
+                                    viewingNestedDestination -> UiTestTags.NESTED_TOP_BACK
+                                    else -> UiTestTags.SHELL_TOP_BACK
+                                },
                             ),
                             onClick = {
                                 when {
                                     viewingCircleChat -> onCloseCircleChat()
                                     viewingCircleMemberProfile -> onCloseCircleProfile()
                                     nestedParent != null -> onDestinationChange(nestedParent)
+                                    showPrimaryBack -> onNavigateBack()
                                     else -> Unit
                                 }
                             },
@@ -1140,7 +1205,8 @@ private fun RadiantRushShell(
                                     viewingCircleChat -> "Back to profile"
                                     viewingCircleMemberProfile -> "Back to Circle"
                                     destination == AppDestination.Quests -> "Back to Today"
-                                    else -> "Back to You"
+                                    viewingNestedDestination -> "Back to You"
+                                    else -> "Back"
                                 },
                             )
                         }

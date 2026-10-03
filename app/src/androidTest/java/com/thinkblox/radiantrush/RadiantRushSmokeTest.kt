@@ -113,4 +113,20 @@ class RadiantRushSmokeTest {
         composeRule.onNodeWithTag(UiTestTags.NESTED_TOP_BACK).assertIsDisplayed().performClick()
         composeRule.onNodeWithTag(UiTestTags.PROFILE_HERO).assertIsDisplayed()
     }
+
+    @Test
+    fun primaryTabBackUsesAppHistoryInsteadOfClosing() {
+        enterShell()
+
+        composeRule.onNodeWithTag(UiTestTags.NAV_CIRCLE).performClick()
+        composeRule.onNodeWithTag(UiTestTags.SHELL_TOP_BACK).assertIsDisplayed()
+
+        composeRule.onNodeWithTag(UiTestTags.NAV_LEADERBOARD).performClick()
+        composeRule.onNodeWithTag(UiTestTags.SHELL_TOP_BACK).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(UiTestTags.CIRCLE_SCREEN).assertIsDisplayed()
+
+        composeRule.onNodeWithTag(UiTestTags.SHELL_TOP_BACK).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(UiTestTags.HOME_SCREEN).assertIsDisplayed()
+    }
+
 }

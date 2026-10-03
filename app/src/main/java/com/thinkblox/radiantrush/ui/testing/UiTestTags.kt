@@ -12,6 +12,7 @@ object UiTestTags {
     const val CIRCLE_SHAKE_PROMPT = "circle_shake_prompt"
     const val CIRCLE_TOP_BACK = "circle_top_back"
     const val NESTED_TOP_BACK = "nested_top_back"
+    const val SHELL_TOP_BACK = "shell_top_back"
     const val CIRCLE_CHAT_SCREEN = "circle_chat_screen"
     const val CIRCLE_CHAT_SEND = "circle_chat_send"
     const val NAV_BADGES = "nav_badges"
