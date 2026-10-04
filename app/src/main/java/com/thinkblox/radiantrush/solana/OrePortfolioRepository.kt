@@ -68,6 +68,9 @@ class OrePortfolioRepository {
             }
 
             val positions = protocolReads.mapNotNull { it.position }
+            val currentPosition = protocolReads
+                .firstOrNull { it.spec.protocol.key == "current" }
+                ?.position
             val primary = positions
                 .filter { it.stake.balanceRaw > BigInteger.ZERO }
                 .maxWithOrNull(compareBy<VerifiedPosition> { it.stake.balanceRaw }.thenBy { it.liveUnclaimedRaw })
@@ -125,8 +128,14 @@ class OrePortfolioRepository {
                 stakingAuthorityLiquidTokenAccountCount = liquid.tokenAccountCount,
                 stakedRaw = stakedRaw.toString(),
                 stakedDisplay = "${OreStakingRules.formatRawOre(stakedRaw)} ORE",
+                currentStakedRaw = (currentPosition?.stake?.balanceRaw ?: BigInteger.ZERO).toString(),
+                currentStakedDisplay = "${OreStakingRules.formatRawOre(currentPosition?.stake?.balanceRaw ?: BigInteger.ZERO)} ORE",
                 unclaimedRewardsRaw = unclaimedRaw.toString(),
                 unclaimedRewardsDisplay = "${OreStakingRules.formatRawOre(unclaimedRaw)} ORE",
+                currentUnclaimedRewardsRaw = (currentPosition?.liveUnclaimedRaw ?: BigInteger.ZERO).toString(),
+                currentUnclaimedRewardsDisplay = "${OreStakingRules.formatRawOre(currentPosition?.liveUnclaimedRaw ?: BigInteger.ZERO)} ORE",
+                currentCompoundFeeLamportsRaw = (currentPosition?.stake?.compoundFeeLamports ?: BigInteger.ZERO).toString(),
+                currentCompoundFeeReserveLamportsRaw = (currentPosition?.stake?.compoundFeeReserveLamports ?: BigInteger.ZERO).toString(),
                 lifetimeRewardsRaw = lifetimeRaw.toString(),
                 lifetimeRewardsDisplay = "${OreStakingRules.formatRawOre(lifetimeRaw)} ORE",
                 storedRewardsRaw = storedRewardsRaw.toString(),

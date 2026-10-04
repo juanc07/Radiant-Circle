@@ -1,6 +1,6 @@
 package com.thinkblox.radiantrush.data
 
-/** Read-only Phase 14D.1R ORE portfolio state. No transaction state belongs here. */
+/** ORE portfolio read state. Transaction progress is tracked separately below. */
 sealed interface OrePortfolioUiState {
     data object NoWallet : OrePortfolioUiState
 
@@ -41,8 +41,14 @@ data class OrePortfolioSnapshot(
     val stakingAuthorityLiquidTokenAccountCount: Int,
     val stakedRaw: String,
     val stakedDisplay: String,
+    val currentStakedRaw: String,
+    val currentStakedDisplay: String,
     val unclaimedRewardsRaw: String,
     val unclaimedRewardsDisplay: String,
+    val currentUnclaimedRewardsRaw: String,
+    val currentUnclaimedRewardsDisplay: String,
+    val currentCompoundFeeLamportsRaw: String,
+    val currentCompoundFeeReserveLamportsRaw: String,
     val lifetimeRewardsRaw: String,
     val lifetimeRewardsDisplay: String,
     val storedRewardsRaw: String,
@@ -81,4 +87,33 @@ data class OreAccruedToday(
     val baselineCapturedAtClientMs: Long,
     val isExactMidnightBaseline: Boolean,
     val helperText: String,
+)
+
+
+enum class OreStakeAction {
+    Stake,
+    Withdraw,
+    Claim,
+}
+
+data class OreStakeTransactionReceipt(
+    val action: OreStakeAction,
+    val requestedRaw: String,
+    val beforeLiquidRaw: String,
+    val afterLiquidRaw: String,
+    val beforeCurrentStakedRaw: String,
+    val afterCurrentStakedRaw: String,
+    val beforeClaimableRaw: String,
+    val afterClaimableRaw: String,
+    val transactionSignature: String? = null,
+)
+
+data class OreStakeActionUiState(
+    val inProgress: Boolean = false,
+    val action: OreStakeAction? = null,
+    val message: String? = null,
+    val transactionSignature: String? = null,
+    val explorerUrl: String? = null,
+    val verified: Boolean = false,
+    val receipt: OreStakeTransactionReceipt? = null,
 )

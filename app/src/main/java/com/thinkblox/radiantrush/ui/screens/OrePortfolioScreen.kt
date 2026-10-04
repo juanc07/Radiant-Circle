@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -37,9 +38,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -52,11 +55,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.OreAccruedToday
 import com.thinkblox.radiantrush.data.OrePortfolioSnapshot
 import com.thinkblox.radiantrush.data.OrePortfolioUiState
+import com.thinkblox.radiantrush.data.OreStakeAction
+import com.thinkblox.radiantrush.data.OreStakeActionUiState
+import com.thinkblox.radiantrush.data.OreStakeTransactionReceipt
 import com.thinkblox.radiantrush.logic.OrePortfolioPresentationRules
+import com.thinkblox.radiantrush.logic.OreStakingRules
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
 import java.text.DateFormat
@@ -66,11 +76,23 @@ import java.util.Date
 @Composable
 fun OrePortfolioScreen(
     state: OrePortfolioUiState,
+    actionState: OreStakeActionUiState,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
+    onStake: (String) -> Unit,
+    onWithdraw: (String) -> Unit,
+    onClaim: () -> Unit,
+    onDismissActionReceipt: () -> Unit,
 ) {
     BackHandler(onBack = onBack)
     val responsive = rememberResponsiveUiSpec()
+
+    actionState.receipt?.let { receipt ->
+        OreTransactionReceiptDialog(
+            receipt = receipt,
+            onDismiss = onDismissActionReceipt,
+        )
+    }
 
     Scaffold(
         modifier = Modifier.testTag(UiTestTags.ORE_PORTFOLIO_SCREEN),
@@ -148,7 +170,15 @@ fun OrePortfolioScreen(
                     val snapshot = state.snapshot
                     item { PortfolioHero(snapshot) }
                     item { PortfolioMetrics(snapshot, state.accruedToday) }
-                    item { WalletActionsSafetyCard() }
+                    item {
+                        OreActionsCard(
+                            snapshot = snapshot,
+                            actionState = actionState,
+                            onStake = onStake,
+                            onWithdraw = onWithdraw,
+                            onClaim = onClaim,
+                        )
+                    }
                     item { CircleStakePreviewCard() }
                     item { AdvancedProofCard(snapshot) }
                 }
@@ -276,14 +306,101 @@ private fun CompactMetricTile(
 }
 
 @Composable
-private fun WalletActionsSafetyCard() {
+private fun OreTransactionReceiptDialog(
+    receipt: OreStakeTransactionReceipt,
+    onDismiss: () -> Unit,
+) {
+    val beforeLiquid = receipt.beforeLiquidRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val afterLiquid = receipt.afterLiquidRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val beforeStaked = receipt.beforeCurrentStakedRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val afterStaked = receipt.afterCurrentStakedRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val beforeClaimable = receipt.beforeClaimableRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val afterClaimable = receipt.afterClaimableRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+
+    fun signedDelta(before: java.math.BigInteger, after: java.math.BigInteger): String {
+        val delta = after - before
+        if (delta == java.math.BigInteger.ZERO) return "No change"
+        val amount = OrePortfolioPresentationRules.overviewAmount(delta.abs())
+        return if (delta.signum() > 0) "+$amount" else "−$amount"
+    }
+
+    val title = when (receipt.action) {
+        OreStakeAction.Stake -> "Stake verified"
+        OreStakeAction.Withdraw -> "Withdraw verified"
+        OreStakeAction.Claim -> "Claim verified"
+    }
+    val actionAmount = OrePortfolioPresentationRules.overviewAmount(receipt.requestedRaw)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Filled.CheckCircle, contentDescription = null) },
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    when (receipt.action) {
+                        OreStakeAction.Stake -> "$actionAmount was submitted to the verified ORE staking program."
+                        OreStakeAction.Withdraw -> "$actionAmount was withdrawn from the current ORE stake position."
+                        OreStakeAction.Claim -> "$actionAmount of staking rewards was claimed."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                ReceiptChangeRow("Available", receipt.beforeLiquidRaw, receipt.afterLiquidRaw, signedDelta(beforeLiquid, afterLiquid))
+                ReceiptChangeRow("Staked", receipt.beforeCurrentStakedRaw, receipt.afterCurrentStakedRaw, signedDelta(beforeStaked, afterStaked))
+                ReceiptChangeRow("Claimable", receipt.beforeClaimableRaw, receipt.afterClaimableRaw, signedDelta(beforeClaimable, afterClaimable))
+                Text(
+                    "Values above are fresh Mainnet reads after the transaction, not estimated UI balances.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                receipt.transactionSignature?.let { signature ->
+                    Text("Tx ${shortAddress(signature)}", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Done") }
+        },
+    )
+}
+
+@Composable
+private fun ReceiptChangeRow(
+    label: String,
+    beforeRaw: String,
+    afterRaw: String,
+    delta: String,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+        Text(
+            "${OrePortfolioPresentationRules.overviewAmount(beforeRaw)} → ${OrePortfolioPresentationRules.overviewAmount(afterRaw)}",
+            style = MaterialTheme.typography.bodyMedium,
+        )
+        Text(delta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+    }
+}
+
+@Composable
+private fun OreActionsCard(
+    snapshot: OrePortfolioSnapshot,
+    actionState: OreStakeActionUiState,
+    onStake: (String) -> Unit,
+    onWithdraw: (String) -> Unit,
+    onClaim: () -> Unit,
+) {
+    var amountText by remember(snapshot.walletAddress) { mutableStateOf("") }
+    val liquidRaw = snapshot.liquidRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val currentStakedRaw = snapshot.currentStakedRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val currentClaimableRaw = snapshot.currentUnclaimedRewardsRaw.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO
+    val busy = actionState.inProgress
+
     Card(
         shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -295,13 +412,119 @@ private fun WalletActionsSafetyCard() {
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text("Wallet-signed ORE actions", fontWeight = FontWeight.Bold)
-                    Text("Stake • Claim • Withdraw", style = MaterialTheme.typography.bodySmall)
+                    Text("Current verified stake program • Mainnet", style = MaterialTheme.typography.bodySmall)
                 }
             }
+
             Text(
-                "This checkpoint is read-only. Actions stay locked until the Mainnet instruction, wallet signature, submission, and resulting on-chain state are all verified end-to-end.",
+                "Every action opens your wallet for approval. Radiant Circle never receives your private key or custody of your ORE.",
                 style = MaterialTheme.typography.bodySmall,
             )
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                shape = RoundedCornerShape(14.dp),
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Text("Solana Mainnet required", fontWeight = FontWeight.Bold)
+                    Text(
+                        "Radiant Circle requests Mainnet through Mobile Wallet Adapter. If your wallet is currently on Devnet/Testnet, switch it to Mainnet before approving the transaction.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+
+            OutlinedTextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = amountText,
+                onValueChange = { value ->
+                    val normalized = value.replace(',', '.')
+                    val parts = normalized.split('.', limit = 3)
+                    val wholeDigitsOk = parts.firstOrNull()?.all(Char::isDigit) != false
+                    val decimalDigitsOk = parts.getOrNull(1)?.let { it.length <= OreStakingRules.TOKEN_DECIMALS && it.all(Char::isDigit) } != false
+                    if (
+                        normalized.length <= 24 &&
+                        parts.size <= 2 &&
+                        wholeDigitsOk &&
+                        decimalDigitsOk
+                    ) {
+                        amountText = normalized
+                    }
+                },
+                enabled = !busy,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Decimal,
+                    imeAction = ImeAction.Done,
+                ),
+                label = { Text("ORE amount") },
+                supportingText = {
+                    Text(
+                        "Available ${OrePortfolioPresentationRules.overviewAmount(snapshot.liquidRaw)} • Current stake ${OrePortfolioPresentationRules.overviewAmount(snapshot.currentStakedRaw)}",
+                    )
+                },
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    modifier = Modifier.weight(1f),
+                    enabled = !busy && liquidRaw.signum() == 1,
+                    onClick = { onStake(amountText) },
+                ) { Text("Stake") }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    enabled = !busy && currentStakedRaw.signum() == 1,
+                    onClick = { onWithdraw(amountText) },
+                ) { Text("Withdraw") }
+            }
+            Text(
+                "Stake and Withdraw use the exact amount entered above. Claim collects the currently claimable staking reward.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !busy && currentClaimableRaw.signum() == 1,
+                onClick = onClaim,
+            ) {
+                Text(
+                    if (currentClaimableRaw.signum() == 1) {
+                        "Claim ${OrePortfolioPresentationRules.overviewAmount(snapshot.currentUnclaimedRewardsRaw)}"
+                    } else {
+                        "No rewards to claim"
+                    },
+                )
+            }
+
+            if (busy) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text(actionState.message ?: "Waiting for wallet…", style = MaterialTheme.typography.bodySmall)
+                }
+            } else if (!actionState.message.isNullOrBlank()) {
+                Text(
+                    actionState.message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (actionState.verified) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                actionState.transactionSignature?.let { signature ->
+                    Text("Tx ${shortAddress(signature)}", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            if (snapshot.stakedRaw != snapshot.currentStakedRaw) {
+                Text(
+                    "Legacy ORE stake is shown in Total Position but is read-only here. Stake/Withdraw/Claim buttons operate only on ${shortAddress(OreStakingRules.ORE_STAKE_PROGRAM_ID)}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }
@@ -368,6 +591,9 @@ private fun AdvancedProofCard(snapshot: OrePortfolioSnapshot) {
                     DetailLine("Wallet", shortAddress(snapshot.walletAddress))
                     DetailLine("Network", snapshot.network)
                     DetailLine("ORE mint", shortAddress(snapshot.mint))
+                    DetailLine("Verified stake source", OreStakingRules.ORE_STAKE_VERIFIED_SOURCE_COMMIT.take(9))
+                    DetailLine("Compound fee (lamports)", snapshot.currentCompoundFeeLamportsRaw)
+                    DetailLine("Compound reserve (lamports)", snapshot.currentCompoundFeeReserveLamportsRaw)
                     snapshot.rpcSlot?.let { DetailLine("RPC slot", it.toString()) }
 
                     snapshot.protocolPositions.forEach { proof ->
