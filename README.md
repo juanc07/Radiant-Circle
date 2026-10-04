@@ -11,6 +11,28 @@ Instead of starting with a wallet or a trading screen, Radiant Circle starts wit
 
 ---
 
+## Download the App
+
+For judging and full product testing, use the **official signed Android APK**.
+
+### Radiant Circle v1.2.17 — CLOCK IN Submission
+
+- **Version:** `1.2.17-ore15b2a`
+- **VersionCode:** `42`
+- **Package:** `com.thinkblox.radiantrush`
+- **Release tag:** `clock-in-submission-v2`
+- **SHA-256:** `953f23eae76df225ac7f17e054f5131e8e24778f087262eafedbdebdc91ff006`
+
+**[Download the official signed APK](https://github.com/juanc07/Radiant-Circle/releases/download/clock-in-submission-v2/RadiantCircle-v1.2.17-clock-in.apk)**
+
+**[View the GitHub Release](https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v2)**
+
+> For the full experience, including Google Sign-In, judges should use the official signed APK. A locally built debug APK uses the developer's own debug signing certificate and may not authenticate with the production Google Sign-In configuration.
+
+The source repository remains available for code review and local debug builds.
+
+---
+
 ## The idea
 
 Most crypto apps begin with finance.
@@ -367,6 +389,8 @@ Run connected-device tests:
 ./gradlew connectedDebugAndroidTest
 ```
 
+> Local debug builds are useful for source verification and development. For Google Sign-In and full judging, use the official signed APK from the release above.
+
 ---
 
 # Verified Release
@@ -394,7 +418,13 @@ Tag:
 clock-in-submission-v2
 ```
 
-Documentation-only commits after the release checkpoint do not change the signed submission APK.
+Current GitHub `main`, including submission documentation updates:
+
+```text
+902e66f09daa0f40e089592136157a7e9cf3ffa4
+```
+
+The documentation-only commits after the release checkpoint do not change the signed submission APK.
 
 ---
 
