@@ -1,172 +1,355 @@
 # Radiant Circle
 
-**Shake. Connect. Play. Prove.**
+**Connect. Play. Participate.**
 
-Radiant Circle is an Android-first social experience built for Solana Mobile. It combines a lightweight daily habit loop, proximity-aware social discovery, private Circle connections, a native skill game, collectible progression, and trusted weekly competition powered by optional Solana wallet proofs.
+Radiant Circle is a social-first Android experience built for Solana Mobile.
 
-> **Radiant Circle** is the product/app. **Radiant Rush** is the native skill game inside Radiant Circle.
+Instead of starting with a wallet or a trading screen, Radiant Circle starts with people: a daily ritual, social discovery, shared interests, private connections, a native mobile game, and optional onchain participation through Solana Mobile Wallet Adapter.
 
-## Why Radiant Circle
+> **Radiant Circle** is the product.  
+> **Radiant Rush** is the native skill game built inside Radiant Circle.
 
-Most crypto apps begin with a wallet. Radiant Circle begins with a person.
+---
 
-The core experience is designed around a simple human loop:
+## The idea
+
+Most crypto apps begin with finance.
+
+**Radiant Circle begins with a person.**
+
+The experience is built around a repeatable mobile loop:
 
 ```text
 Open Radiant Circle
         ↓
-Daily Radiance + Daily Plan
+Daily Radiance
         ↓
-Shake your Seeker to discover someone
+Shake to Discover
         ↓
-See Shared Sparks
+Find Shared Sparks
         ↓
-Connect through Your Circle
+Send a Spark
         ↓
-Private 1-to-1 chat
+Build Your Circle
+        ↓
+Private Chat
         ↓
 Play Radiant Rush
         ↓
-Open rewards + grow the Radiant Vault
+Progress + Compete
         ↓
-Compete in the Weekly Radiant Cup
-        ↓
-Use Solana for trusted identity / reward proof when needed
+Participate on Solana when you choose
 ```
 
-The goal is to make Solana useful without making blockchain the first thing a new user has to understand.
+Solana is the ownership, verification, and value layer underneath the experience — not a barrier users must understand before they can participate.
 
-## Product highlights
+---
 
-### Daily habit
-- **Daily Radiance** with a deterministic daily message and dedicated Radiance streak.
-- **Daily Plan** and **Daily Radiant Chest** give players lightweight reasons to return.
-- Progress and rewards feed into the broader Radiant Circle experience.
+# Product Highlights
 
-### Shake to Discover
-- Physically shake a supported Android / Solana Mobile device to discover another active Radiant Circle member.
-- Discovery begins nearby and can widen from local to regional, country, then global availability.
-- Uses **approximate foreground location only**.
-- Exact coordinates are not stored or shown to other members.
+## Daily Radiance
 
-### Shared Sparks + Your Circle
-- Profiles highlight interests such as food, music, games, hobbies, books, pets, weekend vibe, and topics people can talk about for hours.
-- **Shared Sparks** surface interests two people have in common.
-- Members can send and accept a Spark before becoming Circle connections.
-- The social model is **friend-first**, not dating-first.
+Radiant Circle gives users a lightweight reason to return each day.
 
-### Private Circle chat
-- 1-to-1 chat is available only between accepted Circle connections.
-- Includes avatars, optimistic sending, unread state, **Sent / Read** status, live typing presence, and subtle incoming-message feedback.
-- Includes **Remove, Block, and Report** safety controls.
-- Messages are immutable from the client and chat access is enforced by Firestore rules.
+- Daily Radiance message/reveal
+- dedicated Radiance streak
+- Daily Plan
+- Daily Radiant Chest
+- progression and reward feedback
 
-### Radiant Rush
-- A native short-form skill game built directly into Radiant Circle.
-- Players compete for score, progress, collectibles, and Weekly Radiant Cup placement.
-- The game is intentionally fast enough to fit between social interactions and daily activities.
+The goal is to establish a daily habit before asking users to think about wallets or blockchain activity.
 
-### Radiant Vault
-- A **12-collectible** collection system across Common, Uncommon, Rare, Epic, and Legendary tiers.
-- Duplicate rewards convert into **Radiant Shards**.
-- Collection milestones reward continued participation.
+---
 
-### Weekly Radiant Cup
-- Weekly skill competition with trusted competition receipts and controlled reward flows.
-- Sponsored SKR reward operations use server/admin-side verification rather than trusting client score claims.
-- Competition safeguards include an account-to-wallet lock for a Cup/week so one Firebase account cannot create trusted eligible entries through multiple wallets during the same Cup.
+## Shake to Discover
 
-### SKR Passport + optional wallet
-- The wallet is a **trust and reward layer**, not the user's social identity.
-- Firebase UID remains the Radiant Circle account identity.
-- A user may use different wallets over time, while competition policy can lock one wallet for a specific Cup.
-- No treasury/private key is embedded in the APK.
+Users can physically shake their Android device to discover another active Radiant Circle member.
 
-## Solana Mobile integration
+Discovery profiles can surface:
 
-Radiant Circle uses Solana Mobile capabilities where they add meaningful trust or ownership:
+- display name
+- avatar
+- profile information
+- interests
+- Shared Sparks
 
-- Mobile Wallet Adapter wallet connection/signing flow.
-- On-chain memo/proof interactions from earlier project phases.
-- Wallet-aware SKR Passport state.
-- Trusted Weekly Radiant Cup reward and payout evidence.
-- Real sponsored SKR transfer/reconciliation tooling kept outside the APK.
+The interaction is designed to feel mobile-native rather than like another traditional search or wallet interface.
 
-The social experience remains usable without forcing users to begin with a wallet.
+---
 
-## Privacy and security model
+## Shared Sparks
 
-- Approximate location only for Shake-to-Discover.
-- No raw latitude/longitude is intentionally stored for social discovery.
-- Public profiles do not expose Firebase UID, email, exact location, or private wallet/account data.
-- Circle chat is restricted to accepted connections.
-- Block/remove actions terminate the social/chat relationship.
-- Firestore rules enforce ownership and relationship boundaries.
-- Client-reported game data alone cannot authorize sponsored SKR payouts.
-- Treasury/private keys and service-account credentials are never embedded in the Android app.
+Shared Sparks highlight interests two members have in common.
 
-## Current engineering status
+Examples include:
 
-Stable social/chat checkpoint:
+- music
+- games
+- food
+- hobbies
+- books
+- pets
+- weekend interests
+- conversation topics
+
+A member can send a **Spark** to another person.
+
+The recipient can then accept the Spark before the two users become Circle connections.
+
+Radiant Circle is designed as a **friend-first social experience**, not a dating application.
+
+---
+
+## Your Circle
+
+Accepted connections become part of each user's Circle.
+
+The relationship model supports:
+
+- Spark
+- Accept
+- Remove
+- reconnect after removal
+- Block
+- Report
+
+A deterministic relationship model prevents separate conflicting relationship records for the same user pair.
+
+---
+
+## Private Circle Chat
+
+Accepted Circle members can continue directly into private 1-to-1 chat.
+
+Current chat capabilities include:
+
+- profile avatars
+- real-time messages
+- optimistic sending
+- unread state
+- Sent / Read state
+- typing presence
+- incoming-message feedback
+- Remove / Block / Report controls
+
+Firestore authorization rules enforce relationship and ownership boundaries.
+
+---
+
+# Radiant Rush
+
+Radiant Rush is a short-form native skill game built directly into Radiant Circle.
+
+Players can:
+
+- build score
+- create combos
+- earn progression
+- collect rewards
+- compete in weekly activity
+- grow their Radiant collection
+
+The game provides another reason to return to Radiant Circle beyond social discovery.
+
+---
+
+## Radiant Vault
+
+Radiant Circle includes a collectible progression system with items across multiple rarity tiers.
+
+Duplicate rewards can convert into **Radiant Shards**, allowing continued progression even after receiving repeated collectibles.
+
+---
+
+# Weekly Radiant Cup
+
+Radiant Circle also contains infrastructure for weekly skill competition.
+
+The trusted competition architecture separates:
 
 ```text
-Tag:    phase-13d-social-chat-stable
-Commit: 3ca0e11
+Android gameplay
+        ↓
+submitted run evidence
+        ↓
+trusted server/admin verification
+        ↓
+competition result
+        ↓
+controlled reward lifecycle
 ```
 
-Current automated/device verification includes:
+Client-reported game data alone cannot authorize trusted sponsored payouts.
 
-```bash
-./gradlew :app:testDebugUnitTest
-./gradlew :app:assembleDebug
-./gradlew :app:connectedDebugAndroidTest
-./gradlew :app:installDebug
+Competition infrastructure includes wallet-lock safeguards so an account cannot generate multiple trusted entries through different wallets for the same Cup period.
+
+---
+
+# Real Solana Mainnet Participation
+
+Radiant Circle uses Solana where blockchain adds meaningful ownership and verification.
+
+The current release contains a real **ORE Mainnet portfolio and staking experience**.
+
+Users can view:
+
+- Available ORE
+- Staked ORE
+- Claimable ORE
+- total position
+
+Supported Mainnet actions include:
+
+- **Stake**
+- **Withdraw**
+- **Claim**
+
+Transactions are non-custodial and user-approved through **Solana Mobile Wallet Adapter**.
+
+The app does not display a successful result simply because a wallet request was initiated.
+
+The flow is:
+
+```text
+Read live Mainnet state
+        ↓
+User chooses an action
+        ↓
+Build transaction
+        ↓
+Mobile Wallet Adapter approval
+        ↓
+Wallet signs
+        ↓
+Submit to Solana
+        ↓
+Verify resulting onchain state
+        ↓
+Refresh portfolio
+        ↓
+Show before → after receipt
 ```
 
-The Phase 12G competition-wallet safeguard also has extensive admin-side automated coverage. Final fresh-Cup live wallet-switch proof is intentionally tracked separately from automated verification.
+This allows the UI to show the actual change in Available, Staked, or Claimable ORE after verification.
 
-## Naming contract
+---
 
-- Product/app: **Radiant Circle**
-- Built-in game: **Radiant Rush**
-- Weekly competition: **Weekly Radiant Cup**
-- Daily reward: **Daily Radiant Chest**
-- Wallet / reward identity surface: **SKR Passport**
-- Android namespace/applicationId remains `com.thinkblox.radiantrush` for upgrade, Firebase, wallet, and persisted-data compatibility.
+# Solana Mobile Integration
 
-Internal names such as `RadiantRushApp` and legacy protocol identifiers are implementation details and do not change the user-facing Radiant Circle brand.
+Radiant Circle currently uses Solana Mobile capabilities including:
 
-## Tech stack
+- Solana Mobile Wallet Adapter
+- non-custodial wallet authorization
+- Mainnet transaction signing
+- real ORE portfolio reads
+- real ORE staking
+- real ORE withdrawal
+- real ORE claiming
+- onchain post-transaction verification
+- wallet-aware SKR Passport state
+- trusted Weekly Radiant Cup infrastructure
+
+The social experience remains usable without forcing users to connect a wallet first.
+
+---
+
+# Identity Model
+
+Radiant Circle deliberately separates **social identity** from **wallet identity**.
+
+```text
+Firebase UID
+    ↓
+Radiant Circle social account
+
+Solana wallet
+    ↓
+Optional ownership / proof / reward identity
+```
+
+This means connecting a wallet does not replace the user's social account.
+
+Firebase UID remains the primary social identity.
+
+---
+
+# Privacy and Security
+
+Radiant Circle follows several core security rules:
+
+- no treasury private key is embedded in the APK
+- no Firebase service-account credential is embedded in the APK
+- signing keys are not committed to the repository
+- social identity and wallet identity remain separate
+- Circle chat is restricted to accepted connections
+- Block / Remove terminate social access as appropriate
+- Firestore rules enforce ownership and relationship boundaries
+- client-reported game data alone cannot authorize trusted sponsored payouts
+- Solana transactions remain user-approved and non-custodial
+- ORE success states are verified against fresh Mainnet state
+
+`app/google-services.json` is intentionally tracked because it contains Firebase Android client configuration required by the app.
+
+Server credentials, service-account files, signing keys, and other secrets remain outside Git.
+
+---
+
+# Technology
+
+Radiant Circle is a native Android application.
+
+### Android
 
 - Kotlin
 - Jetpack Compose
+- Android foreground/device APIs
+- native Android navigation and state management
+
+### Backend
+
 - Firebase Authentication
 - Cloud Firestore
-- Solana Mobile Stack / Mobile Wallet Adapter
-- Solana RPC / transaction proof flows
-- Firebase Admin tooling for trusted competition/reward operations
+- Firebase Admin trusted operator tooling
 
-## Repository structure
+### Solana
+
+- Solana Mobile Stack
+- Mobile Wallet Adapter
+- Solana Mainnet RPC
+- ORE Mainnet protocol integration
+- transaction construction and signing
+- post-transaction onchain verification
+
+---
+
+# Repository Structure
 
 ```text
-app/                     Android / Jetpack Compose application
-firebase/                Firestore security rules and Firebase config
-scripts/firebase-admin/  Trusted admin / competition / payout tooling
-docs/                    Architecture, phase notes, QA and submission evidence
+app/
+    Native Android / Jetpack Compose application
+
+firebase/
+    Firestore security rules and Firebase configuration
+
+scripts/firebase-admin/
+    Trusted competition, verification and payout tooling
+
+docs/
+    Architecture, phase documentation, QA and technical evidence
 ```
 
-`app/google-services.json` is intentionally tracked because it contains Firebase Android client configuration required by the app. Service-account credentials, signing keys, and other secrets remain excluded from Git.
+---
 
-## Build
+# Build
 
-From Git Bash / a compatible shell:
+From Git Bash or another compatible shell:
 
 ```bash
-./gradlew :app:testDebugUnitTest
-./gradlew :app:assembleDebug
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
 ```
 
-Debug APK output:
+Debug APK:
 
 ```text
 app/build/outputs/apk/debug/app-debug.apk
@@ -175,33 +358,131 @@ app/build/outputs/apk/debug/app-debug.apk
 Install on a connected Android device:
 
 ```bash
-./gradlew :app:installDebug
+./gradlew installDebug
 ```
 
-Run connected Android tests:
+Run connected-device tests:
 
 ```bash
-./gradlew :app:connectedDebugAndroidTest
+./gradlew connectedDebugAndroidTest
 ```
-
-## Judge demo flow
-
-The intended short demo is:
-
-```text
-Daily Radiance
-→ Shake to Discover
-→ Shared Sparks
-→ Connect
-→ Private Circle chat
-→ Radiant Rush
-→ Radiant Vault reward
-→ Weekly Radiant Cup
-→ Solana / SKR trust layer
-```
-
-The product story is **human connection first, Solana trust when it matters**.
 
 ---
 
-**Radiant Circle — Shake. Connect. Play. Prove.**
+# Verified Release
+
+Current submission release:
+
+```text
+App:         Radiant Circle
+Package:     com.thinkblox.radiantrush
+
+Version:     1.2.17-ore15b2a
+VersionCode: 42
+
+Release APK:
+RadiantCircle-v1.2.17-clock-in.apk
+```
+
+Final release-code checkpoint:
+
+```text
+Commit:
+d226d22a2e5094219c819c1730ef74602a809ae8
+
+Tag:
+clock-in-submission-v2
+```
+
+Current GitHub `main`, including submission documentation updates:
+
+```text
+902e66f09daa0f40e089592136157a7e9cf3ffa4
+```
+
+The documentation-only commits after the release checkpoint do not change the signed submission APK.
+
+---
+
+# Verification
+
+Before the submission release was frozen, the project passed:
+
+```bash
+./gradlew testDebugUnitTest
+./gradlew assembleDebug
+./gradlew connectedDebugAndroidTest
+```
+
+Connected Android instrumentation result:
+
+```text
+7 tests
+0 failed
+0 skipped
+```
+
+The signed release APK was also:
+
+- zipaligned
+- signed with the permanent release certificate
+- cryptographically verified
+- installed on physical Android devices
+- tested with Google Sign-In
+- tested with the live Radiant Circle experience
+
+---
+
+# Judge Demo
+
+The short demo focuses on the core product loop:
+
+```text
+Daily Radiance
+        ↓
+Shake to Discover
+        ↓
+Shared Sparks
+        ↓
+Send Spark
+        ↓
+Accept
+        ↓
+Private Circle Chat
+        ↓
+Radiant Rush
+        ↓
+ORE Mainnet Portfolio
+        ↓
+Real MWA transaction
+        ↓
+Verified before → after receipt
+```
+
+The story is simple:
+
+> **Daily habit → real people → play → real onchain participation.**
+
+---
+
+# Product Vision
+
+Radiant Circle explores a different direction for crypto-native mobile products.
+
+Instead of asking:
+
+> “How do we put another financial dashboard on a phone?”
+
+Radiant Circle asks:
+
+> **“What would make someone actually want to open a Solana app every day?”**
+
+Our answer is:
+
+**people, daily rituals, play, progression, and optional ownership — with Solana underneath when it adds real value.**
+
+---
+
+**Radiant Circle**
+
+**Connect. Play. Participate.**
