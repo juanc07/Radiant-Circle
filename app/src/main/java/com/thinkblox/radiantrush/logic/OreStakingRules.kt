@@ -18,6 +18,7 @@ object OreStakingRules {
 
     /** Current post-migration program (ore-stake-api 0.3.x). */
     const val ORE_STAKE_PROGRAM_ID = "stakecNP3FpiExZPCgZfqRgumVzi6dNqnfrjwXyTgeH"
+    const val ORE_STAKE_VERIFIED_SOURCE_COMMIT = "7628af733d9338e9560b353ef731a66efe9db3c8"
 
     /** Legacy production program still read by ore.com / ore-stake-api 0.2.x clients. */
     const val LEGACY_ORE_STAKE_PROGRAM_ID = "STkEAu2cEyQp5ktgUauRVq8es6mEP2w6ixw4NEd5tDJ"

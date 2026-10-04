@@ -50,6 +50,9 @@ import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.PreviewContent
 import com.thinkblox.radiantrush.data.OreDailyAccrualSnapshotStore
 import com.thinkblox.radiantrush.data.OrePortfolioUiState
+import com.thinkblox.radiantrush.data.OreStakeAction
+import com.thinkblox.radiantrush.data.OreStakeActionUiState
+import com.thinkblox.radiantrush.data.OreStakeTransactionReceipt
 import com.thinkblox.radiantrush.data.QuestIds
 import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.data.QuestPreview
@@ -60,6 +63,7 @@ import com.google.firebase.firestore.ListenerRegistration
 import com.thinkblox.radiantrush.solana.MobileWalletRepository
 import com.thinkblox.radiantrush.solana.OrePortfolioRepository
 import com.thinkblox.radiantrush.solana.OrePortfolioResult
+import com.thinkblox.radiantrush.solana.OreStakeTransactionResult
 import com.thinkblox.radiantrush.solana.SkrBalanceRepository
 import com.thinkblox.radiantrush.solana.SkrBalanceResult
 import com.thinkblox.radiantrush.solana.WalletConnectResult
@@ -67,6 +71,7 @@ import com.thinkblox.radiantrush.solana.WalletDisconnectResult
 import com.thinkblox.radiantrush.solana.WalletMemoProofResult
 import com.thinkblox.radiantrush.solana.WalletSignedProofResult
 import com.thinkblox.radiantrush.logic.DailyPlanRefreshRules
+import com.thinkblox.radiantrush.logic.OreStakeActionRules
 import com.thinkblox.radiantrush.logic.DailyRadiancePresentationRules
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
@@ -120,6 +125,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     var showRadiantRun by remember { mutableStateOf(false) }
     var showOrePortfolio by remember { mutableStateOf(false) }
     var orePortfolioState by remember { mutableStateOf<OrePortfolioUiState>(OrePortfolioUiState.NoWallet) }
+    var oreStakeActionState by remember { mutableStateOf(OreStakeActionUiState()) }
     // Keep shell navigation outside RadiantRushShell so entering the full-screen game
     // does not dispose and recreate the selected tab as Home on return.
     var shellDestination by rememberSaveable { mutableStateOf(AppDestination.Home) }
@@ -918,6 +924,13 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         }
     }
 
+    fun applyOreSnapshot(snapshot: com.thinkblox.radiantrush.data.OrePortfolioSnapshot): OrePortfolioUiState.Ready? {
+        val lifetimeRaw = snapshot.lifetimeRewardsRaw.toBigIntegerOrNull() ?: return null
+        // The baseline follows the actual ORE stake authority, not the social/MWA wallet.
+        val accrued = oreAccrualStore.observe(snapshot.stakingAuthorityAddress, lifetimeRaw)
+        return OrePortfolioUiState.Ready(snapshot, accrued).also { orePortfolioState = it }
+    }
+
     fun refreshOrePortfolio() {
         if (!appState.isWalletConnected) {
             orePortfolioState = OrePortfolioUiState.NoWallet
@@ -928,17 +941,146 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         scope.launch {
             when (val result = oreRepository.fetchPortfolio(walletAddress)) {
                 is OrePortfolioResult.Success -> {
-                    val lifetimeRaw = result.snapshot.lifetimeRewardsRaw.toBigIntegerOrNull()
-                    if (lifetimeRaw == null) {
+                    if (applyOreSnapshot(result.snapshot) == null) {
                         orePortfolioState = OrePortfolioUiState.Error(walletAddress, "ORE lifetime rewards could not be decoded.")
-                    } else {
-                        // The baseline follows the actual ORE stake authority, not the social/MWA wallet.
-                        val accrued = oreAccrualStore.observe(result.snapshot.stakingAuthorityAddress, lifetimeRaw)
-                        orePortfolioState = OrePortfolioUiState.Ready(result.snapshot, accrued)
                     }
                 }
                 is OrePortfolioResult.Failure -> {
                     orePortfolioState = OrePortfolioUiState.Error(walletAddress, result.message)
+                }
+            }
+        }
+    }
+
+    fun performOreStakeAction(action: OreStakeAction, amountText: String = "") {
+        if (oreStakeActionState.inProgress) return
+        val ready = orePortfolioState as? OrePortfolioUiState.Ready ?: run {
+            oreStakeActionState = OreStakeActionUiState(message = "Refresh ORE before starting a transaction.")
+            return
+        }
+        val before = ready.snapshot
+        val requestedRaw = runCatching {
+            when (action) {
+                OreStakeAction.Claim -> before.currentUnclaimedRewardsRaw.toBigInteger()
+                OreStakeAction.Stake, OreStakeAction.Withdraw -> OreStakeActionRules.parseOreInputToRaw(amountText)
+            }
+        }.getOrElse { error ->
+            oreStakeActionState = OreStakeActionUiState(action = action, message = error.message ?: "Invalid ORE amount.")
+            return
+        }
+        val validation = OreStakeActionRules.validateAvailable(
+            action = action,
+            requestedRaw = requestedRaw,
+            liquidRaw = before.liquidRaw,
+            currentStakedRaw = before.currentStakedRaw,
+            currentClaimableRaw = before.currentUnclaimedRewardsRaw,
+        )
+        if (validation != null) {
+            oreStakeActionState = OreStakeActionUiState(action = action, message = validation)
+            return
+        }
+
+        oreStakeActionState = OreStakeActionUiState(
+            inProgress = true,
+            action = action,
+            message = "Approve ${action.name.lowercase()} in your Mainnet wallet…",
+        )
+        scope.launch {
+            var baseline = before
+            when (val fresh = oreRepository.fetchPortfolio(before.walletAddress)) {
+                is OrePortfolioResult.Success -> {
+                    applyOreSnapshot(fresh.snapshot)
+                    val freshValidation = OreStakeActionRules.validateAvailable(
+                        action = action,
+                        requestedRaw = requestedRaw,
+                        liquidRaw = fresh.snapshot.liquidRaw,
+                        currentStakedRaw = fresh.snapshot.currentStakedRaw,
+                        currentClaimableRaw = fresh.snapshot.currentUnclaimedRewardsRaw,
+                    )
+                    if (freshValidation != null) {
+                        oreStakeActionState = OreStakeActionUiState(action = action, message = "$freshValidation Mainnet balances changed before approval.")
+                        return@launch
+                    }
+                    baseline = fresh.snapshot
+                }
+                is OrePortfolioResult.Failure -> {
+                    oreStakeActionState = OreStakeActionUiState(action = action, message = "Could not refresh Mainnet balances before signing: ${fresh.message}")
+                    return@launch
+                }
+            }
+
+            when (val tx = walletRepository.sendOreStakeAction(
+                expectedWalletAddress = baseline.walletAddress,
+                action = action,
+                amountRaw = requestedRaw.toString(),
+                compoundFeeLamportsRaw = baseline.currentCompoundFeeLamportsRaw,
+            )) {
+                OreStakeTransactionResult.NoWalletFound -> {
+                    oreStakeActionState = OreStakeActionUiState(action = action, message = "No Mobile Wallet Adapter wallet was found.")
+                }
+                is OreStakeTransactionResult.Failure -> {
+                    oreStakeActionState = OreStakeActionUiState(action = action, message = tx.message)
+                }
+                is OreStakeTransactionResult.Submitted -> {
+                    oreStakeActionState = OreStakeActionUiState(
+                        inProgress = true,
+                        action = action,
+                        message = if (tx.rpcConfirmed) "Confirmed by Solana. Verifying portfolio state…" else "Submitted to Mainnet. Verifying portfolio state…",
+                        transactionSignature = tx.transactionSignature,
+                        explorerUrl = tx.explorerUrl,
+                    )
+
+                    var verified = false
+                    var verifiedSnapshot: com.thinkblox.radiantrush.data.OrePortfolioSnapshot? = null
+                    for (attempt in 0 until 8) {
+                        delay(if (attempt == 0) 600L else 1_100L)
+                        when (val refreshed = oreRepository.fetchPortfolio(baseline.walletAddress)) {
+                            is OrePortfolioResult.Success -> {
+                                applyOreSnapshot(refreshed.snapshot)
+                                if (OreStakeActionRules.verifiedAfterRefresh(
+                                        action = action,
+                                        requestedRaw = requestedRaw,
+                                        beforeLiquidRaw = baseline.liquidRaw,
+                                        beforeCurrentStakedRaw = baseline.currentStakedRaw,
+                                        afterLiquidRaw = refreshed.snapshot.liquidRaw,
+                                        afterCurrentStakedRaw = refreshed.snapshot.currentStakedRaw,
+                                    )
+                                ) {
+                                    verified = true
+                                    verifiedSnapshot = refreshed.snapshot
+                                    break
+                                }
+                            }
+                            is OrePortfolioResult.Failure -> Unit
+                        }
+                    }
+
+                    val receipt = verifiedSnapshot?.let { after ->
+                        OreStakeTransactionReceipt(
+                            action = action,
+                            requestedRaw = requestedRaw.toString(),
+                            beforeLiquidRaw = baseline.liquidRaw,
+                            afterLiquidRaw = after.liquidRaw,
+                            beforeCurrentStakedRaw = baseline.currentStakedRaw,
+                            afterCurrentStakedRaw = after.currentStakedRaw,
+                            beforeClaimableRaw = baseline.currentUnclaimedRewardsRaw,
+                            afterClaimableRaw = after.currentUnclaimedRewardsRaw,
+                            transactionSignature = tx.transactionSignature,
+                        )
+                    }
+                    oreStakeActionState = OreStakeActionUiState(
+                        inProgress = false,
+                        action = action,
+                        message = if (verified) {
+                            "${action.name} verified on Solana."
+                        } else {
+                            "Transaction submitted, but the ORE state change is not verified yet. Tap Refresh before retrying this action."
+                        },
+                        transactionSignature = tx.transactionSignature,
+                        explorerUrl = tx.explorerUrl,
+                        verified = verified,
+                        receipt = receipt,
+                    )
                 }
             }
         }
@@ -1027,8 +1169,13 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     if (showOrePortfolio) {
         OrePortfolioScreen(
             state = orePortfolioState,
+            actionState = oreStakeActionState,
             onBack = { showOrePortfolio = false },
             onRefresh = ::refreshOrePortfolio,
+            onStake = { amount -> performOreStakeAction(OreStakeAction.Stake, amount) },
+            onWithdraw = { amount -> performOreStakeAction(OreStakeAction.Withdraw, amount) },
+            onClaim = { performOreStakeAction(OreStakeAction.Claim) },
+            onDismissActionReceipt = { oreStakeActionState = oreStakeActionState.copy(receipt = null) },
         )
         return
     }
@@ -1086,6 +1233,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onProtectAccount = ::protectCircleAccount,
         onClaimRadiantChest = ::claimDailyRadiantChest,
         onOpenOrePortfolio = {
+            oreStakeActionState = OreStakeActionUiState()
             showOrePortfolio = true
             refreshOrePortfolio()
         },
