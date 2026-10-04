@@ -1,7 +1,9 @@
 package com.thinkblox.radiantrush.ui.screens
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,18 +49,29 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.compose.ui.unit.dp
+import com.thinkblox.radiantrush.audio.ProceduralGameAudioEngine
+import com.thinkblox.radiantrush.audio.ProceduralGameAudioEngine.Cue
 import com.thinkblox.radiantrush.data.CircleUiState
 import com.thinkblox.radiantrush.data.FirebaseStatus
 import com.thinkblox.radiantrush.data.RushUiState
+import com.thinkblox.radiantrush.logic.DailyRadiancePresentationRules
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.ui.components.AdaptiveButtonText
 import com.thinkblox.radiantrush.ui.components.SyncStatusCard
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
  * Social-first landing screen for Radiant Circle.
@@ -80,6 +94,15 @@ fun HomeScreen(
     onPlayRadiantRun: () -> Unit,
 ) {
     val responsive = rememberResponsiveUiSpec()
+    val context = LocalContext.current
+    val buildLabel = remember(context) {
+        runCatching {
+            val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            val versionName = packageInfo.versionName?.takeIf { it.isNotBlank() } ?: "unknown"
+            val versionCode = PackageInfoCompat.getLongVersionCode(packageInfo)
+            "v$versionName ($versionCode)"
+        }.getOrDefault("vunknown")
+    }
     val user = uiState.user
     val avatar = PublicProfileRules.avatarFor(user.avatarId)
     val completed = uiState.completedQuestCount
@@ -87,10 +110,11 @@ fun HomeScreen(
     val progress = (completed.toFloat() / total.toFloat()).coerceIn(0f, 1f)
     val cup = uiState.runCompetition.weeklyCup
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag(UiTestTags.HOME_SCREEN),
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .testTag(UiTestTags.HOME_SCREEN),
         contentPadding = PaddingValues(
             start = responsive.screenPadding,
             top = if (responsive.isTiny) 10.dp else 14.dp,
@@ -357,6 +381,27 @@ fun HomeScreen(
             }
         }
     }
+
+        Surface(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(
+                    end = responsive.screenPadding,
+                    bottom = 8.dp,
+                ),
+            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.96f),
+            tonalElevation = 3.dp,
+        ) {
+            Text(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                text = buildLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+    }
 }
 
 @Composable
@@ -472,116 +517,241 @@ private fun DailyRadianceCard(
 ) {
     val responsive = rememberResponsiveUiSpec()
     val radiance = uiState.dailyRadiance
-    val revealAlpha = remember(radiance.dayKey) { Animatable(1f) }
+    val haptics = LocalHapticFeedback.current
+    val audio = remember { ProceduralGameAudioEngine() }
+    val anticipation = remember(radiance.dayKey) { Animatable(0f) }
+    val reveal = remember(radiance.dayKey) { Animatable(if (radiance.revealedToday) 1f else 0f) }
+    val sparkBurst = remember(radiance.dayKey) { Animatable(1f) }
+    var armedForReveal by remember(radiance.dayKey) { mutableStateOf(false) }
 
-    LaunchedEffect(radiance.revealedToday) {
-        if (radiance.revealedToday) {
-            revealAlpha.snapTo(0.35f)
-            revealAlpha.animateTo(1f, animationSpec = tween(durationMillis = 420))
-        } else {
-            revealAlpha.snapTo(1f)
+    DisposableEffect(audio) {
+        onDispose { audio.release() }
+    }
+
+    LaunchedEffect(radiance.opening, radiance.revealedToday) {
+        when {
+            radiance.opening -> {
+                armedForReveal = true
+                reveal.snapTo(0f)
+                sparkBurst.snapTo(1f)
+                anticipation.snapTo(0f)
+                audio.play(Cue.RadianceCharge)
+                anticipation.animateTo(
+                    1f,
+                    animationSpec = tween(
+                        durationMillis = DailyRadiancePresentationRules.CHARGE_MS,
+                        easing = FastOutSlowInEasing,
+                    ),
+                )
+            }
+
+            radiance.revealedToday && armedForReveal -> {
+                armedForReveal = false
+                audio.play(Cue.RadianceReveal)
+                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                reveal.snapTo(0f)
+                sparkBurst.snapTo(0f)
+                coroutineScope {
+                    launch {
+                        reveal.animateTo(
+                            1f,
+                            animationSpec = tween(
+                                durationMillis = DailyRadiancePresentationRules.REVEAL_MS,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                    }
+                    launch {
+                        sparkBurst.animateTo(
+                            1f,
+                            animationSpec = tween(
+                                durationMillis = DailyRadiancePresentationRules.SPARK_BURST_MS,
+                                easing = FastOutSlowInEasing,
+                            ),
+                        )
+                    }
+                }
+                anticipation.snapTo(0f)
+            }
+
+            radiance.revealedToday -> {
+                // Returning to Today later should show the settled result without replaying SFX.
+                anticipation.snapTo(0f)
+                reveal.snapTo(1f)
+                sparkBurst.snapTo(1f)
+            }
+
+            else -> {
+                armedForReveal = false
+                anticipation.snapTo(0f)
+                reveal.snapTo(0f)
+                sparkBurst.snapTo(1f)
+            }
         }
+    }
+
+    val revealScale = if (radiance.revealedToday) {
+        0.965f + reveal.value * 0.035f
+    } else {
+        1f + anticipation.value * 0.012f
     }
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer(scaleX = revealScale, scaleY = revealScale)
             .testTag(UiTestTags.DAILY_RADIANCE_CARD),
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.tertiaryContainer,
         ),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(if (responsive.isTiny) 16.dp else 20.dp),
-            verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 12.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Box(modifier = Modifier.fillMaxWidth()) {
+            if (radiance.opening || (radiance.revealedToday && sparkBurst.value < 1f)) {
+                val glowColor = MaterialTheme.colorScheme.tertiary
+                Canvas(modifier = Modifier.matchParentSize()) {
+                    val cx = size.width * 0.82f
+                    val cy = size.height * 0.24f
+                    if (radiance.opening) {
+                        val p = anticipation.value
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    glowColor.copy(alpha = 0.18f * p),
+                                    glowColor.copy(alpha = 0.06f * p),
+                                    Color.Transparent,
+                                ),
+                                center = androidx.compose.ui.geometry.Offset(cx, cy),
+                                radius = size.minDimension * (0.20f + 0.12f * p),
+                            ),
+                            radius = size.minDimension * (0.20f + 0.12f * p),
+                            center = androidx.compose.ui.geometry.Offset(cx, cy),
+                        )
+                    } else {
+                        val p = sparkBurst.value
+                        val alpha = (1f - p).coerceIn(0f, 1f)
+                        repeat(10) { index ->
+                            val angle = PI * 2.0 * index / 10.0
+                            val travel = size.minDimension * (0.05f + p * 0.22f)
+                            val point = androidx.compose.ui.geometry.Offset(
+                                cx + (cos(angle) * travel).toFloat(),
+                                cy + (sin(angle) * travel).toFloat(),
+                            )
+                            drawCircle(
+                                color = glowColor.copy(alpha = alpha * 0.72f),
+                                radius = 2.2f + (index % 3) * 0.9f,
+                                center = point,
+                            )
+                        }
+                    }
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(if (responsive.isTiny) 16.dp else 20.dp),
+                verticalArrangement = Arrangement.spacedBy(if (responsive.isTiny) 10.dp else 12.dp),
             ) {
-                Surface(
-                    modifier = Modifier.size(42.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
+                    Surface(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .graphicsLayer(
+                                scaleX = 1f + anticipation.value * 0.12f,
+                                scaleY = 1f + anticipation.value * 0.12f,
+                            ),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = if (radiance.opening) "✧" else "✦",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.tertiary,
+                                fontWeight = FontWeight.Black,
+                            )
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "✦",
-                            style = MaterialTheme.typography.titleLarge,
+                            text = "TODAY'S RADIANCE",
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.tertiary,
                             fontWeight = FontWeight.Black,
+                        )
+                        Text(
+                            text = when {
+                                radiance.opening -> "Gathering today's spark…"
+                                radiance.revealedToday -> radiance.category
+                                else -> "A small spark for your day"
+                            },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                         )
                     }
                 }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "TODAY'S RADIANCE",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.tertiary,
-                        fontWeight = FontWeight.Black,
-                    )
-                    Text(
-                        text = if (radiance.revealedToday) radiance.category else "A small spark for your day",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                    )
-                }
-            }
-
-            if (radiance.revealedToday) {
-                Column(
-                    modifier = Modifier.graphicsLayer(alpha = revealAlpha.value),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Text(
-                        text = radiance.message,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Black,
-                    )
-                    Text(
-                        text = radianceStreakLabel(
-                            current = radiance.currentStreak,
-                            longest = radiance.longestStreak,
+                if (radiance.revealedToday) {
+                    Column(
+                        modifier = Modifier.graphicsLayer(
+                            alpha = reveal.value,
+                            translationY = (1f - reveal.value) * 10f,
                         ),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text(
+                            text = radiance.message,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Black,
+                        )
+                        Text(
+                            text = radianceStreakLabel(
+                                current = radiance.currentStreak,
+                                longest = radiance.longestStreak,
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
+                        )
+                        Text(
+                            text = "Come back tomorrow for a new Radiance.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.68f),
+                        )
+                    }
+                } else {
+                    Text(
+                        text = if (radiance.opening) {
+                            "A quiet moment — your message is almost here."
+                        } else if (radiance.currentStreak > 0) {
+                            "Your ${radiance.currentStreak}-day Radiance streak is waiting for today's spark."
+                        } else {
+                            "Open one positive message each day — no score, no competition."
+                        },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
                     )
-                    Text(
-                        text = "Come back tomorrow for a new Radiance.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.68f),
-                    )
-                }
-            } else {
-                Text(
-                    text = if (radiance.currentStreak > 0) {
-                        "Your ${radiance.currentStreak}-day Radiance streak is waiting for today's spark."
-                    } else {
-                        "Open one positive message each day — no score, no competition."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.78f),
-                )
 
-                Button(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = responsive.buttonHeight)
-                        .testTag(UiTestTags.DAILY_RADIANCE_REVEAL),
-                    enabled = uiState.isFirebaseReady && !radiance.opening && !uiState.walletActionInProgress,
-                    shape = RoundedCornerShape(16.dp),
-                    onClick = onReveal,
-                ) {
-                    AdaptiveButtonText(
-                        text = if (radiance.opening) "Opening…" else "Reveal Today's Radiance",
-                        compactText = if (radiance.opening) "Opening…" else "Reveal Radiance",
-                        tinyText = if (radiance.opening) "Opening…" else "Reveal",
-                    )
+                    Button(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = responsive.buttonHeight)
+                            .testTag(UiTestTags.DAILY_RADIANCE_REVEAL),
+                        enabled = uiState.isFirebaseReady && !radiance.opening && !uiState.walletActionInProgress,
+                        shape = RoundedCornerShape(16.dp),
+                        onClick = onReveal,
+                    ) {
+                        AdaptiveButtonText(
+                            text = if (radiance.opening) "Opening…" else "Reveal Today's Radiance",
+                            compactText = if (radiance.opening) "Opening…" else "Reveal Radiance",
+                            tinyText = if (radiance.opening) "Opening…" else "Reveal",
+                        )
+                    }
                 }
             }
         }

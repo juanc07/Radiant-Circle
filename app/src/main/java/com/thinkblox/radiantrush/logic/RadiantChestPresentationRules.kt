@@ -12,7 +12,15 @@ object RadiantChestPresentationRules {
      * The repository request starts immediately. This is only the minimum amount
      * of time the opening pose stays visible before a very fast save may reveal.
      */
-    const val MINIMUM_OPENING_MS: Long = 520L
+    const val MINIMUM_OPENING_MS: Long = 760L
+
+    const val CHARGE_MS: Int = 360
+    const val SHAKE_MS: Int = 260
+    const val LID_PREOPEN_MS: Int = 180
+    const val ANTICIPATION_HOLD_MS: Long = 100L
+    const val REVEAL_LID_MS: Int = 180
+    const val REVEAL_BURST_MS: Int = 420
+    const val REWARD_LIFT_MS: Int = 300
 
     fun rarityRank(rarity: String?): Int = when (rarity?.trim()?.lowercase()) {
         // Daily Radiant Chest rarity ladder.
@@ -32,18 +40,18 @@ object RadiantChestPresentationRules {
     }
 
     fun particleCount(rarity: String?): Int = when (rarityRank(rarity)) {
-        0 -> 24
-        1 -> 30
-        2 -> 36
-        3 -> 44
-        4 -> 52
-        else -> 58
+        0 -> 8
+        1 -> 10
+        2 -> 12
+        3 -> 16
+        4 -> 20
+        else -> 22
     }
 
     fun shockwaveCount(rarity: String?): Int = when (rarityRank(rarity)) {
-        0, 1 -> 2
-        2, 3 -> 3
-        else -> 4
+        0, 1 -> 0
+        2, 3 -> 1
+        else -> 2
     }
 
     fun revealTagline(rarity: String?): String = when (rarityRank(rarity)) {

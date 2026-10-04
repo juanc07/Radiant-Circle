@@ -35,6 +35,8 @@ class ProceduralGameAudioEngine {
         ChestCharge,
         ChestOpen,
         ChestReveal,
+        RadianceCharge,
+        RadianceReveal,
     }
 
     private data class PendingCue(
@@ -424,6 +426,25 @@ class ProceduralGameAudioEngine {
                     exp(-progress * 2.8) * if (rarity >= 3) 0.045 else 0.025
                 chord + impact + sparkle + halo
             }
+
+            Cue.RadianceCharge -> {
+                val base = 392.0
+                val lift = 1.0 + progress * 0.34
+                val tone = sin(TAU * base * lift * t) * (0.35 + progress * 0.35)
+                val air = sin(TAU * 1_176.0 * t) * progress * 0.10
+                (tone + air) * (1.0 - progress * 0.30) * 0.11
+            }
+
+            Cue.RadianceReveal -> {
+                val chord = chordArpeggioSample(
+                    t = t,
+                    progress = progress,
+                    frequencies = doubleArrayOf(523.25, 659.25, 783.99, 1_046.50),
+                    gain = 0.13,
+                )
+                val shimmer = sin(TAU * 1_760.0 * t) * exp(-progress * 5.0) * 0.025
+                chord + shimmer
+            }
         }
     }
 
@@ -462,6 +483,8 @@ class ProceduralGameAudioEngine {
         Cue.ChestCharge -> 0.62
         Cue.ChestOpen -> 0.44
         Cue.ChestReveal -> 0.84
+        Cue.RadianceCharge -> 0.48
+        Cue.RadianceReveal -> 0.72
     }
 
     private companion object {

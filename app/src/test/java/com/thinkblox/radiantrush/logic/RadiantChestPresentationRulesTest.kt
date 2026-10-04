@@ -23,7 +23,7 @@ class RadiantChestPresentationRulesTest {
 
         assertTrue(legendaryParticles > sparkParticles)
         assertTrue(legendaryRings > sparkRings)
-        assertEquals(520L, RadiantChestPresentationRules.MINIMUM_OPENING_MS)
+        assertEquals(760L, RadiantChestPresentationRules.MINIMUM_OPENING_MS)
     }
 
     @Test

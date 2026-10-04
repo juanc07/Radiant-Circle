@@ -76,6 +76,7 @@ import com.thinkblox.radiantrush.data.RadiantChestPreview
 import com.thinkblox.radiantrush.data.RadiantChestStatus
 import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.cos
@@ -636,8 +637,9 @@ fun RadiantChestCard(
 
             RadiantChestStatus.Opening -> {
                 previousChestStatus = RadiantChestStatus.Opening
-                audio.setMusicActive(true)
-                audio.setIntensity(fever = false, finalRush = false)
+                // A short charge cue is enough here; avoid starting the continuous
+                // game music mixer during the chest animation.
+                audio.setMusicActive(false)
                 charge.snapTo(0.12f)
                 lidOpen.snapTo(0f)
                 burst.snapTo(0f)
@@ -645,38 +647,39 @@ fun RadiantChestCard(
                 shakeOffset.snapTo(0f)
 
                 audio.play(Cue.ChestCharge)
-                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
 
                 coroutineScope {
                     launch {
                         charge.animateTo(
                             1f,
-                            animationSpec = tween(460, easing = FastOutSlowInEasing),
+                            animationSpec = tween(RadiantChestPresentationRules.CHARGE_MS, easing = FastOutSlowInEasing),
                         )
                     }
                     launch {
                         shakeOffset.animateTo(
                             targetValue = 0f,
                             animationSpec = keyframes {
-                                durationMillis = 410
+                                durationMillis = RadiantChestPresentationRules.SHAKE_MS
                                 0f at 0
-                                -2.2f at 80
-                                2.0f at 150
-                                -1.5f at 220
-                                1.0f at 290
-                                -0.5f at 350
-                                0f at 410
+                                -1.9f at 70
+                                1.7f at 135
+                                -1.2f at 200
+                                0.8f at 260
+                                -0.35f at 315
+                                0f at RadiantChestPresentationRules.SHAKE_MS
                             },
                         )
                     }
                 }
 
                 audio.play(Cue.ChestOpen)
-                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 lidOpen.animateTo(
                     0.55f,
-                    animationSpec = tween(170, easing = FastOutSlowInEasing),
+                    animationSpec = tween(RadiantChestPresentationRules.LID_PREOPEN_MS, easing = FastOutSlowInEasing),
                 )
+                // Give the opened pose a tiny anticipation beat before an already-finished
+                // backend claim is allowed to transition into the reward reveal.
+                delay(RadiantChestPresentationRules.ANTICIPATION_HOLD_MS)
             }
 
             RadiantChestStatus.Claimed -> {
@@ -695,19 +698,19 @@ fun RadiantChestCard(
                         launch {
                             lidOpen.animateTo(
                                 1f,
-                                animationSpec = tween(180, easing = FastOutSlowInEasing),
+                                animationSpec = tween(RadiantChestPresentationRules.REVEAL_LID_MS, easing = FastOutSlowInEasing),
                             )
                         }
                         launch {
                             burst.animateTo(
                                 1f,
-                                animationSpec = tween(760, easing = FastOutSlowInEasing),
+                                animationSpec = tween(RadiantChestPresentationRules.REVEAL_BURST_MS, easing = FastOutSlowInEasing),
                             )
                         }
                         launch {
                             rewardLift.animateTo(
                                 1f,
-                                animationSpec = tween(440, easing = FastOutSlowInEasing),
+                                animationSpec = tween(RadiantChestPresentationRules.REWARD_LIFT_MS, easing = FastOutSlowInEasing),
                             )
                         }
                     }
@@ -813,24 +816,40 @@ fun RadiantChestCard(
                         else -> 0.07f
                     }.coerceIn(0f, 0.90f)
 
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                glow.copy(alpha = energy),
-                                glow.copy(alpha = energy * 0.24f),
-                                Color.Transparent,
-                            ),
+                    if (chest.status == RadiantChestStatus.Opening) {
+                        // Opening is the performance-sensitive phase. Use two cheap solid halos
+                        // instead of rebuilding a radial gradient every animation frame.
+                        drawCircle(
+                            color = glow.copy(alpha = energy * 0.18f),
+                            radius = chestW * 0.82f,
                             center = Offset(cx, cy),
+                        )
+                        drawCircle(
+                            color = glow.copy(alpha = energy * 0.08f),
+                            radius = chestW * 1.02f,
+                            center = Offset(cx, cy),
+                        )
+                    } else {
+                        drawCircle(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    glow.copy(alpha = energy),
+                                    glow.copy(alpha = energy * 0.24f),
+                                    Color.Transparent,
+                                ),
+                                center = Offset(cx, cy),
+                                radius = chestW * 0.95f,
+                            ),
                             radius = chestW * 0.95f,
-                        ),
-                        radius = chestW * 0.95f,
-                        center = Offset(cx, cy),
-                    )
+                            center = Offset(cx, cy),
+                        )
+                    }
 
-                    // Stable ambient motes make the ready chest feel alive without moving layout.
-                    if (chest.status != RadiantChestStatus.Locked) {
-                        repeat(12) { index ->
-                            val angle = PI * 2.0 * index / 12.0 + (idlePulse - 1f) * 2.4f
+                    // Keep ambient work only on the idle-ready state. Opening/reveal gets its own
+                    // focused effects so we do not stack multiple frame-by-frame animations.
+                    if (chest.status == RadiantChestStatus.Ready) {
+                        repeat(8) { index ->
+                            val angle = PI * 2.0 * index / 8.0 + (idlePulse - 1f) * 2.4f
                             val orbit = chestW * (0.63f + (index % 3) * 0.07f)
                             val point = Offset(
                                 cx + (cos(angle) * orbit).toFloat(),
@@ -849,9 +868,11 @@ fun RadiantChestCard(
                         val alpha = (1f - p).coerceIn(0f, 1f)
 
                         if (p < 1f) {
-                            // Soft radial rays: higher rarities produce a denser, brighter reveal.
-                            repeat(12 + rarityRank * 2) { index ->
-                                val angle = PI * 2.0 * index / (12 + rarityRank * 2)
+                            // A smaller ray fan keeps the reveal premium without over-drawing
+                            // every frame on mobile GPUs.
+                            val rayCount = 6 + rarityRank
+                            repeat(rayCount) { index ->
+                                val angle = PI * 2.0 * index / rayCount
                                 val inner = chestW * (0.30f + p * 0.12f)
                                 val outer = chestW * (0.58f + p * 0.55f)
                                 val start = Offset(
@@ -960,15 +981,9 @@ fun RadiantChestCard(
                     if (chest.status == RadiantChestStatus.Opening && charge.value > 0.48f) {
                         val beamAlpha = ((charge.value - 0.48f) / 0.52f).coerceIn(0f, 1f)
                         drawRoundRect(
-                            brush = Brush.verticalGradient(
-                                listOf(
-                                    glow.copy(alpha = beamAlpha * 0.58f),
-                                    glow.copy(alpha = beamAlpha * 0.16f),
-                                    Color.Transparent,
-                                ),
-                            ),
-                            topLeft = Offset(cx - chestW * 0.19f, lidTop - chestH * 0.92f),
-                            size = Size(chestW * 0.38f, chestH * 1.14f),
+                            color = glow.copy(alpha = beamAlpha * 0.18f),
+                            topLeft = Offset(cx - chestW * 0.17f, lidTop - chestH * 0.82f),
+                            size = Size(chestW * 0.34f, chestH * 1.02f),
                             cornerRadius = CornerRadius(32f, 32f),
                         )
                     }
@@ -980,17 +995,13 @@ fun RadiantChestCard(
                         val orbRadius = chestW * (0.075f + rarityRank * 0.004f)
 
                         drawCircle(
-                            brush = Brush.radialGradient(
-                                colors = listOf(
-                                    Color.White.copy(alpha = 0.92f),
-                                    glow.copy(alpha = 0.76f),
-                                    glow.copy(alpha = 0.12f),
-                                    Color.Transparent,
-                                ),
-                                center = Offset(cx, orbY),
-                                radius = orbRadius * 3.2f,
-                            ),
-                            radius = orbRadius * 3.2f,
+                            color = glow.copy(alpha = 0.12f),
+                            radius = orbRadius * 3.0f,
+                            center = Offset(cx, orbY),
+                        )
+                        drawCircle(
+                            color = glow.copy(alpha = 0.32f),
+                            radius = orbRadius * 1.8f,
                             center = Offset(cx, orbY),
                         )
                         drawCircle(
@@ -1116,7 +1127,7 @@ fun RadiantChestCard(
 
                 RadiantChestStatus.Opening -> {
                     Text(
-                        text = if (charge.value < 0.66f) "RADIANCE BUILDING…" else "OPENING!",
+                        text = "OPENING YOUR RADIANCE…",
                         modifier = Modifier.fillMaxWidth(),
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
@@ -1172,14 +1183,6 @@ fun RadiantChestCard(
                 ),
                 onClick = onClaim,
             ) {
-                if (isOpening) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
-                }
                 AdaptiveButtonText(chest.buttonLabel)
             }
         }

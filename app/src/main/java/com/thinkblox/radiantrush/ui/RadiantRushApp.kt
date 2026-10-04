@@ -67,6 +67,7 @@ import com.thinkblox.radiantrush.solana.WalletDisconnectResult
 import com.thinkblox.radiantrush.solana.WalletMemoProofResult
 import com.thinkblox.radiantrush.solana.WalletSignedProofResult
 import com.thinkblox.radiantrush.logic.DailyPlanRefreshRules
+import com.thinkblox.radiantrush.logic.DailyRadiancePresentationRules
 import com.thinkblox.radiantrush.logic.PublicProfileRules
 import com.thinkblox.radiantrush.logic.RadiantRunResult
 import com.thinkblox.radiantrush.logic.RadiantChestPresentationRules
@@ -111,6 +112,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     var circleState by remember { mutableStateOf(CircleUiState()) }
     var circleChatListener by remember { mutableStateOf<ListenerRegistration?>(null) }
     var circleChatMetaListener by remember { mutableStateOf<ListenerRegistration?>(null) }
+    var circleSocialListener by remember { mutableStateOf<ListenerRegistration?>(null) }
     var enteredShell by rememberSaveable { mutableStateOf(false) }
     // Radiant Rush owns transient in-memory gameplay state. Do not restore the run route
     // across Activity recreation/process restoration; restoring only the route can reopen a
@@ -135,6 +137,8 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             circleChatListener = null
             circleChatMetaListener?.remove()
             circleChatMetaListener = null
+            circleSocialListener?.remove()
+            circleSocialListener = null
         }
     }
 
@@ -340,8 +344,14 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             dailyRadiance = appState.dailyRadiance.copy(opening = true),
             lastMessage = null,
         )
+        val startedAt = SystemClock.elapsedRealtime()
         repository.openDailyRadiance { nextState ->
-            applyRepositoryState(nextState)
+            val elapsed = SystemClock.elapsedRealtime() - startedAt
+            val remaining = (DailyRadiancePresentationRules.MINIMUM_OPENING_MS - elapsed).coerceAtLeast(0L)
+            scope.launch {
+                if (remaining > 0L) delay(remaining)
+                applyRepositoryState(nextState)
+            }
         }
     }
 
@@ -632,7 +642,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                     connections = snapshot.connections,
                     chatMember = refreshedChatMember,
                     actionInProgress = false,
-                    message = circleState.message,
+                    message = "",
                 )
             } else {
                 circleState.copy(
@@ -978,7 +988,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         refreshFirebase()
     }
 
-    LaunchedEffect(shellDestination) {
+    LaunchedEffect(shellDestination, appState.isFirebaseReady) {
         // Some full-screen flows can restore a shell destination directly. Keep the
         // primary history synchronized so Back still has a safe in-app destination.
         val currentPrimary = primaryDestinationFor(shellDestination)
@@ -989,8 +999,21 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                 .joinToString("|") { it.name }
         }
 
+        circleSocialListener?.remove()
+        circleSocialListener = null
+
         if (shellDestination == AppDestination.Circle || shellDestination == AppDestination.Profile) {
             refreshCircle()
+        }
+        if (shellDestination == AppDestination.Circle && appState.isFirebaseReady) {
+            circleSocialListener = repository.listenToCircleRelationshipChanges(
+                onChanged = { refreshCircle() },
+                onError = { error ->
+                    if (circleState.message.isBlank()) {
+                        circleState = circleState.copy(message = error)
+                    }
+                },
+            )
         }
     }
 
