@@ -1,7 +1,6 @@
 package com.thinkblox.radiantrush.ui.screens
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CheckCircle
@@ -30,7 +29,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -51,22 +49,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.thinkblox.radiantrush.data.OreAccruedToday
 import com.thinkblox.radiantrush.data.OrePortfolioSnapshot
 import com.thinkblox.radiantrush.data.OrePortfolioUiState
+import com.thinkblox.radiantrush.logic.OrePortfolioPresentationRules
 import com.thinkblox.radiantrush.ui.components.rememberResponsiveUiSpec
 import com.thinkblox.radiantrush.ui.testing.UiTestTags
-import java.math.BigDecimal
-import java.math.BigInteger
-import java.math.RoundingMode
 import java.text.DateFormat
 import java.util.Date
 
@@ -118,7 +110,7 @@ fun OrePortfolioScreen(
                     CompactStatusCard(
                         icon = Icons.Filled.AccountBalanceWallet,
                         title = "Connect wallet",
-                        body = "Connect your Solana wallet to view your ORE portfolio.",
+                        body = "Connect your Solana wallet to view verified ORE on Mainnet.",
                     )
                 }
 
@@ -132,7 +124,7 @@ fun OrePortfolioScreen(
                             CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
                             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text("Syncing ORE", fontWeight = FontWeight.Bold)
-                                Text("Reading verified Solana state…", style = MaterialTheme.typography.bodySmall)
+                                Text("Reading verified Mainnet state…", style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
@@ -155,15 +147,10 @@ fun OrePortfolioScreen(
                 is OrePortfolioUiState.Ready -> {
                     val snapshot = state.snapshot
                     item { PortfolioHero(snapshot) }
-                    item {
-                        MetricGrid(
-                            snapshot = snapshot,
-                            accruedToday = state.accruedToday.displayAmount,
-                        )
-                    }
-                    item { ObservedRewardsCard(state.accruedToday) }
-                    item { AllocationCard(snapshot) }
-                    item { CompactProofCard(snapshot) }
+                    item { PortfolioMetrics(snapshot, state.accruedToday) }
+                    item { WalletActionsSafetyCard() }
+                    item { CircleStakePreviewCard() }
+                    item { AdvancedProofCard(snapshot) }
                 }
             }
         }
@@ -172,8 +159,11 @@ fun OrePortfolioScreen(
 
 @Composable
 private fun PortfolioHero(snapshot: OrePortfolioSnapshot) {
+    val totalRaw = OrePortfolioPresentationRules.totalPositionRaw(snapshot.liquidRaw, snapshot.stakedRaw)
+    val totalDisplay = OrePortfolioPresentationRules.overviewAmount(totalRaw)
+    val stakedPercent = OrePortfolioPresentationRules.stakedPercent(snapshot.liquidRaw, snapshot.stakedRaw)
     val active = snapshot.stakedRaw.toBigIntegerOrNull()?.signum() == 1
-    val historical = !active && snapshot.lifetimeRewardsRaw.toBigIntegerOrNull()?.signum() == 1
+
     Card(
         shape = RoundedCornerShape(26.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
@@ -199,63 +189,63 @@ private fun PortfolioHero(snapshot: OrePortfolioSnapshot) {
                 AssistChip(
                     onClick = {},
                     leadingIcon = { Icon(Icons.Filled.CheckCircle, null, modifier = Modifier.size(16.dp)) },
-                    label = { Text("On-chain") },
+                    label = { Text("Mainnet") },
                 )
             }
 
-            Row(verticalAlignment = Alignment.Bottom) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("STAKED", style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        snapshot.stakedDisplay,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                val statusText = when {
-                    active -> "Active stake"
-                    historical -> "Past stake"
-                    else -> "Not staked"
-                }
-                Text(statusText, style = MaterialTheme.typography.labelLarge)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("TOTAL POSITION", style = MaterialTheme.typography.labelMedium)
+                Text(
+                    totalDisplay,
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Black,
+                )
+                Text(
+                    if (active) "$stakedPercent% currently staked" else "No active stake",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun MetricGrid(snapshot: OrePortfolioSnapshot, accruedToday: String) {
+private fun PortfolioMetrics(snapshot: OrePortfolioSnapshot, accruedToday: OreAccruedToday) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CompactMetricTile(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.AccountBalanceWallet,
-                label = "Liquid",
-                value = snapshot.liquidDisplay,
+                label = "Available",
+                value = OrePortfolioPresentationRules.overviewAmount(snapshot.liquidRaw),
             )
             CompactMetricTile(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.Lock,
                 label = "Staked",
-                value = snapshot.stakedDisplay,
+                value = OrePortfolioPresentationRules.overviewAmount(snapshot.stakedRaw),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             CompactMetricTile(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Filled.AutoAwesome,
-                label = "Yield",
-                value = snapshot.unclaimedRewardsDisplay,
+                label = "Claimable",
+                value = OrePortfolioPresentationRules.overviewAmount(snapshot.unclaimedRewardsRaw),
             )
             CompactMetricTile(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Filled.TrendingUp,
-                label = "Today",
-                value = accruedToday,
+                icon = Icons.AutoMirrored.Filled.TrendingUp,
+                label = "Observed today",
+                value = OrePortfolioPresentationRules.overviewAmount(accruedToday.rawAmount),
             )
         }
+        Text(
+            "Today is measured from this app's saved baseline. Claimable is live protocol state from Solana.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
@@ -279,80 +269,37 @@ private fun CompactMetricTile(
                 value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                minLines = 2,
             )
         }
     }
 }
 
 @Composable
-private fun AllocationCard(snapshot: OrePortfolioSnapshot) {
-    val liquid = snapshot.liquidRaw.toBigIntegerOrNull()?.coerceAtLeast(BigInteger.ZERO) ?: BigInteger.ZERO
-    val staked = snapshot.stakedRaw.toBigIntegerOrNull()?.coerceAtLeast(BigInteger.ZERO) ?: BigInteger.ZERO
-    val total = liquid + staked
-    val stakedFraction = if (total.signum() == 1) {
-        BigDecimal(staked).divide(BigDecimal(total), 6, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
-    } else 0f
-    val primary = MaterialTheme.colorScheme.primary
-    val track = MaterialTheme.colorScheme.surfaceVariant
-
-    Card(shape = RoundedCornerShape(22.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Box(modifier = Modifier.size(78.dp), contentAlignment = Alignment.Center) {
-                Canvas(modifier = Modifier.fillMaxSize().aspectRatio(1f)) {
-                    val stroke = Stroke(width = 10.dp.toPx(), cap = StrokeCap.Round)
-                    drawArc(track, -90f, 360f, false, style = stroke)
-                    if (stakedFraction > 0f) {
-                        drawArc(primary, -90f, 360f * stakedFraction, false, style = stroke)
-                    }
-                }
-                Text("${(stakedFraction * 100).toInt()}%", fontWeight = FontWeight.Bold)
-            }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("ORE allocation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Text("Staked vs liquid", style = MaterialTheme.typography.bodySmall)
-                Text(
-                    "Lifetime rewards  ${snapshot.lifetimeRewardsDisplay}",
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ObservedRewardsCard(accruedToday: OreAccruedToday) {
-    val raw = accruedToday.rawAmount.toBigIntegerOrNull()?.coerceAtLeast(BigInteger.ZERO) ?: BigInteger.ZERO
-    val primary = MaterialTheme.colorScheme.primary
-    val track = MaterialTheme.colorScheme.surfaceVariant
-
-    Card(shape = RoundedCornerShape(22.dp)) {
+private fun WalletActionsSafetyCard() {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+    ) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.TrendingUp, null, tint = primary, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(7.dp))
-                Text("Observed rewards today", fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Text(accruedToday.displayAmount, style = MaterialTheme.typography.labelLarge)
-            }
-            Canvas(modifier = Modifier.fillMaxWidth().height(48.dp)) {
-                val yStart = size.height * 0.78f
-                val yEnd = if (raw.signum() == 1) size.height * 0.22f else yStart
-                drawLine(track, Offset(0f, yStart), Offset(size.width, yStart), strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
-                drawLine(primary, Offset(0f, yStart), Offset(size.width, yEnd), strokeWidth = 4.dp.toPx(), cap = StrokeCap.Round)
-                drawCircle(primary, radius = 4.dp.toPx(), center = Offset(0f, yStart))
-                drawCircle(primary, radius = 4.dp.toPx(), center = Offset(size.width, yEnd))
+                Box(
+                    modifier = Modifier.size(38.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Wallet-signed ORE actions", fontWeight = FontWeight.Bold)
+                    Text("Stake • Claim • Withdraw", style = MaterialTheme.typography.bodySmall)
+                }
             }
             Text(
-                "Baseline → latest refresh only. This is observed app data, not reconstructed continuous history.",
+                "This checkpoint is read-only. Actions stay locked until the Mainnet instruction, wallet signature, submission, and resulting on-chain state are all verified end-to-end.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -360,7 +307,23 @@ private fun ObservedRewardsCard(accruedToday: OreAccruedToday) {
 }
 
 @Composable
-private fun CompactProofCard(snapshot: OrePortfolioSnapshot) {
+private fun CircleStakePreviewCard() {
+    Card(shape = RoundedCornerShape(22.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text("Circle Stake", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                "The social layer will show opt-in Circle participation after real staking actions are proven. Your ORE will stay in your own wallet and protocol stake — Radiant Circle will not pool custody.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
+}
+
+@Composable
+private fun AdvancedProofCard(snapshot: OrePortfolioSnapshot) {
     var expanded by remember { mutableStateOf(false) }
     Card(
         modifier = Modifier.testTag(UiTestTags.ORE_POSITION_MATCH),
@@ -382,9 +345,9 @@ private fun CompactProofCard(snapshot: OrePortfolioSnapshot) {
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Verified on Solana", fontWeight = FontWeight.Bold)
+                    Text("Advanced • Solana proof", fontWeight = FontWeight.Bold)
                     Text(
-                        "Mainnet • ${checkedTime(snapshot.checkedAtClientMs)}",
+                        "Exact balances, programs, PDAs • ${checkedTime(snapshot.checkedAtClientMs)}",
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
@@ -394,26 +357,35 @@ private fun CompactProofCard(snapshot: OrePortfolioSnapshot) {
             if (expanded) {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
+                    Text("Exact portfolio", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    DetailLine("Liquid", snapshot.liquidDisplay)
+                    DetailLine("Staked", snapshot.stakedDisplay)
+                    DetailLine("Claimable", snapshot.unclaimedRewardsDisplay)
+                    DetailLine("Lifetime rewards", snapshot.lifetimeRewardsDisplay)
+                    Spacer(Modifier.height(4.dp))
                     DetailLine("Wallet", shortAddress(snapshot.walletAddress))
-                    DetailLine("Primary stake PDA", shortAddress(snapshot.stakeAddress))
-                    DetailLine("Primary program", shortAddress(snapshot.stakingProgramId))
-                    DetailLine("Mint", shortAddress(snapshot.mint))
+                    DetailLine("Network", snapshot.network)
+                    DetailLine("ORE mint", shortAddress(snapshot.mint))
+                    snapshot.rpcSlot?.let { DetailLine("RPC slot", it.toString()) }
+
                     snapshot.protocolPositions.forEach { proof ->
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(6.dp))
                         Text(proof.label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                         DetailLine("Program", shortAddress(proof.programId))
                         DetailLine("Stake PDA", shortAddress(proof.stakeAddress))
                         DetailLine("Account", if (proof.accountFound) "verified" else "not found")
                         if (proof.accountFound) {
                             DetailLine("Staked", proof.stakedDisplay)
-                            DetailLine("Yield", proof.yieldDisplay)
+                            DetailLine("Claimable", proof.yieldDisplay)
+                            DetailLine("Lifetime", proof.lifetimeRewardsDisplay)
                         }
                     }
-                    snapshot.rpcSlot?.let { DetailLine("RPC slot", it.toString()) }
-                    DetailLine("Account", if (snapshot.hasStakeAccount) "verified" else "not found")
+
                     if (snapshot.hasStakeAccount) {
+                        Spacer(Modifier.height(6.dp))
+                        Text("Protocol timing", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
                         DetailLine("Stored rewards", snapshot.storedRewardsDisplay)
                         DetailLine("Pending accrual", snapshot.pendingAccrualDisplay)
                         protocolTimeText("Last deposit", snapshot.lastDepositAtSeconds)?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
@@ -428,9 +400,18 @@ private fun CompactProofCard(snapshot: OrePortfolioSnapshot) {
 
 @Composable
 private fun DetailLine(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(0.8f))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1.2f),
+        )
     }
 }
 
@@ -459,5 +440,7 @@ private fun protocolTimeText(label: String, epochSeconds: Long?): String? =
         "$label: ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM).format(Date(it * 1_000L))}"
     }
 
-private fun shortAddress(value: String): String =
-    if (value.length <= 14) value else "${value.take(6)}…${value.takeLast(6)}"
+private fun shortAddress(value: String): String = when {
+    value.length <= 12 -> value
+    else -> "${value.take(5)}…${value.takeLast(5)}"
+}
