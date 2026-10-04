@@ -155,7 +155,7 @@ scripts/firebase-admin/  Trusted admin / competition / payout tooling
 docs/                    Architecture, phase notes, QA and submission evidence
 ```
 
-Sensitive local files such as `app/google-services.json`, service-account credentials, signing keys, and other secrets are intentionally excluded from Git.
+`app/google-services.json` is intentionally tracked because it contains Firebase Android client configuration required by the app. Service-account credentials, signing keys, and other secrets remain excluded from Git.
 
 ## Build
 

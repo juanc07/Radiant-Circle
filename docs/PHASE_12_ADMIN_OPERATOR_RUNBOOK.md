@@ -14,7 +14,7 @@ For the linear start-to-finish command sequence, use `PHASE_12_WEEKLY_CUP_END_TO
 - Firebase Admin tools are **dry-run by default** unless a command explicitly includes `--apply`.
 - Every destructive/trusted write requires exact `--confirm-project radiant-rush-10a9c` confirmation.
 - Keep Firebase service-account JSON outside the repository.
-- Never put a private key, treasury key, service-account JSON, or `app/google-services.json` in a patch/commit.
+- Never put a private key, treasury key, or service-account JSON in a patch/commit. `app/google-services.json` is intentionally tracked as Firebase Android client configuration and must never contain server/service-account credentials.
 - Android remains read-only for trusted Cup configuration, run verification, funding-check receipts, and final results.
 - `payoutEnabled` remains `false` throughout Phase 12D.
 - Phase 12D never transfers SKR.
