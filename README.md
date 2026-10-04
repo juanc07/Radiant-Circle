@@ -6,7 +6,7 @@ Radiant Circle is a social-first Android experience built for Solana Mobile.
 
 Instead of starting with a wallet or a trading screen, Radiant Circle starts with people: a daily ritual, social discovery, shared interests, private connections, a native mobile game, and optional onchain participation through Solana Mobile Wallet Adapter.
 
-> **Radiant Circle** is the product.  
+> **Radiant Circle** is the product.
 > **Radiant Rush** is the native skill game built inside Radiant Circle.
 
 ---
@@ -394,13 +394,7 @@ Tag:
 clock-in-submission-v2
 ```
 
-Current GitHub `main`, including submission documentation updates:
-
-```text
-902e66f09daa0f40e089592136157a7e9cf3ffa4
-```
-
-The documentation-only commits after the release checkpoint do not change the signed submission APK.
+Documentation-only commits after the release checkpoint do not change the signed submission APK.
 
 ---
 
