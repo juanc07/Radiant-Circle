@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "948470391534",
+    "project_id": "radiant-rush-10a9c",
+    "storage_bucket": "radiant-rush-10a9c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:948470391534:android:f914bad634f42cedf4c9ff",
+        "android_client_info": {
+          "package_name": "com.thinkblox.radiantrush"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "948470391534-34681rb707j34er6c17knhrm2h276a0e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thinkblox.radiantrush",
+            "certificate_hash": "f4c83574a7f6336e8a221be5f330ee27f1b98862"
+          }
+        },
+        {
+          "client_id": "948470391534-gip5dndebs0hb32v566k2j90g3v895k4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thinkblox.radiantrush",
+            "certificate_hash": "554ea704423df44256db7283cc6f09188440f25d"
+          }
+        },
+        {
+          "client_id": "948470391534-gafdsjh2lp9t49hkk6dsb6h4ap2enu8l.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAcXU4A736OIWQYNFLWxAGWviXZ96S9_bU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "948470391534-gafdsjh2lp9t49hkk6dsb6h4ap2enu8l.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
