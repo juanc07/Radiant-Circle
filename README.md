@@ -19,21 +19,21 @@ For judging and full product testing, use the **official signed Android APK** be
 
 **Recommended for judges — one-click APK download:**
 
-👉 **[Download RadiantCircle-v1.2.18-clock-in.apk](https://github.com/juanc07/Radiant-Circle/releases/download/clock-in-submission-v3/RadiantCircle-v1.2.18-clock-in.apk)**
+👉 **[Download RadiantCircle-v1.2.19-clock-in.apk](https://github.com/juanc07/Radiant-Circle/releases/download/clock-in-submission-v4/RadiantCircle-v1.2.19-clock-in.apk)**
 
 **GitHub Release page:**
 
-👉 [Radiant Circle v1.2.18 — CLOCK IN Submission](https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v3)
+👉 [Radiant Circle v1.2.19 — CLOCK IN Submission](https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v4)
 
-### Radiant Circle v1.2.18
+### Radiant Circle v1.2.19
 
-- **APK:** `RadiantCircle-v1.2.18-clock-in.apk`
-- **Version:** `1.2.18-ai1`
-- **VersionCode:** `43`
+- **APK:** `RadiantCircle-v1.2.19-clock-in.apk`
+- **Version:** `1.2.19`
+- **VersionCode:** `44`
 - **Package:** `com.thinkblox.radiantrush`
-- **Release tag:** `clock-in-submission-v3`
-- **Frozen source commit:** `0a181171194403b8ec95aebfb069c6800f491fbd`
-- **SHA-256:** `52ecd83059f78a5d8d25175834ee125ef42deb510f2ec8aefea39f40bba281ee`
+- **Release tag:** `clock-in-submission-v4`
+- **Frozen source commit:** `d2f66c63d2860c4179af84284a2b7453f9991f46`
+- **SHA-256:** `07c577ca058587964e7ffa2a28e3043814cdede2832baa2709cdb8dfa45e10e3`
 
 > The public repository intentionally excludes `app/google-services.json`. A fresh local build therefore requires the developer's own Firebase Android configuration and matching OAuth credentials for production Google Sign-In. For complete judge testing, use the official signed APK above.
 
@@ -446,24 +446,24 @@ with matching Firebase Android/OAuth configuration.
 App:         Radiant Circle
 Package:     com.thinkblox.radiantrush
 
-Version:     1.2.18-ai1
-VersionCode: 43
+Version:     1.2.19
+VersionCode: 44
 
 APK:
-RadiantCircle-v1.2.18-clock-in.apk
+RadiantCircle-v1.2.19-clock-in.apk
 
 SHA-256:
-52ecd83059f78a5d8d25175834ee125ef42deb510f2ec8aefea39f40bba281ee
+07c577ca058587964e7ffa2a28e3043814cdede2832baa2709cdb8dfa45e10e3
 ```
 
 Frozen source checkpoint:
 
 ```text
 Commit:
-0a181171194403b8ec95aebfb069c6800f491fbd
+d2f66c63d2860c4179af84284a2b7453f9991f46
 
 Tag:
-clock-in-submission-v3
+clock-in-submission-v4
 ```
 
 The release tag points to the exact source used for the final judge APK.
