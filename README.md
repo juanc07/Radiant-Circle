@@ -4,53 +4,41 @@
 
 Radiant Circle is a social-first Android experience built for Solana Mobile.
 
-Instead of starting with a wallet or a trading screen, Radiant Circle starts with people: a daily ritual, social discovery, shared interests, private connections, a native mobile game, and optional onchain participation through Solana Mobile Wallet Adapter.
+Instead of starting with a wallet or trading screen, Radiant Circle starts with people: a daily ritual, social discovery, shared interests, private connections, AI-assisted conversation, a native mobile game, and optional onchain participation through Solana Mobile Wallet Adapter.
 
-> **Radiant Circle** is the product.
+> **Radiant Circle** is the product.  
 > **Radiant Rush** is the native skill game built inside Radiant Circle.
 
 ---
 
-## Download the App
+## CLOCK IN Submission — Final Judge Release
 
-For judging and full product testing, use the **official signed Android APK**.
+For judging and full product testing, use the **official signed Android APK** from the GitHub Release.
 
-### Radiant Circle v1.2.17 — CLOCK IN Submission
+### Radiant Circle v1.2.18
 
-- **Version:** `1.2.17-ore15b2a`
-- **VersionCode:** `42`
+- **APK:** `RadiantCircle-v1.2.18-clock-in.apk`
+- **Version:** `1.2.18-ai1`
+- **VersionCode:** `43`
 - **Package:** `com.thinkblox.radiantrush`
-- **Release tag:** `clock-in-submission-v2`
-- **SHA-256:** `953f23eae76df225ac7f17e054f5131e8e24778f087262eafedbdebdc91ff006`
+- **Release tag:** `clock-in-submission-v3`
+- **Frozen source commit:** `0a181171194403b8ec95aebfb069c6800f491fbd`
+- **SHA-256:** `52ecd83059f78a5d8d25175834ee125ef42deb510f2ec8aefea39f40bba281ee`
 
-**[Download the official signed APK](https://github.com/juanc07/Radiant-Circle/releases/download/clock-in-submission-v2/RadiantCircle-v1.2.17-clock-in.apk)**
+**Release page:**  
+https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v3
 
-**[View the GitHub Release](https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v2)**
-
-> [!IMPORTANT]
-> ### Judge testing — use the official signed APK
->
-> The public repository intentionally does **not** include `app/google-services.json`. This avoids publishing the production Firebase client configuration in the submission repository.
->
-> The source can still be cloned and built for code review and local development. However, **Google Sign-In and production Firebase-connected authentication will not work from a fresh local build** unless the developer supplies their own Firebase Android configuration and matching OAuth/signing credentials.
->
-> For complete judge testing, including the configured Google Sign-In and production Firebase flows, use the official signed APK linked above: **`RadiantCircle-v1.2.17-clock-in.apk`**.
->
-> No Firebase Admin service-account credentials, wallet private keys, release signing keystores, OpenAI API keys, or other server-side secrets are included in this repository.
-
-A sanitized template is provided at `app/google-services.json.example` to show the expected local configuration shape without publishing production values.
-
-The source repository remains available for code review and local debug builds.
+> The public repository intentionally excludes `app/google-services.json`. A fresh local build therefore requires the developer's own Firebase Android configuration and matching OAuth credentials for production Google Sign-In. For complete judge testing, use the official signed APK above.
 
 ---
 
-## The idea
+## The Idea
 
 Most crypto apps begin with finance.
 
 **Radiant Circle begins with a person.**
 
-The experience is built around a repeatable mobile loop:
+The product is built around a repeatable mobile loop:
 
 ```text
 Open Radiant Circle
@@ -63,9 +51,9 @@ Find Shared Sparks
         ↓
 Send a Spark
         ↓
-Build Your Circle
+Accept → Build Your Circle
         ↓
-Private Chat
+AI Spark Starter + Private Chat
         ↓
 Play Radiant Rush
         ↓
@@ -127,7 +115,7 @@ Examples include:
 
 A member can send a **Spark** to another person.
 
-The recipient can then accept the Spark before the two users become Circle connections.
+The recipient can accept the Spark before the two users become Circle connections.
 
 Radiant Circle is designed as a **friend-first social experience**, not a dating application.
 
@@ -146,7 +134,42 @@ The relationship model supports:
 - Block
 - Report
 
-A deterministic relationship model prevents separate conflicting relationship records for the same user pair.
+A deterministic pair relationship model prevents separate conflicting relationship records for the same two users.
+
+---
+
+## Radiant AI Spark Starter
+
+Radiant Circle includes **AI Spark Starter**, an AI-assisted social feature designed to help two newly connected users start a natural conversation.
+
+After two users become accepted Circle connections, the app can generate a contextual starter from their verified **Shared Sparks**.
+
+```text
+Accepted Circle relationship
+        ↓
+Verified Shared Sparks
+        ↓
+Authenticated Firebase callable function
+        ↓
+OpenAI GPT-6 Luna
+        ↓
+Contextual conversation starter
+        ↓
+User chooses whether to use it
+```
+
+### Privacy and control
+
+- AI uses shared profile-interest fields rather than private chat history
+- OpenAI requests are made through a server-side Firebase Cloud Function
+- the OpenAI API key is stored server-side and is not embedded in the APK
+- accepted Circle relationships are validated server-side
+- generated suggestions are never automatically sent
+- the user always chooses whether to insert and send a suggestion
+- pair-level generation sequencing reduces duplicate results when both users generate at nearly the same time
+- previous starter context is used to reduce repetition
+
+The feature is intentionally an **AI conversation assistant**, not an autonomous chatbot.
 
 ---
 
@@ -163,6 +186,7 @@ Current chat capabilities include:
 - Sent / Read state
 - typing presence
 - incoming-message feedback
+- AI Spark Starter
 - Remove / Block / Report controls
 
 Firestore authorization rules enforce relationship and ownership boundaries.
@@ -196,7 +220,7 @@ Duplicate rewards can convert into **Radiant Shards**, allowing continued progre
 
 # Weekly Radiant Cup
 
-Radiant Circle also contains infrastructure for weekly skill competition.
+Radiant Circle contains infrastructure for weekly skill competition.
 
 The trusted competition architecture separates:
 
@@ -214,7 +238,7 @@ controlled reward lifecycle
 
 Client-reported game data alone cannot authorize trusted sponsored payouts.
 
-Competition infrastructure includes wallet-lock safeguards so an account cannot generate multiple trusted entries through different wallets for the same Cup period.
+Competition infrastructure includes wallet-aware eligibility and wallet-lock safeguards for trusted competition flows.
 
 ---
 
@@ -263,8 +287,6 @@ Refresh portfolio
 Show before → after receipt
 ```
 
-This allows the UI to show the actual change in Available, Staked, or Claimable ORE after verification.
-
 ---
 
 # Solana Mobile Integration
@@ -278,7 +300,7 @@ Radiant Circle currently uses Solana Mobile capabilities including:
 - real ORE staking
 - real ORE withdrawal
 - real ORE claiming
-- onchain post-transaction verification
+- post-transaction onchain verification
 - wallet-aware SKR Passport state
 - trusted Weekly Radiant Cup infrastructure
 
@@ -300,7 +322,7 @@ Solana wallet
 Optional ownership / proof / reward identity
 ```
 
-This means connecting a wallet does not replace the user's social account.
+Connecting a wallet does not replace the user's social account.
 
 Firebase UID remains the primary social identity.
 
@@ -311,8 +333,10 @@ Firebase UID remains the primary social identity.
 Radiant Circle follows several core security rules:
 
 - no treasury private key is embedded in the APK
-- no Firebase service-account credential is embedded in the APK
-- signing keys are not committed to the repository
+- no Firebase Admin service-account private key is embedded in the APK
+- no OpenAI API key is embedded in the APK or committed to the repository
+- Android release signing keys and passwords are not committed
+- `app/google-services.json` is intentionally excluded from the public repository
 - social identity and wallet identity remain separate
 - Circle chat is restricted to accepted connections
 - Block / Remove terminate social access as appropriate
@@ -320,10 +344,7 @@ Radiant Circle follows several core security rules:
 - client-reported game data alone cannot authorize trusted sponsored payouts
 - Solana transactions remain user-approved and non-custodial
 - ORE success states are verified against fresh Mainnet state
-
-`app/google-services.json` is intentionally tracked because it contains Firebase Android client configuration required by the app.
-
-Server credentials, service-account files, signing keys, and other secrets remain outside Git.
+- AI Spark Starter does not send private chat history to OpenAI
 
 ---
 
@@ -342,7 +363,16 @@ Radiant Circle is a native Android application.
 
 - Firebase Authentication
 - Cloud Firestore
+- Firebase Cloud Functions
+- Firebase Secret Manager integration
 - Firebase Admin trusted operator tooling
+
+### AI
+
+- OpenAI API
+- GPT-6 Luna
+- server-side prompt generation from Shared Sparks
+- pair-level generation sequencing and anti-repetition logic
 
 ### Solana
 
@@ -361,6 +391,9 @@ Radiant Circle is a native Android application.
 app/
     Native Android / Jetpack Compose application
 
+functions/
+    Firebase Cloud Function for AI Spark Starter
+
 firebase/
     Firestore security rules and Firebase configuration
 
@@ -368,7 +401,7 @@ scripts/firebase-admin/
     Trusted competition, verification and payout tooling
 
 docs/
-    Architecture, phase documentation, QA and technical evidence
+    Architecture, QA, submission evidence and technical documentation
 ```
 
 ---
@@ -378,8 +411,8 @@ docs/
 From Git Bash or another compatible shell:
 
 ```bash
-./gradlew testDebugUnitTest
-./gradlew assembleDebug
+./gradlew.bat test
+./gradlew.bat :app:assembleDebug
 ```
 
 Debug APK:
@@ -388,87 +421,75 @@ Debug APK:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-Install on a connected Android device:
+For production Google Sign-In, a local build requires the developer's own:
 
-```bash
-./gradlew installDebug
+```text
+app/google-services.json
 ```
 
-Run connected-device tests:
+with matching Firebase Android/OAuth configuration.
 
-```bash
-./gradlew connectedDebugAndroidTest
-```
-
-> Local debug builds are useful for source verification and development. For Google Sign-In and full judging, use the official signed APK from the release above.
+> For complete judging, use the official signed release APK.
 
 ---
 
-# Verified Release
-
-Current submission release:
+# Verified Final Release
 
 ```text
 App:         Radiant Circle
 Package:     com.thinkblox.radiantrush
 
-Version:     1.2.17-ore15b2a
-VersionCode: 42
+Version:     1.2.18-ai1
+VersionCode: 43
 
-Release APK:
-RadiantCircle-v1.2.17-clock-in.apk
+APK:
+RadiantCircle-v1.2.18-clock-in.apk
+
+SHA-256:
+52ecd83059f78a5d8d25175834ee125ef42deb510f2ec8aefea39f40bba281ee
 ```
 
-Final release-code checkpoint:
+Frozen source checkpoint:
 
 ```text
 Commit:
-d226d22a2e5094219c819c1730ef74602a809ae8
+0a181171194403b8ec95aebfb069c6800f491fbd
 
 Tag:
-clock-in-submission-v2
+clock-in-submission-v3
 ```
 
-Current GitHub `main`, including submission documentation updates:
-
-```text
-902e66f09daa0f40e089592136157a7e9cf3ffa4
-```
-
-The documentation-only commits after the release checkpoint do not change the signed submission APK.
+The release tag points to the exact source used for the final judge APK.
 
 ---
 
 # Verification
 
-Before the submission release was frozen, the project passed:
+Before the final submission source was frozen, the project successfully passed:
 
 ```bash
-./gradlew testDebugUnitTest
-./gradlew assembleDebug
-./gradlew connectedDebugAndroidTest
+./gradlew.bat test
+./gradlew.bat :app:assembleDebug
+./gradlew.bat :app:assembleRelease
 ```
 
-Connected Android instrumentation result:
-
-```text
-7 tests
-0 failed
-0 skipped
-```
-
-The signed release APK was also:
+The final signed APK was also:
 
 - zipaligned
 - signed with the permanent release certificate
 - cryptographically verified
-- installed on physical Android devices
+- verified with APK Signature Scheme v2
+- verified with APK Signature Scheme v3
+- installed successfully on physical Android devices
 - tested with Google Sign-In
-- tested with the live Radiant Circle experience
+- tested with the live Radiant Circle social experience
+- tested with AI Spark Starter
+- tested with simultaneous AI generation from both sides of a Circle connection
+- tested with real Solana mobile flows
 
 ---
 
-# Judge Demo
+# Judge Demo Flow
 
 The short demo focuses on the core product loop:
 
@@ -483,20 +504,24 @@ Send Spark
         ↓
 Accept
         ↓
-Private Circle Chat
+AI Spark Starter
+        ↓
+Use This → Private Circle Chat
         ↓
 Radiant Rush
+        ↓
+SKR / Weekly Radiant Cup
         ↓
 ORE Mainnet Portfolio
         ↓
 Real MWA transaction
         ↓
-Verified before → after receipt
+Verified before → after state
 ```
 
-The story is simple:
+The product story is:
 
-> **Daily habit → real people → play → real onchain participation.**
+> **Daily habit → real people → AI-assisted connection → play → real onchain participation.**
 
 ---
 
@@ -514,7 +539,7 @@ Radiant Circle asks:
 
 Our answer is:
 
-**people, daily rituals, play, progression, and optional ownership — with Solana underneath when it adds real value.**
+**people, daily rituals, AI-assisted connection, play, progression, and optional ownership — with Solana underneath when it adds real value.**
 
 ---
 
