@@ -355,6 +355,35 @@ Radiant Circle follows several core security rules:
 
 ---
 
+
+### Firebase Android API key security
+
+The Android Firebase configuration contains a Firebase client API key in
+`google-services.json`. This is a Firebase client configuration value, not a
+Firebase Admin service-account private key or other server credential.
+
+For the CLOCK IN release, the Firebase-provisioned Android API key is protected
+with both API and application restrictions:
+
+- restricted to the Firebase-related API allowlist configured for the project
+- application-restricted to the Android package `com.thinkblox.radiantrush`
+- restricted to the production release-signing SHA-1 certificate
+  `F4:C8:35:74:A7:F6:33:6E:8A:22:1B:E5:F3:30:EE:27:F1:B9:88:62`
+- the existing frozen v1.2.19 APK was re-tested after the cloud-side restriction
+  was applied; Google Sign-In and Firebase-backed profile loading continued to work
+
+Private credentials remain separate from this client configuration:
+
+- Firebase Admin service-account private keys are not committed to the repository
+- the OpenAI API key is held server-side through Firebase Secret Manager
+- the Android release keystore and signing password are kept outside the repository
+- wallet private keys and seed phrases are never requested or stored by Radiant Circle
+
+The restriction was applied cloud-side and does not modify the frozen
+`clock-in-submission-v4` APK or release tag.
+
+---
+
 # Technology
 
 Radiant Circle is a native Android application.
