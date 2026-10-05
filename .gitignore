@@ -27,3 +27,5 @@ release/
 
 # Local submission APKs and build artifacts
 release/
+
+app/google-services.json
