@@ -89,6 +89,9 @@ data class CircleUiState(
     val chatSentSequence: Int = 0,
     val chatPeerLastReadAtEpochMillis: Long = 0L,
     val chatPeerTyping: Boolean = false,
+    val aiSparkStarter: String = "",
+    val aiSparkLoading: Boolean = false,
+    val aiSparkError: String? = null,
     val message: String = "Shake your phone to discover someone in the Circle.",
     val actionInProgress: Boolean = false,
 )

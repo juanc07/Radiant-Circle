@@ -20,8 +20,8 @@ android {
         applicationId = "com.thinkblox.radiantrush"
         minSdk = 26
         targetSdk = 36
-        versionCode = 42
-        versionName = "1.2.17-ore15b2a"
+        versionCode = 43
+        versionName = "1.2.18-ai1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -57,6 +57,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.functions)
 
     // Durable Radiant Circle identity: keep the frictionless anonymous first launch,
     // then let players protect/restore the same Firebase account with Google.

@@ -112,6 +112,7 @@ fun CircleScreen(
     onOpenChat: (CircleMemberPreview) -> Unit,
     onCloseChat: () -> Unit,
     onSendMessage: (String) -> Unit,
+    onGenerateAiSparkStarter: () -> Unit,
     onTypingChanged: (Boolean) -> Unit,
     onRemoveConnection: (CircleMemberPreview) -> Unit,
     onBlockMember: (CircleMemberPreview) -> Unit,
@@ -144,8 +145,12 @@ fun CircleScreen(
             sentSequence = state.chatSentSequence,
             peerLastReadAtEpochMillis = state.chatPeerLastReadAtEpochMillis,
             peerTyping = state.chatPeerTyping,
+            aiStarter = state.aiSparkStarter,
+            aiLoading = state.aiSparkLoading,
+            aiError = state.aiSparkError,
             onBack = onCloseChat,
             onSendMessage = onSendMessage,
+            onGenerateAiStarter = onGenerateAiSparkStarter,
             onTypingChanged = onTypingChanged,
             onBlock = { onBlockMember(activeChatMember) },
             onReport = { reason -> onReportMember(activeChatMember, reason) },
@@ -1335,8 +1340,12 @@ private fun CircleChatView(
     sentSequence: Int,
     peerLastReadAtEpochMillis: Long,
     peerTyping: Boolean,
+    aiStarter: String,
+    aiLoading: Boolean,
+    aiError: String?,
     onBack: () -> Unit,
     onSendMessage: (String) -> Unit,
+    onGenerateAiStarter: () -> Unit,
     onTypingChanged: (Boolean) -> Unit,
     onBlock: () -> Unit,
     onReport: (String) -> Unit,
@@ -1353,6 +1362,7 @@ private fun CircleChatView(
     var messageBaselineReady by remember(member.uid) { mutableStateOf(false) }
     var showBlockConfirm by remember { mutableStateOf(false) }
     var showReportDialog by remember { mutableStateOf(false) }
+    var aiPanelExpanded by remember(member.uid) { mutableStateOf(false) }
 
     val serverEchoExists = pendingText?.let { pending ->
         messages.any { message ->
@@ -1626,6 +1636,92 @@ private fun CircleChatView(
                             avatarSymbol = PublicProfileRules.avatarFor(member.avatarId).symbol,
                         )
                     }
+                }
+            }
+        }
+
+
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 6.dp),
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = if (aiPanelExpanded) 10.dp else 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = "✨ AI Spark Starter",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { aiPanelExpanded = !aiPanelExpanded }) {
+                        Text(if (aiPanelExpanded) "Hide" else "Show")
+                    }
+                }
+
+                if (aiPanelExpanded) {
+                    Text(
+                        text = if (aiStarter.isBlank()) {
+                            "Turn your Shared Sparks into a natural first message."
+                        } else {
+                            aiStarter
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    if (!aiError.isNullOrBlank()) {
+                        Text(
+                            text = aiError,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    if (aiStarter.isBlank()) {
+                        FilledTonalButton(
+                            onClick = onGenerateAiStarter,
+                            enabled = !aiLoading,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(if (aiLoading) "Creating your Spark…" else "Generate AI icebreaker")
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            OutlinedButton(
+                                onClick = onGenerateAiStarter,
+                                enabled = !aiLoading,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text(if (aiLoading) "Thinking…" else "Another")
+                            }
+                            Button(
+                                onClick = {
+                                    draft = aiStarter.take(CircleChatRules.MAX_MESSAGE_LENGTH)
+                                    onTypingChanged(draft.isNotBlank())
+                                    aiPanelExpanded = false
+                                },
+                                enabled = !aiLoading,
+                                modifier = Modifier.weight(1f),
+                            ) {
+                                Text("Use this")
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Powered by OpenAI • Shared interests only • You choose what to send",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

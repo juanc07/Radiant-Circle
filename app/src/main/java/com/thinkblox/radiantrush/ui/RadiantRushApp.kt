@@ -59,6 +59,7 @@ import com.thinkblox.radiantrush.data.QuestPreview
 import com.thinkblox.radiantrush.data.QuestStatus
 import com.thinkblox.radiantrush.data.RushUiState
 import com.thinkblox.radiantrush.firebase.FirebaseRadiantRepository
+import com.thinkblox.radiantrush.firebase.AiSparkStarterRepository
 import com.google.firebase.firestore.ListenerRegistration
 import com.thinkblox.radiantrush.solana.MobileWalletRepository
 import com.thinkblox.radiantrush.solana.OrePortfolioRepository
@@ -97,6 +98,9 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
     val scope = rememberCoroutineScope()
     val repository = remember(context) {
         FirebaseRadiantRepository(context.applicationContext)
+    }
+    val aiSparkStarterRepository = remember(context) {
+        AiSparkStarterRepository(context.applicationContext)
     }
     val skrRepository = remember {
         SkrBalanceRepository()
@@ -723,6 +727,9 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             chatStatusMessage = null,
             chatPeerLastReadAtEpochMillis = 0L,
             chatPeerTyping = false,
+            aiSparkStarter = "",
+            aiSparkLoading = false,
+            aiSparkError = null,
             connections = circleState.connections.map { edge ->
                 if (edge.member.uid == member.uid) edge.copy(hasUnread = false) else edge
             },
@@ -779,8 +786,28 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             chatStatusMessage = null,
             chatPeerLastReadAtEpochMillis = 0L,
             chatPeerTyping = false,
+            aiSparkStarter = "",
+            aiSparkLoading = false,
+            aiSparkError = null,
         )
         refreshCircle()
+    }
+
+    fun generateAiSparkStarter() {
+        val member = circleState.chatMember ?: return
+        if (circleState.aiSparkLoading) return
+        circleState = circleState.copy(
+            aiSparkLoading = true,
+            aiSparkError = null,
+        )
+        aiSparkStarterRepository.generate(member.uid) callback@ { result ->
+            if (circleState.chatMember?.uid != member.uid) return@callback
+            circleState = circleState.copy(
+                aiSparkStarter = result.starter.orEmpty(),
+                aiSparkLoading = false,
+                aiSparkError = result.error,
+            )
+        }
     }
 
     fun setCircleChatTyping(typing: Boolean) {
@@ -1223,6 +1250,7 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
         onOpenCircleChat = ::openCircleChat,
         onCloseCircleChat = ::closeCircleChat,
         onSendCircleChatMessage = ::sendCircleChatMessage,
+        onGenerateAiSparkStarter = ::generateAiSparkStarter,
         onCircleChatTypingChanged = ::setCircleChatTyping,
         onRemoveCircleConnection = ::removeCircleConnection,
         onBlockCircleMember = ::blockCircleMember,
@@ -1275,6 +1303,7 @@ private fun RadiantRushShell(
     onOpenCircleChat: (CircleMemberPreview) -> Unit,
     onCloseCircleChat: () -> Unit,
     onSendCircleChatMessage: (String) -> Unit,
+    onGenerateAiSparkStarter: () -> Unit,
     onCircleChatTypingChanged: (Boolean) -> Unit,
     onRemoveCircleConnection: (CircleMemberPreview) -> Unit,
     onBlockCircleMember: (CircleMemberPreview) -> Unit,
@@ -1484,6 +1513,7 @@ private fun RadiantRushShell(
                 onOpenCircleChat = onOpenCircleChat,
                 onCloseCircleChat = onCloseCircleChat,
                 onSendCircleChatMessage = onSendCircleChatMessage,
+                onGenerateAiSparkStarter = onGenerateAiSparkStarter,
                 onCircleChatTypingChanged = onCircleChatTypingChanged,
                 onRemoveCircleConnection = onRemoveCircleConnection,
                 onBlockCircleMember = onBlockCircleMember,
@@ -1526,6 +1556,7 @@ private fun ScreenContent(
     onOpenCircleChat: (CircleMemberPreview) -> Unit,
     onCloseCircleChat: () -> Unit,
     onSendCircleChatMessage: (String) -> Unit,
+    onGenerateAiSparkStarter: () -> Unit,
     onCircleChatTypingChanged: (Boolean) -> Unit,
     onRemoveCircleConnection: (CircleMemberPreview) -> Unit,
     onBlockCircleMember: (CircleMemberPreview) -> Unit,
@@ -1579,6 +1610,7 @@ private fun ScreenContent(
             onOpenChat = onOpenCircleChat,
             onCloseChat = onCloseCircleChat,
             onSendMessage = onSendCircleChatMessage,
+            onGenerateAiSparkStarter = onGenerateAiSparkStarter,
             onTypingChanged = onCircleChatTypingChanged,
             onRemoveConnection = onRemoveCircleConnection,
             onBlockMember = onBlockCircleMember,
