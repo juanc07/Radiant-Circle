@@ -24,6 +24,10 @@ object CircleChatRules {
     fun canSendAfter(previousMessageAtMillis: Long, nowMillis: Long): Boolean =
         previousMessageAtMillis <= 0L || nowMillis - previousMessageAtMillis >= MIN_SEND_INTERVAL_MILLIS
 
+    fun isAtOrAfterConnectionStart(eventAtMillis: Long, connectionStartedAtMillis: Long): Boolean =
+        connectionStartedAtMillis <= 0L ||
+            (eventAtMillis > 0L && eventAtMillis >= connectionStartedAtMillis)
+
     fun normalizeReportReason(raw: String): String =
         REPORT_REASONS.firstOrNull { it.equals(raw.trim(), ignoreCase = true) } ?: "Other"
 }

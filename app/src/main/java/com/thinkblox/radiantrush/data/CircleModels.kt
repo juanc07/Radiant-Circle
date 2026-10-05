@@ -52,6 +52,7 @@ data class CircleSparkPreview(
     val member: CircleMemberPreview,
     val incoming: Boolean,
     val status: String,
+    val connectionStartedAtEpochMillis: Long = 0L,
     val lastMessagePreview: String = "",
     val lastMessageAtEpochMillis: Long = 0L,
     val hasUnread: Boolean = false,

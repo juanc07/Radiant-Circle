@@ -3275,13 +3275,21 @@ class FirebaseRadiantRepository(
                                     } else {
                                         chat.getTimestamp("memberBLastReadAt")?.toDate()?.time ?: 0L
                                     }
-                                    edge.copy(
-                                        lastMessagePreview = chat.getString("lastMessageText").orEmpty(),
-                                        lastMessageAtEpochMillis = lastMessageAt,
-                                        hasUnread = lastMessageSenderUid.isNotBlank() &&
-                                            lastMessageSenderUid != session.uid &&
-                                            lastMessageAt > myReadAt,
-                                    )
+                                    if (!CircleChatRules.isAtOrAfterConnectionStart(
+                                            eventAtMillis = lastMessageAt,
+                                            connectionStartedAtMillis = edge.connectionStartedAtEpochMillis,
+                                        )
+                                    ) {
+                                        edge
+                                    } else {
+                                        edge.copy(
+                                            lastMessagePreview = chat.getString("lastMessageText").orEmpty(),
+                                            lastMessageAtEpochMillis = lastMessageAt,
+                                            hasUnread = lastMessageSenderUid.isNotBlank() &&
+                                                lastMessageSenderUid != session.uid &&
+                                                lastMessageAt > myReadAt,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -3649,6 +3657,7 @@ class FirebaseRadiantRepository(
 
     fun listenToCircleChat(
         member: CircleMemberPreview,
+        connectionStartedAtEpochMillis: Long = 0L,
         onUpdate: (List<CircleChatMessagePreview>?, String?) -> Unit,
     ): ListenerRegistration? {
         val session = currentCircleSession()
@@ -3684,6 +3693,11 @@ class FirebaseRadiantRepository(
                         sentAtEpochMillis = document.getTimestamp("sentAt")?.toDate()?.time ?: 0L,
                         isMine = senderUid == session.uid,
                         hasPendingWrites = document.metadata.hasPendingWrites(),
+                    )
+                }.filter { message ->
+                    message.hasPendingWrites || CircleChatRules.isAtOrAfterConnectionStart(
+                        eventAtMillis = message.sentAtEpochMillis,
+                        connectionStartedAtMillis = connectionStartedAtEpochMillis,
                     )
                 }
                 onUpdate(messages, null)
@@ -4375,6 +4389,7 @@ class FirebaseRadiantRepository(
             ),
             incoming = incoming,
             status = document.getString("status") ?: CIRCLE_STATUS_PENDING,
+            connectionStartedAtEpochMillis = document.getTimestamp("updatedAt")?.toDate()?.time ?: 0L,
         )
     }
 

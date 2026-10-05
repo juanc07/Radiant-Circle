@@ -106,6 +106,8 @@ data class OreStakeTransactionReceipt(
     val beforeClaimableRaw: String,
     val afterClaimableRaw: String,
     val transactionSignature: String? = null,
+    val verified: Boolean = false,
+    val hasFreshAfterSnapshot: Boolean = false,
 )
 
 data class OreStakeActionUiState(

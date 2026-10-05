@@ -29,6 +29,15 @@ class CircleChatRulesTest {
     }
 
     @Test
+    fun connectionCutoffHidesMessagesFromPreviousAcceptedSession() {
+        assertFalse(CircleChatRules.isAtOrAfterConnectionStart(9_999L, 10_000L))
+        assertTrue(CircleChatRules.isAtOrAfterConnectionStart(10_000L, 10_000L))
+        assertTrue(CircleChatRules.isAtOrAfterConnectionStart(10_001L, 10_000L))
+        assertTrue(CircleChatRules.isAtOrAfterConnectionStart(1L, 0L))
+        assertFalse(CircleChatRules.isAtOrAfterConnectionStart(0L, 10_000L))
+    }
+
+    @Test
     fun reportReasonsAreNormalizedToKnownValues() {
         assertEquals("Spam", CircleChatRules.normalizeReportReason("spam"))
         assertEquals("Unsafe behavior", CircleChatRules.normalizeReportReason("Unsafe behavior"))

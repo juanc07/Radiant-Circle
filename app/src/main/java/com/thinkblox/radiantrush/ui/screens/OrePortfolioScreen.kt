@@ -324,34 +324,55 @@ private fun OreTransactionReceiptDialog(
         return if (delta.signum() > 0) "+$amount" else "−$amount"
     }
 
-    val title = when (receipt.action) {
-        OreStakeAction.Stake -> "Stake verified"
-        OreStakeAction.Withdraw -> "Withdraw verified"
-        OreStakeAction.Claim -> "Claim verified"
+    val actionLabel = when (receipt.action) {
+        OreStakeAction.Stake -> "Stake"
+        OreStakeAction.Withdraw -> "Withdraw"
+        OreStakeAction.Claim -> "Claim"
     }
+    val title = if (receipt.verified) "$actionLabel verified" else "$actionLabel submitted"
     val actionAmount = OrePortfolioPresentationRules.overviewAmount(receipt.requestedRaw)
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Filled.CheckCircle, contentDescription = null) },
+        icon = {
+            Icon(
+                if (receipt.verified) Icons.Filled.CheckCircle else Icons.Filled.Refresh,
+                contentDescription = null,
+            )
+        },
         title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    when (receipt.action) {
-                        OreStakeAction.Stake -> "$actionAmount was submitted to the verified ORE staking program."
-                        OreStakeAction.Withdraw -> "$actionAmount was withdrawn from the current ORE stake position."
-                        OreStakeAction.Claim -> "$actionAmount of staking rewards was claimed."
+                    if (receipt.verified) {
+                        when (receipt.action) {
+                            OreStakeAction.Stake -> "$actionAmount was submitted to the verified ORE staking program."
+                            OreStakeAction.Withdraw -> "$actionAmount was withdrawn from the current ORE stake position."
+                            OreStakeAction.Claim -> "$actionAmount of staking rewards was claimed."
+                        }
+                    } else {
+                        "The transaction was submitted to Mainnet, but the required ORE balance change is still awaiting verification."
                     },
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                ReceiptChangeRow("Available", receipt.beforeLiquidRaw, receipt.afterLiquidRaw, signedDelta(beforeLiquid, afterLiquid))
-                ReceiptChangeRow("Staked", receipt.beforeCurrentStakedRaw, receipt.afterCurrentStakedRaw, signedDelta(beforeStaked, afterStaked))
-                ReceiptChangeRow("Claimable", receipt.beforeClaimableRaw, receipt.afterClaimableRaw, signedDelta(beforeClaimable, afterClaimable))
-                Text(
-                    "Values above are fresh Mainnet reads after the transaction, not estimated UI balances.",
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                if (receipt.hasFreshAfterSnapshot) {
+                    ReceiptChangeRow("Available", receipt.beforeLiquidRaw, receipt.afterLiquidRaw, signedDelta(beforeLiquid, afterLiquid))
+                    ReceiptChangeRow("Staked", receipt.beforeCurrentStakedRaw, receipt.afterCurrentStakedRaw, signedDelta(beforeStaked, afterStaked))
+                    ReceiptChangeRow("Claimable", receipt.beforeClaimableRaw, receipt.afterClaimableRaw, signedDelta(beforeClaimable, afterClaimable))
+                    Text(
+                        if (receipt.verified) {
+                            "Values above are fresh Mainnet reads after the transaction, not estimated UI balances."
+                        } else {
+                            "Values above are the latest fresh Mainnet read. The required balance change has not been verified yet; refresh again before retrying the action."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                } else {
+                    Text(
+                        "A fresh post-transaction Mainnet state could not be loaded yet. Tap Refresh to verify the final ORE balances before retrying the action.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 receipt.transactionSignature?.let { signature ->
                     Text("Tx ${shortAddress(signature)}", style = MaterialTheme.typography.labelSmall)
                 }

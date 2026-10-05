@@ -715,6 +715,10 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
 
 
     fun openCircleChat(member: CircleMemberPreview) {
+        val connectionStartedAtEpochMillis = circleState.connections
+            .firstOrNull { edge -> edge.member.uid == member.uid }
+            ?.connectionStartedAtEpochMillis
+            ?: 0L
         circleChatListener?.remove()
         circleChatListener = null
         circleChatMetaListener?.remove()
@@ -735,7 +739,10 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
             },
         )
         repository.markCircleChatRead(member)
-        circleChatListener = repository.listenToCircleChat(member) { messages, error ->
+        circleChatListener = repository.listenToCircleChat(
+            member = member,
+            connectionStartedAtEpochMillis = connectionStartedAtEpochMillis,
+        ) { messages, error ->
             if (circleState.chatMember?.uid != member.uid) return@listenToCircleChat
             if (messages != null) {
                 circleState = circleState.copy(
@@ -1058,11 +1065,12 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                     )
 
                     var verified = false
-                    var verifiedSnapshot: com.thinkblox.radiantrush.data.OrePortfolioSnapshot? = null
+                    var latestPostSnapshot: com.thinkblox.radiantrush.data.OrePortfolioSnapshot? = null
                     for (attempt in 0 until 8) {
                         delay(if (attempt == 0) 600L else 1_100L)
                         when (val refreshed = oreRepository.fetchPortfolio(baseline.walletAddress)) {
                             is OrePortfolioResult.Success -> {
+                                latestPostSnapshot = refreshed.snapshot
                                 applyOreSnapshot(refreshed.snapshot)
                                 if (OreStakeActionRules.verifiedAfterRefresh(
                                         action = action,
@@ -1074,7 +1082,6 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                                     )
                                 ) {
                                     verified = true
-                                    verifiedSnapshot = refreshed.snapshot
                                     break
                                 }
                             }
@@ -1082,19 +1089,20 @@ fun RadiantRushApp(walletRepository: MobileWalletRepository) {
                         }
                     }
 
-                    val receipt = verifiedSnapshot?.let { after ->
-                        OreStakeTransactionReceipt(
-                            action = action,
-                            requestedRaw = requestedRaw.toString(),
-                            beforeLiquidRaw = baseline.liquidRaw,
-                            afterLiquidRaw = after.liquidRaw,
-                            beforeCurrentStakedRaw = baseline.currentStakedRaw,
-                            afterCurrentStakedRaw = after.currentStakedRaw,
-                            beforeClaimableRaw = baseline.currentUnclaimedRewardsRaw,
-                            afterClaimableRaw = after.currentUnclaimedRewardsRaw,
-                            transactionSignature = tx.transactionSignature,
-                        )
-                    }
+                    val after = latestPostSnapshot ?: baseline
+                    val receipt = OreStakeTransactionReceipt(
+                        action = action,
+                        requestedRaw = requestedRaw.toString(),
+                        beforeLiquidRaw = baseline.liquidRaw,
+                        afterLiquidRaw = after.liquidRaw,
+                        beforeCurrentStakedRaw = baseline.currentStakedRaw,
+                        afterCurrentStakedRaw = after.currentStakedRaw,
+                        beforeClaimableRaw = baseline.currentUnclaimedRewardsRaw,
+                        afterClaimableRaw = after.currentUnclaimedRewardsRaw,
+                        transactionSignature = tx.transactionSignature,
+                        verified = verified,
+                        hasFreshAfterSnapshot = latestPostSnapshot != null,
+                    )
                     oreStakeActionState = OreStakeActionUiState(
                         inProgress = false,
                         action = action,
