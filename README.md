@@ -13,7 +13,17 @@ Instead of starting with a wallet or trading screen, Radiant Circle starts with 
 
 ## CLOCK IN Submission — Final Judge Release
 
-For judging and full product testing, use the **official signed Android APK** from the GitHub Release.
+For judging and full product testing, use the **official signed Android APK** below.
+
+### 📱 Download the Official Signed APK
+
+**Recommended for judges — one-click APK download:**
+
+👉 **[Download RadiantCircle-v1.2.18-clock-in.apk](https://github.com/juanc07/Radiant-Circle/releases/download/clock-in-submission-v3/RadiantCircle-v1.2.18-clock-in.apk)**
+
+**GitHub Release page:**
+
+👉 [Radiant Circle v1.2.18 — CLOCK IN Submission](https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v3)
 
 ### Radiant Circle v1.2.18
 
@@ -24,9 +34,6 @@ For judging and full product testing, use the **official signed Android APK** fr
 - **Release tag:** `clock-in-submission-v3`
 - **Frozen source commit:** `0a181171194403b8ec95aebfb069c6800f491fbd`
 - **SHA-256:** `52ecd83059f78a5d8d25175834ee125ef42deb510f2ec8aefea39f40bba281ee`
-
-**Release page:**  
-https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v3
 
 > The public repository intentionally excludes `app/google-services.json`. A fresh local build therefore requires the developer's own Firebase Android configuration and matching OAuth credentials for production Google Sign-In. For complete judge testing, use the official signed APK above.
 
