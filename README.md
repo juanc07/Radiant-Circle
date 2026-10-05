@@ -27,7 +27,18 @@ For judging and full product testing, use the **official signed Android APK**.
 
 **[View the GitHub Release](https://github.com/juanc07/Radiant-Circle/releases/tag/clock-in-submission-v2)**
 
-> For the full experience, including Google Sign-In, judges should use the official signed APK. A locally built debug APK uses the developer's own debug signing certificate and may not authenticate with the production Google Sign-In configuration.
+> [!IMPORTANT]
+> ### Judge testing — use the official signed APK
+>
+> The public repository intentionally does **not** include `app/google-services.json`. This avoids publishing the production Firebase client configuration in the submission repository.
+>
+> The source can still be cloned and built for code review and local development. However, **Google Sign-In and production Firebase-connected authentication will not work from a fresh local build** unless the developer supplies their own Firebase Android configuration and matching OAuth/signing credentials.
+>
+> For complete judge testing, including the configured Google Sign-In and production Firebase flows, use the official signed APK linked above: **`RadiantCircle-v1.2.17-clock-in.apk`**.
+>
+> No Firebase Admin service-account credentials, wallet private keys, release signing keystores, OpenAI API keys, or other server-side secrets are included in this repository.
+
+A sanitized template is provided at `app/google-services.json.example` to show the expected local configuration shape without publishing production values.
 
 The source repository remains available for code review and local debug builds.
 
