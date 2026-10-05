@@ -1,59 +1,102 @@
-# RadiantSolanaHackatonAndroid — Development Documentation
+# Radiant Circle Engineering Workflow
 
-This documentation set was created from an audit of the Blox Monster Adventure source tree and maintained docs. The Roblox code is not being ported. The transferable value is the development discipline: source authority, mobile-first UI, server/client ownership, persistence safety, release gates, and honest testing.
+This folder documents the engineering workflow used to design, build, validate, and maintain Radiant Circle.
 
-## Source identity
+It is separate from the product architecture.
 
-- Project name: `RadiantSolanaHackatonAndroid`
-- Target: Android app for a Solana hackathon.
-- Current state: `Radiant Rush` Phase 3 Mobile Wallet Adapter wallet connection is underway: native Compose shell, Firebase Auth/Firestore profile/progress persistence, and real MWA wallet authorization.
-- BMA source role: reference project only. Do not copy Roblox/Luau/Studio-specific code into this Android app.
+For the application's technical design, see:
 
-## Canonical documentation map
+- [`../architecture/README.md`](../architecture/README.md)
 
-Keep this project lean. The maintained operating-system documentation set should stay small. App phase docs may live one level above this folder, such as `docs/PHASE_3_MWA_WALLET_CONNECT.md`.
+## Purpose
 
-1. `README.md` — entry point, document map, read order.
-2. `AGENTS.md` — AI/developer workflow and source-control contract.
-3. `ARCHITECTURE.md` — Android architecture, module ownership, app boundaries.
-4. `SOLANA_SECURITY_AND_DATA_RULES.md` — wallet, transaction, key, RPC, and persistence rules.
-5. `MOBILE_UI_UX_STANDARDS.md` — mobile-first layout and interaction standards.
-6. `TESTING_AND_RELEASE.md` — test matrix, acceptance language, release gates.
-7. `BACKLOG_AND_ROADMAP.md` — current build plan and deferred work.
-8. `PHASED_DELIVERY_PLAN.md` — phase-by-phase plan from foundation to final APK, video, repo, and pitch deck.
-9. `DOCUMENTATION_AND_VERSIONING_RULES.md` — rules for updating docs, architecture, agent workflow, changelog, app versions, and Git-metadata-free handoff packages.
-10. `CHANGELOG.md` — forward-only change record.
-11. `BMA_SOURCE_AUDIT_FOR_ANDROID.md` — what was learned from the BMA audit.
-12. `NEXT_CHAT_START_PROMPT.md` — ready prompt for continuing with another AI session.
+The engineering workflow emphasizes:
 
-Phase-specific implementation docs outside this folder:
+- source-of-truth discipline
+- small and reviewable changes
+- mobile-first UX
+- clear client/server authority
+- secure handling of wallet and backend responsibilities
+- persistence safety
+- repeatable validation
+- honest test evidence
+- release gates
+- documentation continuity
+- AI-assisted development where useful
 
-- `docs/PHASE_1_NATIVE_ANDROID_APP.md`
-- `docs/PHASE_2_FIREBASE_FOUNDATION.md`
-- `docs/PHASE_3_MWA_WALLET_CONNECT.md`
+AI is used as an engineering tool, while implementation decisions remain grounded in the actual source, tests, device behavior, and trusted system boundaries.
 
-## Required read order for new work
+## Core Principles
 
-1. Read `README.md`.
-2. Read `AGENTS.md`.
-3. Read `ARCHITECTURE.md`.
-4. Read `SOLANA_SECURITY_AND_DATA_RULES.md` for any wallet, balance, token, transaction, RPC, storage, or backend work.
-5. Read `MOBILE_UI_UX_STANDARDS.md` for any UI work.
-6. Read `PHASED_DELIVERY_PLAN.md` before adding or reprioritizing major features.
-7. Read `DOCUMENTATION_AND_VERSIONING_RULES.md` before delivering any code, build, dependency, or release patch.
-8. Read `TESTING_AND_RELEASE.md` before claiming a fix is complete.
-9. Update `CHANGELOG.md` and, when relevant, `BACKLOG_AND_ROADMAP.md`.
+### Inspect before changing
 
-## Operating principle
+Do not modify systems from memory or assumptions.
 
-Make the smallest safe change that improves the current app. Do not rebuild, rename, restructure, add new dependencies, or invent backend behavior unless the task requires it.
+Check the current source, data model, dependencies, and surrounding behavior first.
 
-## Environment policy
+### Prefer the smallest safe change
 
-Separate hackathon/demo behavior from production behavior:
+Avoid unnecessary rewrites.
 
-- `dev`: local development, mocked/fake data allowed only when clearly labeled.
-- `staging/demo`: public demo candidate, no fake claims about real transactions.
-- `production`: only when real wallet, RPC, backend, analytics, and privacy rules are approved.
+Changes should be narrow enough to test, review, and reverse when necessary.
 
-Never mix fake Solana balances or simulated transactions with UI copy that suggests real on-chain state. For Radiant Rush, SKR tier and quest proof must be either real on-chain state or visibly labeled demo data.
+### Keep authority explicit
+
+Security-sensitive decisions must live in the correct trusted layer.
+
+Examples include:
+
+- wallet signing stays with the user's wallet
+- backend secrets stay server-side
+- Firestore rules enforce access boundaries
+- competition payouts are not authorized by Android client state alone
+
+### Mobile-first UX
+
+Radiant Circle is a mobile product.
+
+Layouts, interaction targets, navigation, loading states, errors, and text must remain usable on real Android devices.
+
+### Validate honestly
+
+A successful compile is not the same as a successful feature.
+
+Use the appropriate level of verification:
+
+```text
+static checks
+    ↓
+unit tests
+    ↓
+build
+    ↓
+device testing
+    ↓
+two-device testing where required
+    ↓
+real backend / wallet / Mainnet evidence where applicable
+```
+
+### Preserve evidence
+
+Important releases and submission checkpoints should remain reproducible through:
+
+- Git commits
+- tags
+- release artifacts
+- SHA-256 hashes
+- test logs
+- evidence documentation
+
+## Documentation Map
+
+Current workflow documents include:
+
+- `DOCUMENTATION_AND_VERSIONING_RULES.md`
+- `MOBILE_UI_UX_STANDARDS.md`
+- `SOLANA_SECURITY_AND_DATA_RULES.md`
+- `TESTING_AND_RELEASE.md`
+
+Historical implementation notes are archived under:
+
+- [`../development-history/`](../development-history/)

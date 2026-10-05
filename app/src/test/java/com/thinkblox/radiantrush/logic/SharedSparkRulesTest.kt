@@ -10,19 +10,19 @@ class SharedSparkRulesTest {
     fun findsSharedInterestsAcrossCommaAndSlashSeparatedValues() {
         val mine = CircleProfilePreview(
             favoriteFood = "Ramen, Pizza",
-            games = "RPG / Roblox",
+            games = "RPG / Minecraft",
             hobbies = "Coding, Drawing",
         )
         val theirs = CircleProfilePreview(
             favoriteFood = "ramen",
-            games = "Roblox / Racing",
+            games = "Minecraft / Racing",
             hobbies = "Coding",
         )
 
         val sparks = SharedSparkRules.sharedSparks(mine, theirs, limit = 5)
 
         assertEquals(listOf("Favorite food", "Games", "Hobbies"), sparks.map { it.label })
-        assertEquals(listOf("Ramen", "Roblox", "Coding"), sparks.map { it.value })
+        assertEquals(listOf("Ramen", "Minecraft", "Coding"), sparks.map { it.value })
     }
 
     @Test

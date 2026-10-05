@@ -241,7 +241,6 @@ Each user selects several interest tags.
 
 Examples:
 - Anime
-- Roblox
 - RPGs
 - Cats
 - Dogs
