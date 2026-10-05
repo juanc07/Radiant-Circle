@@ -54,7 +54,7 @@ fun DemoScreen(
         item {
             SectionTitle(
                 title = "Welcome to Radiant Circle",
-                body = "Start with your daily ritual, discover people through shared interests, chat with accepted Circle members, play Radiant Rush, and connect Solana when you want on-chain features.",
+                body = "Start with Daily Radiance, complete optional proof-based daily actions, discover people through shared interests, build trusted Circles, play Radiant Rush, and use Solana when you want verifiable on-chain features.",
             )
         }
         item {
@@ -67,8 +67,8 @@ fun DemoScreen(
         item {
             GuideStep(
                 Icons.Filled.CheckCircle,
-                "2. Begin with Daily Radiance",
-                "Open your Daily Radiance from Home and build its own streak. Today also keeps your Daily Plan, Daily Radiant Chest, quests, and quick actions together.",
+                "2. Begin with Daily Radiance and your Daily Plan",
+                "Reveal your Daily Radiance from Home and build its own streak. Your Daily Plan brings together Check-In, wallet-signed Daily Proof, an on-chain Memo Proof, SKR Passport scan, and the Daily Radiant Chest.",
             )
         }
         item {
@@ -88,8 +88,8 @@ fun DemoScreen(
         item {
             GuideStep(
                 Icons.Filled.CheckCircle,
-                "5. Chat with accepted Circle members",
-                "Private 1-to-1 chat unlocks only after a mutual Circle connection. Chat includes unread and read state, typing presence, profile identity, and safety actions for report, block, or remove.",
+                "5. Break the ice with AI, then chat privately",
+                "After a Spark is accepted, AI Spark Starter can suggest a conversation opener from the public interests you share. Use this only fills your composer—you decide whether to send it. Private chat history is not sent to the AI, and chat includes read state, typing presence, report, block, and remove controls.",
             )
         }
         item {
@@ -103,14 +103,28 @@ fun DemoScreen(
             GuideStep(
                 Icons.Filled.AccountBalanceWallet,
                 "7. Connect Solana when useful",
-                "A wallet is optional for the social experience. Connect with Mobile Wallet Adapter for wallet proofs, SKR Passport, on-chain activity, and Ranked Weekly Cup entry. The first wallet used for Ranked is kept as that Cup's competition wallet.",
+                "A wallet is optional for the social experience. Connect through Mobile Wallet Adapter when you want wallet-signed proofs, on-chain Memo Proof, SKR Passport, ORE actions, or Ranked Weekly Cup participation. The first wallet used for Ranked is kept as that Cup's competition wallet.",
             )
         }
         item {
             GuideStep(
                 Icons.Filled.EmojiEvents,
-                "8. Build your presence",
-                "Badges, Ranks, Radiance streaks, your public profile, Vault collection, and SKR Passport show the progress tied to your Radiant Circle identity.",
+                "8. Use SKR Passport and the Weekly Cup",
+                "Scan your connected wallet's Mainnet SKR balance to refresh your SKR Passport. Eligible players can enter Ranked Weekly Cup competition, while your locked competition wallet keeps the ranked identity consistent for that Cup.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.AccountBalanceWallet,
+                "9. Manage ORE on Mainnet",
+                "Open ORE to refresh your Mainnet portfolio, then stake, withdraw, or claim through your wallet when available. After submission, Radiant Circle shows the transaction receipt and compares the before/after ORE state when verification is available.",
+            )
+        }
+        item {
+            GuideStep(
+                Icons.Filled.EmojiEvents,
+                "10. Build your presence",
+                "Badges, Ranks, Radiance streaks, your public profile, Vault collection, SKR Passport, and weekly competition progress stay tied to your Radiant Circle identity.",
             )
         }
         item {
