@@ -499,6 +499,16 @@ The release tag points to the exact source used for the final judge APK.
 
 ---
 
+## Judge technical proof index
+
+For a direct implementation/test map covering AI Spark Starter, SKR Passport,
+Weekly Cup trust boundaries, ORE Mainnet verification, security, and automated
+tests, see:
+
+[`docs/submission/TECHNICAL_PROOF.md`](docs/submission/TECHNICAL_PROOF.md)
+
+---
+
 # Verification
 
 Before the final submission source was frozen, the project successfully passed:
